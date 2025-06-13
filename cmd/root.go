@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/version"
 )
 
@@ -25,6 +26,7 @@ func NewVeleroRootCommand() *cobra.Command {
 
 	// Add subcommands to the root command
 	rootCmd.AddCommand(version.NewCommand(factory))
+	rootCmd.AddCommand(backup.NewCommand(factory))
 
 	return rootCmd
 }

@@ -14,11 +14,11 @@ import (
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "velero",
-		Short: "Velero CLI commands",
+		Use:   "oadp",
+		Short: "OADP CLI commands",
 		Run: func(cmd *cobra.Command, args []string) {
 			// Default action when no subcommand is provided
-			fmt.Println("Welcome to the custom Velero CLI! Use --help to see available commands.")
+			fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
 		},
 	}
 
@@ -36,7 +36,7 @@ func NewVeleroRootCommand() *cobra.Command {
 	rootCmd.AddCommand(restore.NewCommand(veleroFactory))
 
 	// Custom subcommands - use NonAdmin factory
-	rootCmd.AddCommand(nonadmin.NewCommand(nonAdminFactory))
+	rootCmd.AddCommand(nonadmin.NewNonAdminCommand(nonAdminFactory))
 
 	return rootCmd
 }

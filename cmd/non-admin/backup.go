@@ -30,9 +30,10 @@ func NewNonAdminFactory() client.Factory {
 	return client.NewFactory("oadp-nonadmin-cli", cfg)
 }
 
-func NewCommand(f client.Factory) *cobra.Command {
+// NewBackupCommand creates the "backup" subcommand under nonadmin
+func NewBackupCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "na-backup",
+		Use:   "backup",
 		Short: "Work with non-admin backups",
 		Long:  "Work with non-admin backups",
 	}

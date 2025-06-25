@@ -51,19 +51,19 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Create a non-admin backup containing all resources in the current namespace.
-  oadp na-backup create backup1
+  oadp nonadmin backup create backup1
 
   # Create a non-admin backup with specific resource types.
-  oadp na-backup create backup2 --include-resources deployments,services
+  oadp nonadmin backup create backup2 --include-resources deployments,services
 
   # Create a non-admin backup excluding certain resources.
-  oadp na-backup create backup3 --exclude-resources secrets
+  oadp nonadmin backup create backup3 --exclude-resources secrets
 
   # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  oadp na-backup create backup4 --snapshot-volumes=false -o yaml
+  oadp nonadmin backup create backup4 --snapshot-volumes=false -o yaml
 
   # Wait for a non-admin backup to complete before returning from the command.
-  oadp na-backup create backup5 --wait`,
+  oadp nonadmin backup create backup5 --wait`,
 	}
 
 	o.BindFlags(c.Flags())
@@ -357,7 +357,7 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 	}
 
 	// Not waiting
-	fmt.Printf("Run `oadp nonadmin backup describe %s` or `oadp nonadmin backup logs %s` for more details.\n", nonAdminBackup.Name, nonAdminBackup.Name)
+	fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.\n", nonAdminBackup.Name, nonAdminBackup.Name)
 
 	return nil
 }

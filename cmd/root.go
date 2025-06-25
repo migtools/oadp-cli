@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	nonadmin "github.com/joeavaikath/sample-plugin/cmd/non-admin"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/restore"
@@ -21,14 +22,21 @@ func NewVeleroRootCommand() *cobra.Command {
 		},
 	}
 
-	// Create Velero client factory
+	// Create Velero client factory for regular Velero commands
 	// This factory is used to create clients for interacting with Velero resources.
-	factory := newVeleroFactory()
+	veleroFactory := newVeleroFactory()
+
+	// Create NonAdmin client factory for NonAdminBackup commands
+	// This factory uses the current kubeconfig context namespace instead of hardcoded openshift-adp
+	nonAdminFactory := nonadmin.NewNonAdminFactory()
 
 	// Add subcommands to the root command
-	rootCmd.AddCommand(version.NewCommand(factory))
-	rootCmd.AddCommand(backup.NewCommand(factory))
-	rootCmd.AddCommand(restore.NewCommand(factory))
+	rootCmd.AddCommand(version.NewCommand(veleroFactory))
+	rootCmd.AddCommand(backup.NewCommand(veleroFactory))
+	rootCmd.AddCommand(restore.NewCommand(veleroFactory))
+
+	// Custom subcommands - use NonAdmin factory
+	rootCmd.AddCommand(nonadmin.NewCommand(nonAdminFactory))
 
 	return rootCmd
 }

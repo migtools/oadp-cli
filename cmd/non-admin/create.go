@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	kubeerrs "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,8 +34,8 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	"github.com/vmware-tanzu/velero/pkg/util/collections"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
@@ -51,20 +50,20 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Validate(c, args, f))
 			cmd.CheckError(o.Run(c, f))
 		},
-		Example: `  # Create a non-admin backup containing all resources.
-  oadp nonadmin backup create backup1
+		Example: `  # Create a non-admin backup containing all resources in the current namespace.
+  oadp na-backup create backup1
 
-  # Create a non-admin backup including only the nginx namespace.
-  oadp nonadmin backup create nginx-backup --include-namespaces nginx
+  # Create a non-admin backup with specific resource types.
+  oadp na-backup create backup2 --include-resources deployments,services
 
-  # Create a non-admin backup excluding the velero and default namespaces.
-  oadp nonadmin backup create backup2 --exclude-namespaces velero,default
+  # Create a non-admin backup excluding certain resources.
+  oadp na-backup create backup3 --exclude-resources secrets
 
   # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  oadp nonadmin backup create backup3 --snapshot-volumes=false -o yaml
+  oadp na-backup create backup4 --snapshot-volumes=false -o yaml
 
   # Wait for a non-admin backup to complete before returning from the command.
-  oadp nonadmin backup create backup4 --wait`,
+  oadp na-backup create backup5 --wait`,
 	}
 
 	o.BindFlags(c.Flags())
@@ -83,8 +82,6 @@ type CreateOptions struct {
 	SnapshotMoveData                flag.OptionalBool
 	DataMover                       string
 	DefaultVolumesToFsBackup        flag.OptionalBool
-	IncludeNamespaces               flag.StringArray
-	ExcludeNamespaces               flag.StringArray
 	IncludeResources                flag.StringArray
 	ExcludeResources                flag.StringArray
 	IncludeClusterScopedResources   flag.StringArray
@@ -106,11 +103,12 @@ type CreateOptions struct {
 	ResPoliciesConfigmap            string
 	client                          kbclient.WithWatch
 	ParallelFilesUpload             int
+	currentNamespace                string
 }
 
 func NewCreateOptions() *CreateOptions {
 	return &CreateOptions{
-		IncludeNamespaces:       flag.NewStringArray("*"),
+		IncludeResources:        flag.NewStringArray("*"),
 		Labels:                  flag.NewMap(),
 		Annotations:             flag.NewMap(),
 		SnapshotVolumes:         flag.NewOptionalBool(nil),
@@ -120,8 +118,6 @@ func NewCreateOptions() *CreateOptions {
 
 func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.DurationVar(&o.TTL, "ttl", o.TTL, "How long before the backup can be garbage collected.")
-	flags.Var(&o.IncludeNamespaces, "include-namespaces", "Namespaces to include in the backup (use '*' for all namespaces).")
-	flags.Var(&o.ExcludeNamespaces, "exclude-namespaces", "Namespaces to exclude from the backup.")
 	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the backup, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources). Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
 	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the backup, formatted as resource.group, such as storageclasses.storage.k8s.io. Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
 	flags.Var(&o.IncludeClusterScopedResources, "include-cluster-scoped-resources", "Cluster-scoped resources to include in the backup, formatted as resource.group, such as storageclasses.storage.k8s.io(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
@@ -187,11 +183,6 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 		return fmt.Errorf("a backup name is required, unless you are creating based on a schedule")
 	}
 
-	errs := collections.ValidateNamespaceIncludesExcludes(o.IncludeNamespaces, o.ExcludeNamespaces)
-	if len(errs) > 0 {
-		return kubeerrs.NewAggregate(errs)
-	}
-
 	if o.oldAndNewFilterParametersUsedTogether() {
 		return fmt.Errorf("include-resources, exclude-resources and include-cluster-resources are old filter parameters.\n" +
 			"include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources are new filter parameters.\n" +
@@ -215,6 +206,40 @@ func (o *CreateOptions) validateFromScheduleFlag(c *cobra.Command) error {
 	return nil
 }
 
+// getCurrentNamespace gets the current namespace from the kubeconfig context
+func getCurrentNamespace() (string, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+
+	namespace, _, err := kubeConfig.Namespace()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current namespace from kubeconfig: %w", err)
+	}
+
+	// If no namespace is set in kubeconfig, default to the user's name from context
+	if namespace == "" || namespace == "default" {
+		rawConfig, err := kubeConfig.RawConfig()
+		if err != nil {
+			return "", fmt.Errorf("failed to get raw kubeconfig: %w", err)
+		}
+
+		currentContext := rawConfig.CurrentContext
+		if _, exists := rawConfig.Contexts[currentContext]; exists {
+			// Try to extract user namespace from context name (assuming format like "user/cluster/user")
+			parts := strings.Split(currentContext, "/")
+			if len(parts) >= 3 {
+				userNamespace := parts[2] // Assuming the user namespace is the third part
+				return userNamespace, nil
+			}
+		}
+
+		return "default", nil
+	}
+
+	return namespace, nil
+}
+
 func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	// If an explicit name is specified, use that name
 	if len(args) > 0 {
@@ -224,12 +249,26 @@ func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	if err != nil {
 		return err
 	}
+
+	// Add NonAdminBackup types to the scheme
+	err = nacv1alpha1.AddToScheme(client.Scheme())
+	if err != nil {
+		return fmt.Errorf("failed to add NonAdminBackup types to scheme: %w", err)
+	}
+
+	// Get the current namespace from kubeconfig instead of using factory namespace
+	currentNS, err := getCurrentNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to determine current namespace: %w", err)
+	}
+
 	o.client = client
+	o.currentNamespace = currentNS
 	return nil
 }
 
 func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
-	nonAdminBackup, err := o.BuildNonAdminBackup(f.Namespace())
+	nonAdminBackup, err := o.BuildNonAdminBackup(o.currentNamespace)
 	if err != nil {
 		return err
 	}
@@ -251,7 +290,7 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 
 		lw := kube.InternalLW{
 			Client:     o.client,
-			Namespace:  f.Namespace(),
+			Namespace:  o.currentNamespace,
 			ObjectList: new(nacv1alpha1.NonAdminBackupList),
 		}
 		backupInformer := cache.NewSharedInformer(&lw, &nacv1alpha1.NonAdminBackup{}, time.Second)
@@ -361,9 +400,9 @@ func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonA
 		backupSpec = &schedule.Spec.Template
 	} else {
 		// Build the BackupSpec manually
+		// For NonAdminBackup, automatically include the current namespace
 		backupBuilder := builder.ForBackup(namespace, o.Name).
-			IncludedNamespaces(o.IncludeNamespaces...).
-			ExcludedNamespaces(o.ExcludeNamespaces...).
+			IncludedNamespaces(namespace). // Automatically include the current namespace
 			IncludedResources(o.IncludeResources...).
 			ExcludedResources(o.ExcludeResources...).
 			IncludedClusterScopedResources(o.IncludeClusterScopedResources...).

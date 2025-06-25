@@ -1,37 +1,100 @@
-# sample-cli
+# OADP CLI
 
-A simple command-line interface (CLI) tool for demonstration purposes.
+A kubectl plugin for working with OpenShift API for Data Protection (OADP) resources, including NonAdminBackup operations.
 
-> This project aims to create a `kubectl` plugin CLI based on Velero, so that downloading the Velero CLI separately isn't required.
+> This project provides a `kubectl` plugin CLI that extends OADP functionality, allowing users to work with both regular Velero resources and NonAdminBackup resources through a unified interface.
+
+## Features
+
+- **Regular OADP operations**: Standard Velero backup, restore, and version commands
+- **NonAdmin operations**: Create and manage NonAdminBackup resources for namespace-scoped backup operations
+- **Automatic namespace detection**: NonAdminBackup automatically uses your current kubectl context namespace
+- **Kubectl plugin integration**: Works seamlessly as a kubectl plugin
+
+## Command Structure
+
+```
+oadp
+├── backup (Velero backups)
+├── restore (Velero restores) 
+├── version
+└── nonadmin
+    └── backup
+        └── create
+```
 
 ## Build and Install
 
+### Quick Installation
+
+Use the provided script for quick build and installation:
+
+```sh
+chmod +x quick-create.sh
+./quick-create.sh
+```
+
+### Manual Installation
+
 1. **Build the CLI:**
    ```sh
-   go build -o kubectl-velero
+   go build -o kubectl-oadp .
    ```
 
-2. **Find the location of your `kubectl` binary:**
-   - On Linux/macOS:
-     ```sh
-     which kubectl
-     ```
-   - On Windows (Command Prompt):
-     ```cmd
-     where kubectl
-     ```
+2. **Install as kubectl plugin:**
+   ```sh
+   sudo mv kubectl-oadp /usr/local/bin/
+   ```
 
-3. **Move the built binary to the same directory:**
+3. **Verify installation:**
    ```sh
-   mv kubectl-velero /path/to/kubectl-directory/
+   kubectl oadp --help
    ```
-   If you need root permissions, prepend `sudo`:
-   ```sh
-   sudo mv kubectl-velero /path/to/kubectl-directory/
-   ```
-   Replace `/path/to/kubectl-directory/` with the directory path from the previous step.
 
-4. **Verify installation:**
-   ```sh
-   kubectl velero --help
-   ```
+## Usage Examples
+
+### NonAdminBackup Operations
+
+```sh
+# Create a non-admin backup of the current namespace
+kubectl oadp nonadmin backup create my-backup
+
+# Create backup with specific resource types
+kubectl oadp nonadmin backup create my-backup --include-resources deployments,services
+
+# Create backup excluding certain resources
+kubectl oadp nonadmin backup create my-backup --exclude-resources secrets
+
+# View backup YAML without creating it
+kubectl oadp nonadmin backup create my-backup --snapshot-volumes=false -o yaml
+
+# Wait for backup completion
+kubectl oadp nonadmin backup create my-backup --wait
+```
+
+### Regular OADP Operations
+
+```sh
+# Work with regular Velero backups
+kubectl oadp backup --help
+
+# Work with restores
+kubectl oadp restore --help
+
+# Check version
+kubectl oadp version
+```
+
+## Key Features of NonAdminBackup
+
+- **Namespace-scoped**: Automatically backs up the namespace where the NonAdminBackup resource is created
+- **Simplified workflow**: No need to specify `--include-namespaces` - it uses your current kubectl context
+- **Permission-aware**: Works within the permissions of the current user/service account
+- **Integration with OADP**: Leverages the underlying Velero infrastructure managed by OADP operator
+
+## Development
+
+This CLI is built using:
+- [Cobra](https://github.com/spf13/cobra) for CLI framework
+- [Velero client libraries](https://github.com/vmware-tanzu/velero) for core functionality  
+- [OADP NonAdmin APIs](https://github.com/migtools/oadp-non-admin) for NonAdminBackup operations

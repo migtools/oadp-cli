@@ -1,4 +1,4 @@
-module github.com/joeavaikath/sample-plugin
+module github.com/migtools/oadp-cli
 
 go 1.24.3
 

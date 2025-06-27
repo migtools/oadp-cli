@@ -101,6 +101,7 @@ This project includes comprehensive CLI integration tests organized by functiona
 ```bash
 # Run all tests (standard Go pattern)
 go test ./...
+```
 
 📖 **For detailed test documentation, see [tests/README.md](tests/README.md)**
 

@@ -1,6 +1,8 @@
-module github.com/joeavaikath/sample-plugin
+module github.com/migtools/oadp-cli
 
-go 1.24.3
+go 1.24.0
+
+toolchain go1.24.3
 
 require (
 	github.com/migtools/oadp-non-admin v0.0.0-20250505165924-a9be4321819c

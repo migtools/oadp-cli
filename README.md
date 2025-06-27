@@ -92,6 +92,19 @@ kubectl oadp version
 - **Permission-aware**: Works within the permissions of the current user/service account
 - **Integration with OADP**: Leverages the underlying Velero infrastructure managed by OADP operator
 
+## Testing
+
+This project includes comprehensive CLI integration tests organized by functionality.
+
+### Quick Test Commands
+
+```bash
+# Run all tests (standard Go pattern)
+go test ./...
+```
+
+📖 **For detailed test documentation, see [tests/README.md](tests/README.md)**
+
 ## Development
 
 This CLI is built using:

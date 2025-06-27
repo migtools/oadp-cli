@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/joeavaikath/sample-plugin/cmd"
+	"github.com/migtools/oadp-cli/cmd"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-package nonadmin
+package backup
 
 /*
 Copyright 2017 the Velero contributors.
@@ -21,14 +21,6 @@ import (
 
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
-
-// NewNonAdminFactory creates a client factory for NonAdminBackup operations
-// that uses the current kubeconfig context namespace instead of hardcoded openshift-adp
-func NewNonAdminFactory() client.Factory {
-	// Don't set a default namespace, let it use the kubeconfig context
-	cfg := client.VeleroConfig{}
-	return client.NewFactory("oadp-nonadmin-cli", cfg)
-}
 
 // NewBackupCommand creates the "backup" subcommand under nonadmin
 func NewBackupCommand(f client.Factory) *cobra.Command {

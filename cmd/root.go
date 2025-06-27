@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	nonadmin "github.com/joeavaikath/sample-plugin/cmd/non-admin"
+	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/restore"

@@ -85,17 +85,31 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Format Version:      %s\n", found.Status.FormatVersion)
 			fmt.Fprintf(cmd.OutOrStdout(), "Version:             %d\n", found.Status.Version)
 
-			// Print Spec (all fields, YAML for clarity)
+			// Print Spec (all fields, YAML for clarity), removing includedNamespaces block
 			specYaml, err := yaml.Marshal(found.Spec)
 			if err != nil {
 				fmt.Fprintf(cmd.OutOrStdout(), "Spec: <error marshaling spec: %v>\n", err)
 			} else {
-				// Remove the IncludedNamespaces line(s) from the YAML output
 				lines := strings.Split(string(specYaml), "\n")
 				var filtered []string
-				for _, line := range lines {
+				skip := false
+				for i := 0; i < len(lines); i++ {
+					line := lines[i]
 					trimmed := strings.TrimSpace(line)
-					if !strings.HasPrefix(trimmed, "includedNamespaces:") {
+					if !skip && (strings.HasPrefix(trimmed, "includedNamespaces:") || strings.HasPrefix(trimmed, "includednamespaces:")) {
+						skip = true
+						continue
+					}
+					if skip {
+						// Skip all list items or indented lines after the key
+						if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") || trimmed == "" {
+							continue
+						} else {
+							// Found a new top-level key, stop skipping
+							skip = false
+						}
+					}
+					if !skip {
 						filtered = append(filtered, line)
 					}
 				}

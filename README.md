@@ -27,18 +27,29 @@ oadp
 
 ### Quick Installation
 
-Use the provided script for quick build and installation:
+Use the Makefile for easy build and installation:
 
 ```sh
-chmod +x quick-create.sh
-./quick-create.sh
+# Quick install (equivalent to old quick-create.sh)
+make quick-install
+
+# Or step by step:
+make build-plugin
+sudo make install
 ```
 
-### Manual Installation
+### Alternative Installation Methods
 
+**Install to ~/bin (no sudo required):**
+```sh
+make install-local
+```
+
+**Manual Installation:**
 1. **Build the CLI:**
    ```sh
-   go build -o kubectl-oadp .
+   make build-plugin
+   # or manually: go build -o kubectl-oadp .
    ```
 
 2. **Install as kubectl plugin:**
@@ -48,8 +59,28 @@ chmod +x quick-create.sh
 
 3. **Verify installation:**
    ```sh
-   kubectl oadp --help
+   make verify-install
+   # or manually: kubectl oadp --help
    ```
+
+### Development Workflow
+
+```sh
+# Set up development environment
+make dev-setup
+
+# Build for local testing
+make build
+
+# Run tests
+make test
+
+# Format and check code
+make check
+
+# View all available commands
+make help
+```
 
 ## Usage Examples
 
@@ -99,7 +130,16 @@ This project includes comprehensive CLI integration tests organized by functiona
 ### Quick Test Commands
 
 ```bash
-# Run all tests (standard Go pattern)
+# Run all tests
+make test
+
+# Run tests with verbose output
+make test-verbose
+
+# Run tests with coverage
+make test-coverage
+
+# Standard Go pattern (also works)
 go test ./...
 ```
 

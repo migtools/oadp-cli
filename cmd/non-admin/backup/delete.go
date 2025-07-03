@@ -57,7 +57,7 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 // DeleteOptions holds the options for the delete command
 type DeleteOptions struct {
 	Name      string
-	Namespace string
+	Namespace string // Internal field - automatically determined from kubectl context
 	client    kbclient.Client
 }
 
@@ -68,7 +68,7 @@ func NewDeleteOptions() *DeleteOptions {
 
 // BindFlags binds the command line flags to the options
 func (o *DeleteOptions) BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&o.Namespace, "namespace", "", "Namespace of the non-admin backup (default: current namespace)")
+	// No user-facing flags - namespace is determined automatically from kubectl context
 }
 
 // Complete completes the options by setting up the client and determining the namespace
@@ -89,14 +89,12 @@ func (o *DeleteOptions) Complete(args []string, f client.Factory) error {
 
 	o.client = kbClient
 
-	// Determine the namespace
-	if o.Namespace == "" {
-		currentNS, err := getCurrentNamespace()
-		if err != nil {
-			return fmt.Errorf("failed to determine current namespace: %w", err)
-		}
-		o.Namespace = currentNS
+	// Always use the current namespace from kubectl context
+	currentNS, err := getCurrentNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to determine current namespace: %w", err)
 	}
+	o.Namespace = currentNS
 
 	return nil
 }

@@ -6,6 +6,12 @@
 BINARY_NAME = kubectl-oadp
 INSTALL_PATH = /usr/local/bin
 
+# Platform variables for multi-arch builds
+# Usage: make build PLATFORM=linux/amd64
+PLATFORM ?= 
+GOOS = $(word 1,$(subst /, ,$(PLATFORM)))
+GOARCH = $(word 2,$(subst /, ,$(PLATFORM)))
+
 # Default target
 .PHONY: help
 help: ## Show this help message
@@ -13,13 +19,26 @@ help: ## Show this help message
 	@echo ""
 	@echo "Available targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "Build with different platforms:"
+	@echo "  make build PLATFORM=linux/amd64"
+	@echo "  make build PLATFORM=linux/arm64"
+	@echo "  make build PLATFORM=darwin/amd64"
+	@echo "  make build PLATFORM=darwin/arm64"
+	@echo "  make build PLATFORM=windows/amd64"
 
 # Build targets
 .PHONY: build
-build: ## Build the kubectl plugin binary
-	@echo "Building $(BINARY_NAME)..."
-	go build -o $(BINARY_NAME) .
-	@echo "✅ Built $(BINARY_NAME) successfully!"
+build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compilation)
+	@if [ -n "$(PLATFORM)" ]; then \
+		echo "Building $(BINARY_NAME) for $(PLATFORM)..."; \
+		GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BINARY_NAME)-$(GOOS)-$(GOARCH) .; \
+		echo "✅ Built $(BINARY_NAME)-$(GOOS)-$(GOARCH) successfully!"; \
+	else \
+		echo "Building $(BINARY_NAME) for current platform..."; \
+		go build -o $(BINARY_NAME) .; \
+		echo "✅ Built $(BINARY_NAME) successfully!"; \
+	fi
 
 # Installation targets
 .PHONY: install
@@ -40,7 +59,7 @@ test: ## Run all tests
 .PHONY: clean
 clean: ## Remove built binaries
 	@echo "Cleaning up..."
-	@rm -f $(BINARY_NAME)
+	@rm -f $(BINARY_NAME) $(BINARY_NAME)-*
 	@echo "✅ Cleanup complete!"
 
 # Status and utility targets

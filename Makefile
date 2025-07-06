@@ -35,7 +35,7 @@ build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compil
 		GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BINARY_NAME)-$(GOOS)-$(GOARCH) .; \
 		echo "✅ Built $(BINARY_NAME)-$(GOOS)-$(GOARCH) successfully!"; \
 	else \
-		echo "Building $(BINARY_NAME) for current platform..."; \
+		echo "Building $(BINARY_NAME) for current platform ($$(go env GOOS)/$$(go env GOARCH))..."; \
 		go build -o $(BINARY_NAME) .; \
 		echo "✅ Built $(BINARY_NAME) successfully!"; \
 	fi
@@ -77,8 +77,12 @@ status: ## Show build status and installation info
 	@ls -la $(INSTALL_PATH)/$(BINARY_NAME) 2>/dev/null || echo "  Plugin not installed"
 	@echo ""
 	@echo "✅ Plugin accessibility:"
-	@if command -v kubectl oadp >/dev/null 2>&1; then \
-		echo "  kubectl oadp is accessible"; \
+	@if kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
+		echo "  ✅ kubectl-oadp plugin is installed and accessible"; \
+		echo "  Version check:"; \
+		kubectl oadp version 2>/dev/null || echo "    (version command not available)"; \
 	else \
-		echo "  kubectl oadp is NOT accessible"; \
-	fi 
+		echo "  ❌ kubectl-oadp plugin is NOT accessible"; \
+		echo "  Available plugins:"; \
+		kubectl plugin list 2>/dev/null | head -5 || echo "    (no plugins found or kubectl not available)"; \
+	fi

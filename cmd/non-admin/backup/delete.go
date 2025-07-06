@@ -259,10 +259,6 @@ func (o *DeleteOptions) translateError(name string, err error) error {
 		return fmt.Errorf("cannot reach cluster")
 	}
 
-	if strings.Contains(errStr, "Unauthorized") {
-		return fmt.Errorf("authentication required")
-	}
-
 	// For any other error, provide a generic message
 	return fmt.Errorf("operation failed")
 }

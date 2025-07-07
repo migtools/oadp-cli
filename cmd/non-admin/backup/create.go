@@ -35,7 +35,6 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
@@ -204,40 +203,6 @@ func (o *CreateOptions) validateFromScheduleFlag(c *cobra.Command) error {
 	// Assign the trimmed value back
 	o.FromSchedule = trimmed
 	return nil
-}
-
-// getCurrentNamespace gets the current namespace from the kubeconfig context
-func getCurrentNamespace() (string, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-
-	namespace, _, err := kubeConfig.Namespace()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current namespace from kubeconfig: %w", err)
-	}
-
-	// If no namespace is set in kubeconfig, default to the user's name from context
-	if namespace == "" || namespace == "default" {
-		rawConfig, err := kubeConfig.RawConfig()
-		if err != nil {
-			return "", fmt.Errorf("failed to get raw kubeconfig: %w", err)
-		}
-
-		currentContext := rawConfig.CurrentContext
-		if _, exists := rawConfig.Contexts[currentContext]; exists {
-			// Try to extract user namespace from context name (assuming format like "user/cluster/user")
-			parts := strings.Split(currentContext, "/")
-			if len(parts) >= 3 {
-				userNamespace := parts[2] // Assuming the user namespace is the third part
-				return userNamespace, nil
-			}
-		}
-
-		return "default", nil
-	}
-
-	return namespace, nil
 }
 
 func (o *CreateOptions) Complete(args []string, f client.Factory) error {

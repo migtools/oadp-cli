@@ -4,7 +4,7 @@
 
 # Variables
 BINARY_NAME = kubectl-oadp
-INSTALL_PATH = /usr/local/bin
+INSTALL_PATH ?= /usr/local/bin
 
 # Platform variables for multi-arch builds
 # Usage: make build PLATFORM=linux/amd64
@@ -44,7 +44,7 @@ build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compil
 .PHONY: install
 install: build ## Build and install the kubectl plugin
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_PATH)..."
-	sudo mv $(BINARY_NAME) $(INSTALL_PATH)/
+	mv $(BINARY_NAME) $(INSTALL_PATH)/
 	@echo "✅ $(BINARY_NAME) installed successfully!"
 	@echo "You can now use: kubectl oadp --help"
 

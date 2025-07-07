@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
@@ -26,10 +27,13 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 			defer cancel()
 
-			veleroNamespace := "openshift-adp"
+			userNamespace := f.Namespace()
 			backupName := args[0]
 
 			scheme := runtime.NewScheme()
+			if err := nacv1alpha1.AddToScheme(scheme); err != nil {
+				return fmt.Errorf("failed to add OADP non-admin types to scheme: %w", err)
+			}
 			if err := velerov1.AddToScheme(scheme); err != nil {
 				return fmt.Errorf("failed to add Velero types to scheme: %w", err)
 			}
@@ -42,12 +46,12 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("failed to create controller-runtime client: %w", err)
 			}
 
-			req := &velerov1.DownloadRequest{
+			req := &nacv1alpha1.NonAdminDownloadRequest{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: backupName + "-logs-",
-					Namespace:    veleroNamespace,
+					Namespace:    userNamespace,
 				},
-				Spec: velerov1.DownloadRequestSpec{
+				Spec: nacv1alpha1.NonAdminDownloadRequestSpec{
 					Target: velerov1.DownloadTarget{
 						Kind: "BackupLog",
 						Name: backupName,
@@ -56,15 +60,13 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			}
 
 			if err := kbClient.Create(ctx, req); err != nil {
-				return fmt.Errorf("failed to create DownloadRequest: %w", err)
+				return fmt.Errorf("failed to create NonAdminDownloadRequest: %w", err)
 			}
 
 			defer func() {
 				deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancelDelete()
-				if err := kbClient.Delete(deleteCtx, req); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Failed to delete DownloadRequest %s/%s: %v\n", req.Namespace, req.Name, err)
-				}
+				_ = kbClient.Delete(deleteCtx, req)
 			}()
 
 			var signedURL string
@@ -74,24 +76,24 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			for {
 				select {
 				case <-timeout:
-					return fmt.Errorf("timed out waiting for DownloadRequest to be processed")
+					return fmt.Errorf("timed out waiting for NonAdminDownloadRequest to be processed")
 				case <-tick:
-					var updated velerov1.DownloadRequest
+					var updated nacv1alpha1.NonAdminDownloadRequest
 					if err := kbClient.Get(ctx, kbclient.ObjectKey{
 						Namespace: req.Namespace,
 						Name:      req.Name,
 					}, &updated); err != nil {
-						return fmt.Errorf("failed to get DownloadRequest: %w", err)
+						return fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
 					}
 
 					switch updated.Status.Phase {
-					case velerov1.DownloadRequestPhaseProcessed:
-						if updated.Status.DownloadURL != "" {
-							signedURL = updated.Status.DownloadURL
+					case "Processed":
+						if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
+							signedURL = updated.Status.VeleroDownloadRequest.Status.DownloadURL
 							break Loop
 						}
 					case "Failed":
-						return fmt.Errorf("DownloadRequest failed: phase=%s", updated.Status.Phase)
+						return fmt.Errorf("NonAdminDownloadRequest failed: phase=%s", updated.Status.Phase)
 					default:
 					}
 				}

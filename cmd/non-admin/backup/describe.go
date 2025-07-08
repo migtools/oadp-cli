@@ -50,13 +50,13 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("failed to create controller-runtime client: %w", err)
 			}
 
-			// List NonAdminBackup resources in user's namespace
+			// Shows NonAdminBackup resources
 			var nabList nacv1alpha1.NonAdminBackupList
 			if err := kbClient.List(context.TODO(), &nabList, kbclient.InNamespace(userNamespace)); err != nil {
 				return fmt.Errorf("failed to list NonAdminBackup resources: %w", err)
 			}
 
-			// Find the requested backup
+			// Finds the backup
 			var foundNAB *nacv1alpha1.NonAdminBackup
 			for i := range nabList.Items {
 				if nabList.Items[i].Name == backupName {
@@ -69,14 +69,11 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("NonAdminBackup %q not found in namespace %q", backupName, userNamespace)
 			}
 
-			// Use NonAdminDescribeBackup function to get comprehensive output
 			return NonAdminDescribeBackup(cmd, kbClient, foundNAB, userNamespace)
 		},
 		Example: `  # Describe a non-admin backup with detailed information
-  oc oadp nonadmin backup describe my-backup`,
+  kubectl oadp nonadmin backup describe my-backup`,
 	}
-
-	// Add output formatting flags for future enhancement
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
 

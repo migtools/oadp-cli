@@ -32,7 +32,6 @@ func NewBackupCommand(f client.Factory) *cobra.Command {
 
 	c.AddCommand(
 		NewCreateCommand(f, "create"),
-
 		NewLogsCommand(f, "logs"),
 		NewDescribeCommand(f, "describe"),
 		NewDeleteCommand(f, "delete"),

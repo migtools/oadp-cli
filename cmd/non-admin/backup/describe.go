@@ -313,7 +313,7 @@ func downloadContent(url string) (string, error) {
 	return string(content), nil
 }
 
-// Helper to indent YAML blocks for pretty output
+// Helper to indent YAML blocks
 func indent(s, prefix string) string {
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
@@ -322,12 +322,4 @@ func indent(s, prefix string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
-}
-
-// Helper to format metav1.Time or nil
-func formatTime(t *metav1.Time) string {
-	if t == nil || t.IsZero() {
-		return "<none>"
-	}
-	return t.Time.Format(time.RFC3339)
 }

@@ -97,18 +97,31 @@ func testHelpCommand(t *testing.T, binaryPath string, args []string, expectConta
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
-	output := stdout.String()
-
-	// Help commands typically exit with 0
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		t.Logf("Command failed (this might be expected for some help commands): %v", err)
 		t.Logf("Stderr: %s", stderr.String())
 		// For help commands, we often get the help text in stderr too
 		if stderr.Len() > 0 {
-			output += stderr.String()
+			output := stdout.String() + stderr.String()
+			t.Logf("Command: %s %s", binaryPath, strings.Join(args, " "))
+			t.Logf("Output:\n%s", output)
+
+			// Check that expected content is present
+			for _, expected := range expectContains {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected output to contain %q, but it didn't.\nFull output:\n%s", expected, output)
+				}
+			}
+
+			// Basic sanity check - help output should not be empty
+			if len(strings.TrimSpace(output)) == 0 {
+				t.Error("Help output was empty")
+			}
+			return
 		}
 	}
+
+	output := stdout.String()
 
 	t.Logf("Command: %s %s", binaryPath, strings.Join(args, " "))
 	t.Logf("Output:\n%s", output)

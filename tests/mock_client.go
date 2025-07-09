@@ -104,8 +104,16 @@ func (m *MockK8sClient) List(ctx context.Context, list client.ObjectList, opts .
 // Scheme returns the runtime scheme
 func (m *MockK8sClient) Scheme() *runtime.Scheme {
 	s := runtime.NewScheme()
-	nacv1alpha1.AddToScheme(s)
-	velerov1api.AddToScheme(s)
+	if err := nacv1alpha1.AddToScheme(s); err != nil {
+		// In a mock client, we'll panic if scheme registration fails
+		// This should never happen in practice
+		panic(fmt.Sprintf("failed to add NonAdminBackup scheme: %v", err))
+	}
+	if err := velerov1api.AddToScheme(s); err != nil {
+		// In a mock client, we'll panic if scheme registration fails
+		// This should never happen in practice
+		panic(fmt.Sprintf("failed to add Velero scheme: %v", err))
+	}
 	return s
 }
 

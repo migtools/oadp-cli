@@ -259,7 +259,7 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 			ObjectList: new(nacv1alpha1.NonAdminBackupList),
 		}
 		backupInformer := cache.NewSharedInformer(&lw, &nacv1alpha1.NonAdminBackup{}, time.Second)
-		_, _ = backupInformer.AddEventHandler(
+		_, err = backupInformer.AddEventHandler(
 			cache.FilteringResourceEventHandler{
 				FilterFunc: func(obj any) bool {
 					backup, ok := obj.(*nacv1alpha1.NonAdminBackup)
@@ -287,6 +287,9 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 				},
 			},
 		)
+		if err != nil {
+			return fmt.Errorf("failed to add event handler: %w", err)
+		}
 
 		go backupInformer.Run(stop)
 	}

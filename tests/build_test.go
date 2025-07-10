@@ -73,7 +73,13 @@ func TestCLIBinarySmoke(t *testing.T) {
 			execCmd.Args = append(execCmd.Args, cmd...)
 
 			// We don't care about exit code for smoke tests, just that it doesn't hang/crash
-			_ = execCmd.Run()
+			if err := execCmd.Run(); err != nil {
+				// For smoke tests, we only care that the command executes without hanging
+				// Exit errors are expected for help commands that might not be fully implemented
+				if _, ok := err.(*exec.ExitError); !ok {
+					t.Logf("Smoke test command failed (non-exit error): %v", err)
+				}
+			}
 		})
 	}
 }

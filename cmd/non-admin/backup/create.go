@@ -366,6 +366,23 @@ func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonA
 	} else {
 		// Build the BackupSpec manually
 		// For NonAdminBackup, automatically include the current namespace
+
+		// Determine storage location - prefer NonAdminBackupStorageLocation if available
+		storageLocation := o.StorageLocation
+		if storageLocation == "" {
+			// Try to find an available NonAdminBackupStorageLocation
+			var nabslList nacv1alpha1.NonAdminBackupStorageLocationList
+			if err := o.client.List(context.TODO(), &nabslList, kbclient.InNamespace(namespace)); err == nil {
+				for _, nabsl := range nabslList.Items {
+					// Use the first available NonAdminBackupStorageLocation
+					if nabsl.Status.Phase == "Created" || nabsl.Status.Phase == "Accepted" {
+						storageLocation = nabsl.Name
+						break
+					}
+				}
+			}
+		}
+
 		backupBuilder := builder.ForBackup(namespace, o.Name).
 			IncludedNamespaces(namespace). // Automatically include the current namespace
 			IncludedResources(o.IncludeResources...).
@@ -377,7 +394,7 @@ func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonA
 			LabelSelector(o.Selector.LabelSelector).
 			OrLabelSelector(o.OrSelector.OrLabelSelectors).
 			TTL(o.TTL).
-			StorageLocation(o.StorageLocation).
+			StorageLocation(storageLocation).
 			VolumeSnapshotLocations(o.SnapshotLocations...).
 			CSISnapshotTimeout(o.CSISnapshotTimeout).
 			ItemOperationTimeout(o.ItemOperationTimeout).

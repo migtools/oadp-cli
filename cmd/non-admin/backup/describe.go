@@ -29,7 +29,12 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			backupName := args[0]
-			userNamespace := f.Namespace()
+
+			// Get the current namespace from kubectl context
+			userNamespace, err := getCurrentNamespace()
+			if err != nil {
+				return fmt.Errorf("failed to determine current namespace: %w", err)
+			}
 
 			// Setup scheme and client for NonAdminBackup resources
 			scheme := runtime.NewScheme()
@@ -38,6 +43,9 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			}
 			if err := velerov1.AddToScheme(scheme); err != nil {
 				return fmt.Errorf("failed to add Velero types to scheme: %w", err)
+			}
+			if err := corev1.AddToScheme(scheme); err != nil {
+				return fmt.Errorf("failed to add core v1 types to scheme: %w", err)
 			}
 
 			restConfig, err := f.ClientConfig()
@@ -128,6 +136,15 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Name != "" {
 		veleroBackupName := nab.Status.VeleroBackup.Name
 
+		// Try to get additional backup details, but don't block if they're not available
+		fmt.Fprintf(cmd.OutOrStdout(), "\nFetching additional backup details...")
+
+		// Get backup results using NonAdminDownloadRequest (most important data)
+		if results, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResults"); err == nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Results:\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(results, "  "))
+		}
+
 		// Get backup details using NonAdminDownloadRequest for BackupResourceList
 		if resourceList, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResourceList"); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Resource List:\n")
@@ -146,11 +163,7 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(itemOps, "  "))
 		}
 
-		// Get backup results using NonAdminDownloadRequest
-		if results, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResults"); err == nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Results:\n")
-			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(results, "  "))
-		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\nDone fetching additional details.")
 	}
 
 	// Print NonAdminBackup Spec (excluding sensitive information)
@@ -159,39 +172,19 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nSpec: <error marshaling spec: %v>\n", err)
 		} else {
-			lines := strings.Split(string(specYaml), "\n")
-			var filtered []string
-			skip := false
-			for i := 0; i < len(lines); i++ {
-				line := lines[i]
-				trimmed := strings.TrimSpace(line)
-				if !skip && (strings.HasPrefix(trimmed, "includedNamespaces:") || strings.HasPrefix(trimmed, "includednamespaces:")) {
-					skip = true
-					continue
-				}
-				if skip {
-					// Skip all list items or indented lines after the key
-					if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") || trimmed == "" {
-						continue
-					} else {
-						// Found a new top-level key, stop skipping
-						skip = false
-					}
-				}
-				if !skip {
-					filtered = append(filtered, line)
-				}
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "\nSpec:\n%s", indent(strings.Join(filtered, "\n"), "  "))
+			filteredSpec := filterIncludedNamespaces(string(specYaml))
+			fmt.Fprintf(cmd.OutOrStdout(), "\nSpec:\n%s", indent(filteredSpec, "  "))
 		}
 	}
 
-	// Print NonAdminBackup Status
+	// Print NonAdminBackup Status (excluding sensitive information)
 	statusYaml, err := yaml.Marshal(nab.Status)
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "\nStatus: <error marshaling status: %v>\n", err)
 	} else {
-		fmt.Fprintf(cmd.OutOrStdout(), "\nStatus:\n%s", indent(string(statusYaml), "  "))
+		// Filter out includednamespaces from status output as well
+		filteredStatus := filterIncludedNamespaces(string(statusYaml))
+		fmt.Fprintf(cmd.OutOrStdout(), "\nStatus:\n%s", indent(filteredStatus, "  "))
 	}
 
 	// Print Events for NonAdminBackup
@@ -249,7 +242,7 @@ func downloadBackupData(ctx context.Context, kbClient kbclient.Client, userNames
 	}()
 
 	// Wait for the download request to be processed
-	timeout := time.After(30 * time.Second)
+	timeout := time.After(10 * time.Second) // Reduced timeout since most failures are quick
 	tick := time.Tick(1 * time.Second)
 
 	for {
@@ -265,16 +258,21 @@ func downloadBackupData(ctx context.Context, kbClient kbclient.Client, userNames
 				return "", fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
 			}
 
-			switch updated.Status.Phase {
-			case "Processed":
-				if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
-					// Download and return the content
-					return downloadContent(updated.Status.VeleroDownloadRequest.Status.DownloadURL)
+			// Check if the download request was processed successfully
+			for _, condition := range updated.Status.Conditions {
+				if condition.Type == "Processed" && condition.Status == "True" {
+					if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
+						// Download and return the content
+						return downloadContent(updated.Status.VeleroDownloadRequest.Status.DownloadURL)
+					}
 				}
-			case "Failed":
-				return "", fmt.Errorf("NonAdminDownloadRequest failed for %s: phase=%s", dataType, updated.Status.Phase)
-			default:
-				// Continue waiting
+			}
+
+			// Check for failure conditions
+			for _, condition := range updated.Status.Conditions {
+				if condition.Status == "True" && condition.Reason == "Error" {
+					return "", fmt.Errorf("NonAdminDownloadRequest failed for %s: %s - %s", dataType, condition.Type, condition.Message)
+				}
 			}
 		}
 	}
@@ -311,6 +309,46 @@ func downloadContent(url string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+// Helper to filter out includednamespaces from YAML output
+func filterIncludedNamespaces(yamlContent string) string {
+	lines := strings.Split(yamlContent, "\n")
+	var filtered []string
+	skip := false
+	var skipIndentLevel int
+
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+
+		// Calculate indentation level
+		indentLevel := len(line) - len(strings.TrimLeft(line, " \t"))
+
+		// Check if this line starts the includednamespaces field
+		if !skip && (trimmed == "includednamespaces:" || trimmed == "includedNamespaces:" ||
+			strings.HasPrefix(trimmed, "includednamespaces: ") || strings.HasPrefix(trimmed, "includedNamespaces: ")) {
+			skip = true
+			skipIndentLevel = indentLevel
+			continue
+		}
+
+		if skip {
+			// Stop skipping if we found a line at the same or lesser indentation level
+			// and it's not an empty line and it's not a list item belonging to the skipped field
+			if trimmed != "" && indentLevel <= skipIndentLevel && !strings.HasPrefix(trimmed, "- ") {
+				skip = false
+				// Process this line since we're no longer skipping
+				filtered = append(filtered, line)
+			}
+			// If we're still skipping, don't add the line
+			continue
+		}
+
+		// Add the line if we're not skipping
+		filtered = append(filtered, line)
+	}
+	return strings.Join(filtered, "\n")
 }
 
 // Helper to indent YAML blocks

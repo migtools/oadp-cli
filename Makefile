@@ -7,11 +7,19 @@ BINARY_NAME = kubectl-oadp
 INSTALL_PATH ?= /usr/local/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
+# Centralized platform definitions to avoid duplication
+PLATFORMS = linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+
 # Platform variables for multi-arch builds
 # Usage: make build PLATFORM=linux/amd64
 PLATFORM ?= 
 GOOS = $(word 1,$(subst /, ,$(PLATFORM)))
 GOARCH = $(word 2,$(subst /, ,$(PLATFORM)))
+
+# Helper function to get binary name with .exe for Windows
+define get_binary_name
+$(if $(findstring windows,$(1)),$(BINARY_NAME).exe,$(BINARY_NAME))
+endef
 
 # Default target
 .PHONY: help
@@ -94,12 +102,11 @@ status: ## Show build status and installation info
 		kubectl plugin list 2>/dev/null | head -5 || echo "    (no plugins found or kubectl not available)"; \
 	fi
 
-# Release targets
+# Optimized release targets with centralized platform logic
 .PHONY: release-build
 release-build: ## Build binaries for all platforms
 	@echo "Building release binaries..."
-	@platforms=("linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64" "windows/amd64"); \
-	for platform in $${platforms[@]}; do \
+	@for platform in $(PLATFORMS); do \
 		GOOS=$$(echo $$platform | cut -d'/' -f1); \
 		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
 		if [ "$$GOOS" = "windows" ]; then \
@@ -121,8 +128,7 @@ release-archives: release-build ## Create tar.gz archives for all platforms (inc
 		echo "❌ LICENSE file not found! Please ensure LICENSE file exists."; \
 		exit 1; \
 	fi
-	@platforms=("linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64" "windows/amd64"); \
-	for platform in $${platforms[@]}; do \
+	@for platform in $(PLATFORMS); do \
 		GOOS=$$(echo $$platform | cut -d'/' -f1); \
 		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
 		if [ "$$GOOS" = "windows" ]; then \
@@ -146,6 +152,7 @@ release-archives: release-build ## Create tar.gz archives for all platforms (inc
 release: release-archives ## Build and create release archives for all platforms
 	@echo "🚀 Release build complete! Archives ready for distribution."
 
+# Optimized krew-manifest generation using Python script for better reliability
 .PHONY: krew-manifest
 krew-manifest: release-archives ## Generate Krew plugin manifest with SHA256 checksums
 	@echo "Generating Krew plugin manifest with SHA256 checksums..."
@@ -153,35 +160,45 @@ krew-manifest: release-archives ## Generate Krew plugin manifest with SHA256 che
 		echo "❌ oadp.yaml manifest template not found!"; \
 		exit 1; \
 	fi
-	@cp oadp.yaml oadp-$(VERSION).yaml
-	@echo "Updating version and URLs..."
-	@sed -i '' "s/version: v1.0.0/version: $(VERSION)/" oadp-$(VERSION).yaml
-	@sed -i '' "s|download/v1.0.0/|download/$(VERSION)/|g" oadp-$(VERSION).yaml
-	@echo "Updating SHA256 checksums..."
-	@if [ -f kubectl-oadp-linux-amd64.tar.gz.sha256 ]; then \
-		sha256=$$(cat kubectl-oadp-linux-amd64.tar.gz.sha256 | cut -d' ' -f1); \
-		sed -i '' "/os: linux/,/bin: kubectl-oadp/{/arch: amd64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
-		echo "  ✅ linux/amd64: $$sha256"; \
-	fi
-	@if [ -f kubectl-oadp-linux-arm64.tar.gz.sha256 ]; then \
-		sha256=$$(cat kubectl-oadp-linux-arm64.tar.gz.sha256 | cut -d' ' -f1); \
-		sed -i '' "/os: linux/,/bin: kubectl-oadp/{/arch: arm64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
-		echo "  ✅ linux/arm64: $$sha256"; \
-	fi
-	@if [ -f kubectl-oadp-darwin-amd64.tar.gz.sha256 ]; then \
-		sha256=$$(cat kubectl-oadp-darwin-amd64.tar.gz.sha256 | cut -d' ' -f1); \
-		sed -i '' "/os: darwin/,/bin: kubectl-oadp/{/arch: amd64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
-		echo "  ✅ darwin/amd64: $$sha256"; \
-	fi
-	@if [ -f kubectl-oadp-darwin-arm64.tar.gz.sha256 ]; then \
-		sha256=$$(cat kubectl-oadp-darwin-arm64.tar.gz.sha256 | cut -d' ' -f1); \
-		sed -i '' "/os: darwin/,/bin: kubectl-oadp/{/arch: arm64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
-		echo "  ✅ darwin/arm64: $$sha256"; \
-	fi
-	@if [ -f kubectl-oadp-windows-amd64.tar.gz.sha256 ]; then \
-		sha256=$$(cat kubectl-oadp-windows-amd64.tar.gz.sha256 | cut -d' ' -f1); \
-		sed -i '' "/os: windows/,/bin: kubectl-oadp.exe/{/arch: amd64/,/bin: kubectl-oadp.exe/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
-		echo "  ✅ windows/amd64: $$sha256"; \
-	fi
-	@echo "✅ Krew manifest generated: oadp-$(VERSION).yaml"
+	@python3 -c " \
+import sys, re, os; \
+version = '$(VERSION)'; \
+platforms = [p.split('/') for p in '$(PLATFORMS)'.split()]; \
+\
+with open('oadp.yaml', 'r') as f: \
+    content = f.read(); \
+\
+content = re.sub(r'version: v1\.0\.0', f'version: {version}', content); \
+content = re.sub(r'download/v1\.0\.0/', f'download/{version}/', content); \
+\
+for goos, goarch in platforms: \
+    binary_suffix = '.exe' if goos == 'windows' else ''; \
+    sha_file = f'kubectl-oadp-{goos}-{goarch}.tar.gz.sha256'; \
+    if os.path.exists(sha_file): \
+        with open(sha_file, 'r') as sf: \
+            sha256 = sf.read().split()[0]; \
+        pattern = rf'(os: {goos}.*?arch: {goarch}.*?sha256: \")\"'; \
+        replacement = rf'\g<1>{sha256}\"'; \
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL); \
+        print(f'  ✅ {goos}/{goarch}: {sha256}'); \
+\
+with open(f'oadp-{version}.yaml', 'w') as f: \
+    f.write(content); \
+print(f'✅ Krew manifest generated: oadp-{version}.yaml'); \
+" 2>/dev/null || { \
+		echo "⚠️  Python3 not available, using fallback sed approach..."; \
+		cp oadp.yaml oadp-$(VERSION).yaml; \
+		sed -i '' "s/version: v1.0.0/version: $(VERSION)/" oadp-$(VERSION).yaml; \
+		sed -i '' "s|download/v1.0.0/|download/$(VERSION)/|g" oadp-$(VERSION).yaml; \
+		for platform in $(PLATFORMS); do \
+			GOOS=$$(echo $$platform | cut -d'/' -f1); \
+			GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+			sha_file="kubectl-oadp-$$GOOS-$$GOARCH.tar.gz.sha256"; \
+			if [ -f "$$sha_file" ]; then \
+				sha256=$$(cat $$sha_file | cut -d' ' -f1); \
+				echo "  ✅ $$GOOS/$$GOARCH: $$sha256"; \
+			fi; \
+		done; \
+		echo "⚠️  SHA256 checksums need manual update in oadp-$(VERSION).yaml"; \
+	}
 	@echo "📝 Review the manifest and update the GitHub release URLs as needed."

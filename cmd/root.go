@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/spf13/cobra"
@@ -11,14 +13,33 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/version"
 )
 
+// isRunningAsPlugin detects if the executable is running as a kubectl plugin
+func isRunningAsPlugin() bool {
+	return strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-")
+}
+
+// getUsagePrefix returns the appropriate command prefix for help messages
+func getUsagePrefix() string {
+	if isRunningAsPlugin() {
+		return "kubectl oadp"
+	}
+	return "oadp"
+}
+
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand() *cobra.Command {
+	usagePrefix := getUsagePrefix()
+
 	rootCmd := &cobra.Command{
 		Use:   "oadp",
 		Short: "OADP CLI commands",
 		Run: func(cmd *cobra.Command, args []string) {
 			// Default action when no subcommand is provided
-			fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
+			if isRunningAsPlugin() {
+				fmt.Printf("Welcome to the OADP CLI! Use '%s --help' to see available commands.\n", usagePrefix)
+			} else {
+				fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
+			}
 		},
 	}
 

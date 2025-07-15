@@ -50,19 +50,19 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Create a non-admin backup containing all resources in the current namespace.
-  oadp nonadmin backup create backup1
+  kubectl oadp nonadmin backup create backup1
 
   # Create a non-admin backup with specific resource types.
-  oadp nonadmin backup create backup2 --include-resources deployments,services
+  kubectl oadp nonadmin backup create backup2 --include-resources deployments,services
 
   # Create a non-admin backup excluding certain resources.
-  oadp nonadmin backup create backup3 --exclude-resources secrets
+  kubectl oadp nonadmin backup create backup3 --exclude-resources secrets
 
   # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  oadp nonadmin backup create backup4 --snapshot-volumes=false -o yaml
+  kubectl oadp nonadmin backup create backup4 --snapshot-volumes=false -o yaml
 
   # Wait for a non-admin backup to complete before returning from the command.
-  oadp nonadmin backup create backup5 --wait`,
+  kubectl oadp nonadmin backup create backup5 --wait`,
 	}
 
 	o.BindFlags(c.Flags())

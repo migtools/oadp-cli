@@ -131,3 +131,12 @@ This CLI is built using:
 - [Cobra](https://github.com/spf13/cobra) for CLI framework
 - [Velero client libraries](https://github.com/vmware-tanzu/velero) for core functionality  
 - [OADP NonAdmin APIs](https://github.com/migtools/oadp-non-admin) for NonAdminBackup operations
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+This CLI builds on and integrates with:
+- [Velero](https://github.com/vmware-tanzu/velero) (Apache 2.0)
+- [OADP](https://github.com/openshift/oadp-operator) (Apache 2.0)
+- [Kubernetes](https://github.com/kubernetes/kubernetes) (Apache 2.0)

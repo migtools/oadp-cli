@@ -5,6 +5,7 @@
 # Variables
 BINARY_NAME = kubectl-oadp
 INSTALL_PATH ?= /usr/local/bin
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Platform variables for multi-arch builds
 # Usage: make build PLATFORM=linux/amd64
@@ -26,6 +27,10 @@ help: ## Show this help message
 	@echo "  make build PLATFORM=darwin/amd64"
 	@echo "  make build PLATFORM=darwin/arm64"
 	@echo "  make build PLATFORM=windows/amd64"
+	@echo ""
+	@echo "Release commands:"
+	@echo "  make release-build         # Build binaries for all platforms"
+	@echo "  make release-archives      # Create tar.gz archives for all platforms"
 
 # Build targets
 .PHONY: build
@@ -60,6 +65,7 @@ test: ## Run all tests
 clean: ## Remove built binaries
 	@echo "Cleaning up..."
 	@rm -f $(BINARY_NAME) $(BINARY_NAME)-*
+	@rm -f *.tar.gz *.sha256
 	@echo "✅ Cleanup complete!"
 
 # Status and utility targets
@@ -86,3 +92,55 @@ status: ## Show build status and installation info
 		echo "  Available plugins:"; \
 		kubectl plugin list 2>/dev/null | head -5 || echo "    (no plugins found or kubectl not available)"; \
 	fi
+
+# Release targets
+.PHONY: release-build
+release-build: ## Build binaries for all platforms
+	@echo "Building release binaries..."
+	@platforms=("linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64" "windows/amd64"); \
+	for platform in $${platforms[@]}; do \
+		GOOS=$$(echo $$platform | cut -d'/' -f1); \
+		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+		if [ "$$GOOS" = "windows" ]; then \
+			binary_name="$(BINARY_NAME).exe"; \
+		else \
+			binary_name="$(BINARY_NAME)"; \
+		fi; \
+		echo "Building for $$GOOS/$$GOARCH..."; \
+		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$binary_name .; \
+		echo "✅ Built $$binary_name for $$GOOS/$$GOARCH"; \
+		mv $$binary_name $(BINARY_NAME)-$$GOOS-$$GOARCH$${binary_name#$(BINARY_NAME)}; \
+	done
+	@echo "✅ All release binaries built successfully!"
+
+.PHONY: release-archives
+release-archives: release-build ## Create tar.gz archives for all platforms (includes LICENSE)
+	@echo "Creating release archives..."
+	@if [ ! -f LICENSE ]; then \
+		echo "❌ LICENSE file not found! Please ensure LICENSE file exists."; \
+		exit 1; \
+	fi
+	@platforms=("linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64" "windows/amd64"); \
+	for platform in $${platforms[@]}; do \
+		GOOS=$$(echo $$platform | cut -d'/' -f1); \
+		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+		if [ "$$GOOS" = "windows" ]; then \
+			binary_name="$(BINARY_NAME).exe"; \
+		else \
+			binary_name="$(BINARY_NAME)"; \
+		fi; \
+		archive_name="$(BINARY_NAME)-$$GOOS-$$GOARCH.tar.gz"; \
+		echo "Creating $$archive_name..."; \
+		tar czf $$archive_name LICENSE $(BINARY_NAME)-$$GOOS-$$GOARCH$${binary_name#$(BINARY_NAME)}; \
+		sha256sum $$archive_name > $$archive_name.sha256; \
+		echo "✅ Created $$archive_name with LICENSE"; \
+	done
+	@echo "✅ All release archives created successfully!"
+	@echo "📦 Archives created:"
+	@ls -la *.tar.gz
+	@echo "🔐 SHA256 checksums:"
+	@ls -la *.sha256
+
+.PHONY: release
+release: release-archives ## Build and create release archives for all platforms
+	@echo "🚀 Release build complete! Archives ready for distribution."

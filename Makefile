@@ -55,6 +55,24 @@ test: ## Run all tests
 	go test ./...
 	@echo "✅ Tests completed!"
 
+.PHONY: test-e2e
+test-e2e: ## Run e2e tests with DPA creation (requires AWS credentials and OADP operator)
+	@echo "Running e2e tests with DPA creation..."
+	@echo "⚠️  This requires AWS credentials and OADP operator to be installed"
+	@echo "   Required environment variables:"
+	@echo "   - OADP_CRED_FILE   # Path to AWS credentials file"
+	@echo "   - OADP_BUCKET      # S3 bucket name for backups"
+	@echo "   - CI_CRED_FILE     # Path to CI credentials file"
+	@echo "   - VSL_REGION       # AWS region for backup storage"
+	cd tests/e2e && go test -v -ginkgo.v --timeout=10m
+	@echo "✅ E2E tests completed!"
+
+.PHONY: test-e2e-focus
+test-e2e-focus: ## Run e2e tests with focus on specific tests
+	@echo "Running focused e2e tests..."
+	cd tests/e2e && go test -v -ginkgo.v -ginkgo.focus="$(FOCUS)" --timeout=10m
+	@echo "✅ Focused E2E tests completed!"
+
 # Cleanup targets
 .PHONY: clean
 clean: ## Remove built binaries

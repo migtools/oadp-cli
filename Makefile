@@ -64,8 +64,9 @@ test: ## Run all tests
 .PHONY: clean
 clean: ## Remove built binaries
 	@echo "Cleaning up..."
-	@rm -f $(BINARY_NAME) $(BINARY_NAME)-*
+	@rm -f $(BINARY_NAME) $(BINARY_NAME)-linux-* $(BINARY_NAME)-darwin-* $(BINARY_NAME)-windows-*
 	@rm -f *.tar.gz *.sha256
+	@rm -f oadp-*.yaml
 	@echo "✅ Cleanup complete!"
 
 # Status and utility targets
@@ -144,3 +145,43 @@ release-archives: release-build ## Create tar.gz archives for all platforms (inc
 .PHONY: release
 release: release-archives ## Build and create release archives for all platforms
 	@echo "🚀 Release build complete! Archives ready for distribution."
+
+.PHONY: krew-manifest
+krew-manifest: release-archives ## Generate Krew plugin manifest with SHA256 checksums
+	@echo "Generating Krew plugin manifest with SHA256 checksums..."
+	@if [ ! -f oadp.yaml ]; then \
+		echo "❌ oadp.yaml manifest template not found!"; \
+		exit 1; \
+	fi
+	@cp oadp.yaml oadp-$(VERSION).yaml
+	@echo "Updating version and URLs..."
+	@sed -i '' "s/version: v1.0.0/version: $(VERSION)/" oadp-$(VERSION).yaml
+	@sed -i '' "s|download/v1.0.0/|download/$(VERSION)/|g" oadp-$(VERSION).yaml
+	@echo "Updating SHA256 checksums..."
+	@if [ -f kubectl-oadp-linux-amd64.tar.gz.sha256 ]; then \
+		sha256=$$(cat kubectl-oadp-linux-amd64.tar.gz.sha256 | cut -d' ' -f1); \
+		sed -i '' "/os: linux/,/bin: kubectl-oadp/{/arch: amd64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
+		echo "  ✅ linux/amd64: $$sha256"; \
+	fi
+	@if [ -f kubectl-oadp-linux-arm64.tar.gz.sha256 ]; then \
+		sha256=$$(cat kubectl-oadp-linux-arm64.tar.gz.sha256 | cut -d' ' -f1); \
+		sed -i '' "/os: linux/,/bin: kubectl-oadp/{/arch: arm64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
+		echo "  ✅ linux/arm64: $$sha256"; \
+	fi
+	@if [ -f kubectl-oadp-darwin-amd64.tar.gz.sha256 ]; then \
+		sha256=$$(cat kubectl-oadp-darwin-amd64.tar.gz.sha256 | cut -d' ' -f1); \
+		sed -i '' "/os: darwin/,/bin: kubectl-oadp/{/arch: amd64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
+		echo "  ✅ darwin/amd64: $$sha256"; \
+	fi
+	@if [ -f kubectl-oadp-darwin-arm64.tar.gz.sha256 ]; then \
+		sha256=$$(cat kubectl-oadp-darwin-arm64.tar.gz.sha256 | cut -d' ' -f1); \
+		sed -i '' "/os: darwin/,/bin: kubectl-oadp/{/arch: arm64/,/bin: kubectl-oadp/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
+		echo "  ✅ darwin/arm64: $$sha256"; \
+	fi
+	@if [ -f kubectl-oadp-windows-amd64.tar.gz.sha256 ]; then \
+		sha256=$$(cat kubectl-oadp-windows-amd64.tar.gz.sha256 | cut -d' ' -f1); \
+		sed -i '' "/os: windows/,/bin: kubectl-oadp.exe/{/arch: amd64/,/bin: kubectl-oadp.exe/{s/sha256: \"\"/sha256: \"$$sha256\"/;}}" oadp-$(VERSION).yaml; \
+		echo "  ✅ windows/amd64: $$sha256"; \
+	fi
+	@echo "✅ Krew manifest generated: oadp-$(VERSION).yaml"
+	@echo "📝 Review the manifest and update the GitHub release URLs as needed."

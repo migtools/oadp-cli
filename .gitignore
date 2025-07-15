@@ -7,6 +7,14 @@
 
 # Built binaries
 kubectl-oadp
+kubectl-oadp-linux-*
+kubectl-oadp-darwin-*
+kubectl-oadp-windows-*
+
+# Release artifacts
+*.tar.gz
+*.sha256
+oadp-*.yaml
 
 # Test binary, built with `go test -c`
 *.test

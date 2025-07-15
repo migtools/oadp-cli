@@ -23,6 +23,25 @@ oadp
         └── create
 ```
 
+## Installation
+
+### Using Krew (Recommended)
+
+[Krew](https://krew.sigs.k8s.io/) is the recommended way to install kubectl plugins.
+
+```sh
+# Install Krew if you haven't already
+kubectl krew install krew
+
+# Install the OADP plugin
+kubectl krew install oadp
+
+# Verify installation
+kubectl oadp --help
+```
+
+**Note:** The LICENSE file is automatically extracted during Krew installation and available in the plugin directory.
+
 ## Build and Install
 
 ### Quick Installation
@@ -67,6 +86,26 @@ make status
 # View all available commands
 make help
 ```
+
+### Release Process
+
+For maintainers creating releases:
+
+```sh
+# Build release archives for all platforms (includes LICENSE file)
+make release
+
+# Generate Krew plugin manifest with SHA256 checksums
+make krew-manifest
+
+# Clean up build artifacts
+make clean
+```
+
+The release process creates:
+- Platform-specific archives (`kubectl-oadp-OS-ARCH.tar.gz`) containing the binary and LICENSE file
+- SHA256 checksums for each archive
+- A Krew plugin manifest file with proper checksums for distribution
 
 ## Usage Examples
 

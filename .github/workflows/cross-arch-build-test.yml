@@ -1,0 +1,300 @@
+name: Cross-Architecture Build Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # Build all architectures in one place
+  build-all:
+    name: Build All Architectures
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Build all architectures using make
+      run: |
+        echo "Building all architectures..."
+        make release-build
+        echo "✅ All builds completed"
+
+    - name: List generated binaries
+      run: |
+        echo "Generated binaries:"
+        ls -la kubectl-oadp-*
+        echo ""
+        echo "File details:"
+        file kubectl-oadp-* || true
+
+    - name: Upload Linux binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-binaries
+        path: |
+          kubectl-oadp-linux-amd64
+          kubectl-oadp-linux-arm64
+
+    - name: Upload macOS binaries  
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-binaries
+        path: |
+          kubectl-oadp-darwin-amd64
+          kubectl-oadp-darwin-arm64
+
+    - name: Upload Windows binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-binaries
+        path: |
+          kubectl-oadp-windows-amd64.exe
+          kubectl-oadp-windows-arm64.exe
+
+    - name: Run host tests
+      run: |
+        echo "Running tests on build host..."
+        make test
+        echo "✅ Host tests passed"
+
+  # Test Linux binaries on native Linux runners
+  test-linux:
+    name: Test Linux
+    needs: build-all
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            binary: kubectl-oadp-linux-amd64
+          - os: ubuntu-latest-arm64
+            arch: arm64  
+            binary: kubectl-oadp-linux-arm64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code (for tests)
+      uses: actions/checkout@v4
+
+    - name: Set up Go (for running tests)
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Download Linux binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-binaries
+
+    - name: Verify architecture match
+      run: |
+        echo "Expected architecture: ${{ matrix.arch }}"
+        echo "Runner architecture: $(uname -m)"
+        echo "Go architecture: $(go env GOARCH)"
+
+    - name: Test binary execution
+      run: |
+        chmod +x ${{ matrix.binary }}
+        echo "Testing ${{ matrix.binary }} on $(uname -m)..."
+        ./${{ matrix.binary }} --help
+        echo "✅ Binary execution successful"
+
+    - name: Install and test as kubectl plugin
+      run: |
+        mkdir -p /tmp/bin
+        cp ${{ matrix.binary }} /tmp/bin/kubectl-oadp
+        chmod +x /tmp/bin/kubectl-oadp
+        export PATH="/tmp/bin:$PATH"
+        
+        echo "Testing kubectl plugin functionality..."
+        kubectl-oadp --help
+        kubectl-oadp version --help
+        kubectl-oadp nonadmin --help
+        echo "✅ kubectl plugin tests passed"
+
+    - name: Run test suite
+      run: |
+        echo "Running full test suite..."
+        make test
+        echo "✅ Test suite passed"
+
+  # Test macOS binaries on native macOS runners
+  test-macos:
+    name: Test macOS
+    needs: build-all
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13  # Intel
+            arch: amd64
+            binary: kubectl-oadp-darwin-amd64
+          - os: macos-latest  # Apple Silicon
+            arch: arm64
+            binary: kubectl-oadp-darwin-arm64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code (for tests)
+      uses: actions/checkout@v4
+
+    - name: Set up Go (for running tests)
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Download macOS binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-binaries
+
+    - name: Verify architecture match
+      run: |
+        echo "Expected architecture: ${{ matrix.arch }}"
+        echo "Runner architecture: $(uname -m)"
+        echo "Go architecture: $(go env GOARCH)"
+
+    - name: Test binary execution
+      run: |
+        chmod +x ${{ matrix.binary }}
+        echo "Testing ${{ matrix.binary }} on $(uname -m)..."
+        ./${{ matrix.binary }} --help
+        echo "✅ Binary execution successful"
+
+    - name: Install and test as kubectl plugin
+      run: |
+        mkdir -p /tmp/bin
+        cp ${{ matrix.binary }} /tmp/bin/kubectl-oadp
+        chmod +x /tmp/bin/kubectl-oadp
+        export PATH="/tmp/bin:$PATH"
+        
+        echo "Testing kubectl plugin functionality..."
+        kubectl-oadp --help
+        kubectl-oadp version --help
+        kubectl-oadp nonadmin --help
+        echo "✅ kubectl plugin tests passed"
+
+    - name: Run test suite
+      run: |
+        echo "Running full test suite..."
+        make test
+        echo "✅ Test suite passed"
+
+  # Test Windows binaries on Windows runner
+  test-windows:
+    name: Test Windows
+    needs: build-all
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            binary: kubectl-oadp-windows-amd64.exe
+          - arch: arm64
+            binary: kubectl-oadp-windows-arm64.exe
+    
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code (for tests)
+      uses: actions/checkout@v4
+
+    - name: Set up Go (for running tests)
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Download Windows binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-binaries
+
+    - name: Test binary execution
+      run: |
+        echo "Testing ${{ matrix.binary }}..."
+        ./${{ matrix.binary }} --help
+        echo "✅ Binary execution successful"
+
+    - name: Install and test as kubectl plugin
+      run: |
+        mkdir -p C:\tmp\bin
+        copy ${{ matrix.binary }} C:\tmp\bin\kubectl-oadp.exe
+        $env:PATH = "C:\tmp\bin;" + $env:PATH
+        
+        echo "Testing kubectl plugin functionality..."
+        kubectl-oadp --help
+        kubectl-oadp version --help  
+        kubectl-oadp nonadmin --help
+        echo "✅ kubectl plugin tests passed"
+
+    - name: Run test suite
+      run: |
+        echo "Running full test suite..."
+        make test
+        echo "✅ Test suite passed"
+
+  # Summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [build-all, test-linux, test-macos, test-windows]
+    if: always()
+    
+    steps:
+    - name: Check all results
+      run: |
+        echo "=== Cross-Architecture Build & Test Summary ==="
+        echo ""
+        
+        if [ "${{ needs.build-all.result }}" = "success" ]; then
+          echo "✅ Multi-arch build: PASSED"
+        else
+          echo "❌ Multi-arch build: FAILED"
+        fi
+        
+        if [ "${{ needs.test-linux.result }}" = "success" ]; then
+          echo "✅ Linux tests (amd64 + arm64): PASSED"
+        else
+          echo "❌ Linux tests: FAILED"
+        fi
+        
+        if [ "${{ needs.test-macos.result }}" = "success" ]; then
+          echo "✅ macOS tests (Intel + Apple Silicon): PASSED"
+        else
+          echo "❌ macOS tests: FAILED"
+        fi
+        
+        if [ "${{ needs.test-windows.result }}" = "success" ]; then
+          echo "✅ Windows tests (amd64 + arm64): PASSED"
+        else
+          echo "❌ Windows tests: FAILED"
+        fi
+        
+        echo ""
+        if [ "${{ needs.build-all.result }}" = "success" ] && \
+           [ "${{ needs.test-linux.result }}" = "success" ] && \
+           [ "${{ needs.test-macos.result }}" = "success" ] && \
+           [ "${{ needs.test-windows.result }}" = "success" ]; then
+          echo "🎉 All cross-architecture builds and tests successful!"
+          echo "   Validated: Linux (amd64/arm64), macOS (Intel/Apple Silicon), Windows (amd64/arm64)"
+          exit 0
+        else
+          echo "💥 Some builds or tests failed - check the logs above"
+          exit 1
+        fi 

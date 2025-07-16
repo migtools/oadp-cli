@@ -126,6 +126,6 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 
 			return nil
 		},
-		Example: `  kubectl oadp backup logs my-backup`,
+		Example: `  kubectl oadp nonadmin backup logs my-backup`,
 	}
 }

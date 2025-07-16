@@ -78,7 +78,7 @@ clean: ## Remove built binaries
 	@echo "Cleaning up..."
 	@rm -f $(BINARY_NAME) $(BINARY_NAME)-linux-* $(BINARY_NAME)-darwin-* $(BINARY_NAME)-windows-*
 	@rm -f *.tar.gz *.sha256
-	@rm -f oadp-*.yaml
+	@rm -f oadp-*.yaml oadp-*.yaml.tmp
 	@echo "✅ Cleanup complete!"
 
 # Status and utility targets
@@ -190,10 +190,11 @@ with open(f'oadp-{version}.yaml', 'w') as f: \
     f.write(content); \
 print(f'✅ Krew manifest generated: oadp-{version}.yaml'); \
 " 2>/dev/null || { \
-		echo "⚠️  Python3 not available, using fallback sed approach..."; \
-		cp oadp.yaml oadp-$(VERSION).yaml; \
-		sed -i '' "s/version: v1.0.0/version: $(VERSION)/" oadp-$(VERSION).yaml; \
-		sed -i '' "s|download/v1.0.0/|download/$(VERSION)/|g" oadp-$(VERSION).yaml; \
+			echo "⚠️  Python3 not available, using fallback sed approach..."; \
+	cp oadp.yaml oadp-$(VERSION).yaml; \
+	# Use portable sed approach (works on both BSD/macOS and GNU/Linux) \
+	sed "s/version: v1.0.0/version: $(VERSION)/" oadp-$(VERSION).yaml > oadp-$(VERSION).yaml.tmp && mv oadp-$(VERSION).yaml.tmp oadp-$(VERSION).yaml; \
+	sed "s|download/v1.0.0/|download/$(VERSION)/|g" oadp-$(VERSION).yaml > oadp-$(VERSION).yaml.tmp && mv oadp-$(VERSION).yaml.tmp oadp-$(VERSION).yaml; \
 		for platform in $(PLATFORMS); do \
 			GOOS=$$(echo $$platform | cut -d'/' -f1); \
 			GOARCH=$$(echo $$platform | cut -d'/' -f2); \

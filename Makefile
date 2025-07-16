@@ -8,7 +8,8 @@ INSTALL_PATH ?= /usr/local/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Centralized platform definitions to avoid duplication
-PLATFORMS = linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+# Matches architectures supported by Kubernetes: https://kubernetes.io/releases/download/#binaries
+PLATFORMS = linux/amd64 linux/arm64 linux/ppc64le linux/s390x darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
 # Platform variables for multi-arch builds
 # Usage: make build PLATFORM=linux/amd64
@@ -32,9 +33,12 @@ help: ## Show this help message
 	@echo "Build with different platforms:"
 	@echo "  make build PLATFORM=linux/amd64"
 	@echo "  make build PLATFORM=linux/arm64"
+	@echo "  make build PLATFORM=linux/ppc64le"
+	@echo "  make build PLATFORM=linux/s390x"
 	@echo "  make build PLATFORM=darwin/amd64"
 	@echo "  make build PLATFORM=darwin/arm64"
 	@echo "  make build PLATFORM=windows/amd64"
+	@echo "  make build PLATFORM=windows/arm64"
 	@echo ""
 	@echo "Release commands:"
 	@echo "  make release-build         # Build binaries for all platforms"

@@ -2,9 +2,9 @@ name: Cross-Architecture Build Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, krew-init, install-test-workflow ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, krew-init ]
   workflow_dispatch:
 
 jobs:
@@ -199,15 +199,6 @@ jobs:
   test-windows:
     name: Test Windows
     needs: build-all
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            binary: kubectl-oadp-windows-amd64.exe
-          - arch: arm64
-            binary: kubectl-oadp-windows-arm64.exe
-    
     runs-on: windows-latest
     
     steps:
@@ -225,16 +216,23 @@ jobs:
       with:
         name: windows-binaries
 
-    - name: Test binary execution
+    - name: Verify both Windows binaries exist
       run: |
-        echo "Testing ${{ matrix.binary }}..."
-        ./${{ matrix.binary }} --help
-        echo "✅ Binary execution successful"
+        echo "Verifying Windows binaries..."
+        ls kubectl-oadp-windows-amd64.exe
+        ls kubectl-oadp-windows-arm64.exe
+        echo "✅ Both Windows binaries found"
 
-    - name: Install and test as kubectl plugin
+    - name: Test amd64 binary execution (native)
+      run: |
+        echo "Testing Windows amd64 binary (native execution)..."
+        .\kubectl-oadp-windows-amd64.exe --help
+        echo "✅ Windows amd64 binary execution successful"
+
+    - name: Install and test amd64 binary as kubectl plugin
       run: |
         mkdir -p C:\tmp\bin
-        copy ${{ matrix.binary }} C:\tmp\bin\kubectl-oadp.exe
+        copy kubectl-oadp-windows-amd64.exe C:\tmp\bin\kubectl-oadp.exe
         $env:PATH = "C:\tmp\bin;" + $env:PATH
         
         echo "Testing kubectl plugin functionality..."
@@ -242,6 +240,18 @@ jobs:
         kubectl-oadp version --help  
         kubectl-oadp nonadmin --help
         echo "✅ kubectl plugin tests passed"
+
+    - name: Verify arm64 binary (build verification only)
+      run: |
+        echo "Verifying Windows arm64 binary was built successfully..."
+        echo "Note: Cannot execute arm64 binary on amd64 runner, but verifying file exists and has reasonable size"
+        $size = (Get-Item kubectl-oadp-windows-arm64.exe).Length
+        echo "Windows arm64 binary size: $size bytes"
+        if ($size -lt 1MB) {
+          echo "❌ Binary size seems too small"
+          exit 1
+        }
+        echo "✅ Windows arm64 binary verification complete"
 
     - name: Run test suite
       run: |
@@ -281,7 +291,7 @@ jobs:
         fi
         
         if [ "${{ needs.test-windows.result }}" = "success" ]; then
-          echo "✅ Windows tests (amd64 + arm64): PASSED"
+          echo "✅ Windows tests (amd64 native + arm64 build verification): PASSED"
         else
           echo "❌ Windows tests: FAILED"
         fi
@@ -292,7 +302,7 @@ jobs:
            [ "${{ needs.test-macos.result }}" = "success" ] && \
            [ "${{ needs.test-windows.result }}" = "success" ]; then
           echo "🎉 All cross-architecture builds and tests successful!"
-          echo "   Validated: Linux (amd64/arm64), macOS (Intel/Apple Silicon), Windows (amd64/arm64)"
+          echo "   Validated: Linux (amd64/arm64 native), macOS (Intel/Apple Silicon native), Windows (amd64 native + arm64 build)"
           exit 0
         else
           echo "💥 Some builds or tests failed - check the logs above"

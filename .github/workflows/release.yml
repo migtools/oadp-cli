@@ -113,22 +113,15 @@ jobs:
         export VERSION="${{ github.ref_name }}"
         export LINUX_AMD64_SHA=$(grep "kubectl-oadp-linux-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
         export LINUX_ARM64_SHA=$(grep "kubectl-oadp-linux-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
-<<<<<<< HEAD
         export LINUX_PPC64LE_SHA=$(grep "kubectl-oadp-linux-ppc64le.tar.gz" checksums.txt | cut -d' ' -f1)
         export LINUX_S390X_SHA=$(grep "kubectl-oadp-linux-s390x.tar.gz" checksums.txt | cut -d' ' -f1)
-=======
->>>>>>> dc5c835 (Implement better templating with envsubst)
         export DARWIN_AMD64_SHA=$(grep "kubectl-oadp-darwin-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
         export DARWIN_ARM64_SHA=$(grep "kubectl-oadp-darwin-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
         export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp-windows-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
         export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp-windows-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
         
         # Validate all checksums were found
-<<<<<<< HEAD
         if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$LINUX_PPC64LE_SHA" || -z "$LINUX_S390X_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
-=======
-        if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
->>>>>>> dc5c835 (Implement better templating with envsubst)
           echo "❌ Some checksums are missing!"
           echo "Available checksums:"
           cat checksums.txt
@@ -136,13 +129,9 @@ jobs:
         fi
         
         # Use envsubst to substitute environment variables in template
-<<<<<<< HEAD
         # Save original template and generate final manifest
         cp oadp.yaml oadp-template.yaml
         envsubst < oadp-template.yaml > oadp.yaml
-=======
-        envsubst < oadp.yaml > kubectl-oadp.yaml
->>>>>>> dc5c835 (Implement better templating with envsubst)
         
         echo "✅ Final krew manifest generated successfully!"
         echo ""
@@ -150,11 +139,8 @@ jobs:
         echo "Version: $VERSION"
         echo "Linux amd64: ${LINUX_AMD64_SHA:0:16}..."
         echo "Linux arm64: ${LINUX_ARM64_SHA:0:16}..."
-<<<<<<< HEAD
         echo "Linux ppc64le: ${LINUX_PPC64LE_SHA:0:16}..."
         echo "Linux s390x: ${LINUX_S390X_SHA:0:16}..."
-=======
->>>>>>> dc5c835 (Implement better templating with envsubst)
         echo "Darwin amd64: ${DARWIN_AMD64_SHA:0:16}..."
         echo "Darwin arm64: ${DARWIN_ARM64_SHA:0:16}..."
         echo "Windows amd64: ${WINDOWS_AMD64_SHA:0:16}..."

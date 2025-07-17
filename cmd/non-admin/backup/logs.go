@@ -27,7 +27,11 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 			defer cancel()
 
-			userNamespace := f.Namespace()
+			// Get the current namespace from kubectl context
+			userNamespace, err := getCurrentNamespace()
+			if err != nil {
+				return fmt.Errorf("failed to determine current namespace: %w", err)
+			}
 			backupName := args[0]
 
 			scheme := runtime.NewScheme()
@@ -46,6 +50,15 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("failed to create controller-runtime client: %w", err)
 			}
 
+			// Verify the NonAdminBackup exists before creating download request
+			var nab nacv1alpha1.NonAdminBackup
+			if err := kbClient.Get(ctx, kbclient.ObjectKey{
+				Namespace: userNamespace,
+				Name:      backupName,
+			}, &nab); err != nil {
+				return fmt.Errorf("failed to get NonAdminBackup %q: %w", backupName, err)
+			}
+
 			req := &nacv1alpha1.NonAdminDownloadRequest{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: backupName + "-logs-",
@@ -54,7 +67,7 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				Spec: nacv1alpha1.NonAdminDownloadRequestSpec{
 					Target: velerov1.DownloadTarget{
 						Kind: "BackupLog",
-						Name: backupName,
+						Name: backupName, // Use NonAdminBackup name, controller will resolve to Velero backup
 					},
 				},
 			}
@@ -70,14 +83,17 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			}()
 
 			var signedURL string
-			timeout := time.After(60 * time.Second)
-			tick := time.Tick(1 * time.Second)
+			timeout := time.After(120 * time.Second) // Increased timeout to 2 minutes
+			tick := time.Tick(2 * time.Second)       // Check every 2 seconds instead of 1
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed...")
 		Loop:
 			for {
 				select {
 				case <-timeout:
 					return fmt.Errorf("timed out waiting for NonAdminDownloadRequest to be processed")
 				case <-tick:
+					fmt.Fprintf(cmd.OutOrStdout(), ".")
 					var updated nacv1alpha1.NonAdminDownloadRequest
 					if err := kbClient.Get(ctx, kbclient.ObjectKey{
 						Namespace: req.Namespace,
@@ -86,15 +102,22 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 						return fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
 					}
 
-					switch updated.Status.Phase {
-					case "Processed":
-						if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
-							signedURL = updated.Status.VeleroDownloadRequest.Status.DownloadURL
-							break Loop
+					// Check if the download request was processed successfully
+					for _, condition := range updated.Status.Conditions {
+						if condition.Type == "Processed" && condition.Status == "True" {
+							if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
+								signedURL = updated.Status.VeleroDownloadRequest.Status.DownloadURL
+								fmt.Fprintf(cmd.OutOrStdout(), "\nDownload URL received, fetching logs...\n")
+								break Loop
+							}
 						}
-					case "Failed":
-						return fmt.Errorf("NonAdminDownloadRequest failed: phase=%s", updated.Status.Phase)
-					default:
+					}
+
+					// Check for failure conditions
+					for _, condition := range updated.Status.Conditions {
+						if condition.Status == "True" && condition.Reason == "Error" {
+							return fmt.Errorf("NonAdminDownloadRequest failed: %s - %s", condition.Type, condition.Message)
+						}
 					}
 				}
 			}

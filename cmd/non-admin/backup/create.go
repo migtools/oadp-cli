@@ -366,6 +366,9 @@ func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonA
 	} else {
 		// Build the BackupSpec manually
 		// For NonAdminBackup, automatically include the current namespace
+
+		storageLocation := o.StorageLocation
+
 		backupBuilder := builder.ForBackup(namespace, o.Name).
 			IncludedNamespaces(namespace). // Automatically include the current namespace
 			IncludedResources(o.IncludeResources...).
@@ -377,7 +380,7 @@ func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonA
 			LabelSelector(o.Selector.LabelSelector).
 			OrLabelSelector(o.OrSelector.OrLabelSelectors).
 			TTL(o.TTL).
-			StorageLocation(o.StorageLocation).
+			StorageLocation(storageLocation).
 			VolumeSnapshotLocations(o.SnapshotLocations...).
 			CSISnapshotTimeout(o.CSISnapshotTimeout).
 			ItemOperationTimeout(o.ItemOperationTimeout).

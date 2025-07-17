@@ -48,27 +48,44 @@ jobs:
         set -e
         echo "Creating release archives..."
         
-        # Create archives for each binary
-        for binary in kubectl-oadp-*; do
-          if [[ -f "$binary" ]]; then
-            # Extract platform info from filename
-            platform=$(echo "$binary" | sed 's/kubectl-oadp-//')
-            echo "Creating archive for $platform..."
-            
-            # Create archive
-            if [[ "$platform" == *"windows"* ]]; then
-              # Windows binary should be .exe
+        # Define the platforms we want for krew (must match oadp.yaml)
+        declare -a platforms=(
+          "linux-amd64"
+          "linux-arm64" 
+          "darwin-amd64"
+          "darwin-arm64"
+          "windows-amd64"
+          "windows-arm64"
+        )
+        
+        # Create archives only for krew platforms
+        for platform in "${platforms[@]}"; do
+          if [[ "$platform" == *"windows"* ]]; then
+            # Windows binaries have .exe extension
+            binary="kubectl-oadp-${platform}.exe"
+            if [[ -f "$binary" ]]; then
+              echo "Creating archive for $platform..."
               cp "$binary" kubectl-oadp.exe
               tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp.exe LICENSE
               rm kubectl-oadp.exe
+              echo "✅ Created kubectl-oadp-${platform}.tar.gz"
             else
-              # Unix binary
+              echo "❌ Binary not found: $binary"
+              exit 1
+            fi
+          else
+            # Unix binaries (no extension)
+            binary="kubectl-oadp-${platform}"
+            if [[ -f "$binary" ]]; then
+              echo "Creating archive for $platform..."
               cp "$binary" kubectl-oadp
               tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp LICENSE
               rm kubectl-oadp
+              echo "✅ Created kubectl-oadp-${platform}.tar.gz"
+            else
+              echo "❌ Binary not found: $binary"
+              exit 1
             fi
-            
-            echo "✅ Created kubectl-oadp-${platform}.tar.gz"
           fi
         done
         

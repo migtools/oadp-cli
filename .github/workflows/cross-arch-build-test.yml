@@ -195,11 +195,22 @@ jobs:
         make test
         echo "✅ Test suite passed"
 
-  # Test Windows binaries on Windows runner
+  # Test Windows binaries on native Windows runners
   test-windows:
     name: Test Windows
     needs: build-all
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest  # amd64
+            arch: amd64
+            binary: kubectl-oadp-windows-amd64.exe
+          - os: windows-11-arm  # arm64
+            arch: arm64
+            binary: kubectl-oadp-windows-arm64.exe
+    
+    runs-on: ${{ matrix.os }}
     
     steps:
     - name: Checkout code (for tests)
@@ -216,42 +227,35 @@ jobs:
       with:
         name: windows-binaries
 
-    - name: Verify both Windows binaries exist
+    - name: Verify runner architecture matches binary
       run: |
-        echo "Verifying Windows binaries..."
-        ls kubectl-oadp-windows-amd64.exe
-        ls kubectl-oadp-windows-arm64.exe
-        echo "✅ Both Windows binaries found"
+        echo "Expected architecture: ${{ matrix.arch }}"
+        echo "Runner OS: ${{ matrix.os }}"
+        echo "Testing binary: ${{ matrix.binary }}"
+        if (Test-Path ${{ matrix.binary }}) {
+          echo "✅ Binary found: ${{ matrix.binary }}"
+        } else {
+          echo "❌ Binary not found: ${{ matrix.binary }}"
+          exit 1
+        }
 
-    - name: Test amd64 binary execution (native)
+    - name: Test binary execution (native)
       run: |
-        echo "Testing Windows amd64 binary (native execution)..."
-        .\kubectl-oadp-windows-amd64.exe --help
-        echo "✅ Windows amd64 binary execution successful"
+        echo "Testing ${{ matrix.binary }} on native ${{ matrix.arch }} runner..."
+        .\${{ matrix.binary }} --help
+        echo "✅ Binary execution successful on ${{ matrix.arch }}"
 
-    - name: Install and test amd64 binary as kubectl plugin
+    - name: Install and test as kubectl plugin
       run: |
         mkdir -p C:\tmp\bin
-        copy kubectl-oadp-windows-amd64.exe C:\tmp\bin\kubectl-oadp.exe
+        copy ${{ matrix.binary }} C:\tmp\bin\kubectl-oadp.exe
         $env:PATH = "C:\tmp\bin;" + $env:PATH
         
-        echo "Testing kubectl plugin functionality..."
+        echo "Testing kubectl plugin functionality on ${{ matrix.arch }}..."
         kubectl-oadp --help
         kubectl-oadp version --help  
         kubectl-oadp nonadmin --help
-        echo "✅ kubectl plugin tests passed"
-
-    - name: Verify arm64 binary (build verification only)
-      run: |
-        echo "Verifying Windows arm64 binary was built successfully..."
-        echo "Note: Cannot execute arm64 binary on amd64 runner, but verifying file exists and has reasonable size"
-        $size = (Get-Item kubectl-oadp-windows-arm64.exe).Length
-        echo "Windows arm64 binary size: $size bytes"
-        if ($size -lt 1MB) {
-          echo "❌ Binary size seems too small"
-          exit 1
-        }
-        echo "✅ Windows arm64 binary verification complete"
+        echo "✅ kubectl plugin tests passed on ${{ matrix.arch }}"
 
     - name: Run test suite
       run: |
@@ -291,7 +295,7 @@ jobs:
         fi
         
         if [ "${{ needs.test-windows.result }}" = "success" ]; then
-          echo "✅ Windows tests (amd64 native + arm64 build verification): PASSED"
+          echo "✅ Windows tests (amd64 + arm64 native): PASSED"
         else
           echo "❌ Windows tests: FAILED"
         fi
@@ -302,7 +306,7 @@ jobs:
            [ "${{ needs.test-macos.result }}" = "success" ] && \
            [ "${{ needs.test-windows.result }}" = "success" ]; then
           echo "🎉 All cross-architecture builds and tests successful!"
-          echo "   Validated: Linux (amd64/arm64 native), macOS (Intel/Apple Silicon native), Windows (amd64 native + arm64 build)"
+          echo "   Validated: Linux (amd64/arm64 native), macOS (Intel/Apple Silicon native), Windows (amd64/arm64 native)"
           exit 0
         else
           echo "💥 Some builds or tests failed - check the logs above"

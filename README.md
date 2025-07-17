@@ -1,5 +1,7 @@
 # OADP CLI
 
+[![Cross-Architecture Build Test](https://github.com/migtools/oadp-cli/actions/workflows/cross-arch-build-test.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/cross-arch-build-test.yml)
+
 A kubectl plugin for working with OpenShift API for Data Protection (OADP) resources, including NonAdminBackup operations.
 
 > This project provides a `kubectl` plugin CLI that extends OADP functionality, allowing users to work with both regular Velero resources and NonAdminBackup resources through a unified interface.

@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: oadp
 spec:
-  version: v0.0.0
+  version: ${VERSION}
   homepage: https://github.com/migtools/oadp-cli
   shortDescription: Manage OpenShift API for Data Protection (OADP) backup and restore operations
   description: |
@@ -32,8 +32,8 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-linux-amd64.tar.gz
-    sha256: ""
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-linux-amd64.tar.gz
+    sha256: "${LINUX_AMD64_SHA}"
     files:
     - from: kubectl-oadp
       to: .
@@ -44,8 +44,8 @@ spec:
       matchLabels:
         os: linux
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-linux-arm64.tar.gz
-    sha256: ""
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-linux-arm64.tar.gz
+    sha256: "${LINUX_ARM64_SHA}"
     files:
     - from: kubectl-oadp
       to: .
@@ -56,8 +56,8 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-darwin-amd64.tar.gz
-    sha256: ""
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-darwin-amd64.tar.gz
+    sha256: "${DARWIN_AMD64_SHA}"
     files:
     - from: kubectl-oadp
       to: .
@@ -68,8 +68,8 @@ spec:
       matchLabels:
         os: darwin
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-darwin-arm64.tar.gz
-    sha256: ""
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-darwin-arm64.tar.gz
+    sha256: "${DARWIN_ARM64_SHA}"
     files:
     - from: kubectl-oadp
       to: .
@@ -80,8 +80,8 @@ spec:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-windows-amd64.tar.gz
-    sha256: ""
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-windows-amd64.tar.gz
+    sha256: "${WINDOWS_AMD64_SHA}"
     files:
     - from: kubectl-oadp.exe
       to: .
@@ -92,8 +92,8 @@ spec:
       matchLabels:
         os: windows
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-windows-arm64.tar.gz
-    sha256: ""
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-windows-arm64.tar.gz
+    sha256: "${WINDOWS_ARM64_SHA}"
     files:
     - from: kubectl-oadp.exe
       to: .

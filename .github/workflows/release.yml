@@ -90,80 +90,36 @@ jobs:
         set -e
         echo "Generating final krew manifest with version ${{ github.ref_name }}..."
         
-        python3 << 'EOF'
-        import re
-        import sys
+        # Set environment variables for template substitution
+        export VERSION="${{ github.ref_name }}"
+        export LINUX_AMD64_SHA=$(grep "kubectl-oadp-linux-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_ARM64_SHA=$(grep "kubectl-oadp-linux-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export DARWIN_AMD64_SHA=$(grep "kubectl-oadp-darwin-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export DARWIN_ARM64_SHA=$(grep "kubectl-oadp-darwin-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp-windows-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp-windows-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
         
-        # Read the template manifest
-        with open('oadp.yaml', 'r') as f:
-            manifest = f.read()
+        # Validate all checksums were found
+        if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
+          echo "❌ Some checksums are missing!"
+          echo "Available checksums:"
+          cat checksums.txt
+          exit 1
+        fi
         
-        # Read checksums
-        checksums = {}
-        with open('checksums.txt', 'r') as f:
-            for line in f:
-                sha, filename = line.strip().split('  ')
-                # Extract platform from filename (e.g., kubectl-oadp-linux-amd64.tar.gz -> linux-amd64)
-                platform = filename.replace('kubectl-oadp-', '').replace('.tar.gz', '')
-                checksums[platform] = sha
+        # Use envsubst to substitute environment variables in template
+        envsubst < oadp.yaml > kubectl-oadp.yaml
         
-        # Get version from GitHub ref
-        version = "${{ github.ref_name }}"
-        print(f"Using version: {version}")
-        
-        # Update version field
-        manifest = re.sub(r'version: v\d+\.\d+\.\d+', f'version: {version}', manifest)
-        
-        # Update download URLs with correct version
-        manifest = re.sub(
-            r'/download/v\d+\.\d+\.\d+/',
-            f'/download/{version}/',
-            manifest
-        )
-        
-        # Update SHA256 checksums for each platform
-        platform_map = {
-            'linux-amd64': 'linux-amd64',
-            'linux-arm64': 'linux-arm64', 
-            'darwin-amd64': 'darwin-amd64',
-            'darwin-arm64': 'darwin-arm64',
-            'windows-amd64': 'windows-amd64',
-            'windows-arm64': 'windows-arm64'
-        }
-        
-        for platform, checksum_key in platform_map.items():
-            if checksum_key in checksums:
-                sha = checksums[checksum_key]
-                print(f"Updating {platform}: {sha}")
-                
-                # Find the section for this platform and update its SHA256
-                pattern = f'kubectl-oadp-{platform}\.tar\.gz.*?sha256: ""'
-                replacement = f'kubectl-oadp-{platform}.tar.gz\n    sha256: "{sha}"'
-                manifest = re.sub(pattern, replacement, manifest, flags=re.DOTALL)
-            else:
-                print(f"❌ No checksum found for {platform}")
-                sys.exit(1)
-        
-        # Validate no empty SHA256 values remain
-        if 'sha256: ""' in manifest:
-            print("❌ Some SHA256 values are still empty!")
-            empty_lines = [line for line in manifest.split('\n') if 'sha256: ""' in line]
-            for line in empty_lines:
-                print(f"  {line.strip()}")
-            sys.exit(1)
-        
-        # Write final manifest
-        with open('kubectl-oadp.yaml', 'w') as f:
-            f.write(manifest)
-        
-        print("✅ Final krew manifest generated successfully!")
-        
-        # Show summary
-        print(f"\nSummary:")
-        print(f"Version: {version}")
-        for platform, sha in checksums.items():
-            print(f"{platform}: {sha[:16]}...")
-        EOF
+        echo "✅ Final krew manifest generated successfully!"
+        echo ""
+        echo "Summary:"
+        echo "Version: $VERSION"
+        echo "Linux amd64: ${LINUX_AMD64_SHA:0:16}..."
+        echo "Linux arm64: ${LINUX_ARM64_SHA:0:16}..."
+        echo "Darwin amd64: ${DARWIN_AMD64_SHA:0:16}..."
+        echo "Darwin arm64: ${DARWIN_ARM64_SHA:0:16}..."
+        echo "Windows amd64: ${WINDOWS_AMD64_SHA:0:16}..."
+        echo "Windows arm64: ${WINDOWS_ARM64_SHA:0:16}..."
         
         echo ""
         echo "Final manifest preview:"

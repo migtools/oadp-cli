@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: oadp
 spec:
-  version: v1.0.0
+  version: v0.0.0
   homepage: https://github.com/migtools/oadp-cli
   shortDescription: Manage OpenShift API for Data Protection (OADP) backup and restore operations
   description: |
@@ -32,7 +32,7 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v1.0.0/kubectl-oadp-linux-amd64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-linux-amd64.tar.gz
     sha256: ""
     files:
     - from: kubectl-oadp
@@ -44,7 +44,7 @@ spec:
       matchLabels:
         os: linux
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v1.0.0/kubectl-oadp-linux-arm64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-linux-arm64.tar.gz
     sha256: ""
     files:
     - from: kubectl-oadp
@@ -56,7 +56,7 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v1.0.0/kubectl-oadp-darwin-amd64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-darwin-amd64.tar.gz
     sha256: ""
     files:
     - from: kubectl-oadp
@@ -68,7 +68,7 @@ spec:
       matchLabels:
         os: darwin
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v1.0.0/kubectl-oadp-darwin-arm64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-darwin-arm64.tar.gz
     sha256: ""
     files:
     - from: kubectl-oadp
@@ -80,11 +80,23 @@ spec:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/v1.0.0/kubectl-oadp-windows-amd64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-windows-amd64.tar.gz
     sha256: ""
     files:
     - from: kubectl-oadp.exe
       to: .
     - from: LICENSE
       to: .
-    bin: kubectl-oadp.exe 
+    bin: kubectl-oadp.exe
+  - selector:
+      matchLabels:
+        os: windows
+        arch: arm64
+    uri: https://github.com/migtools/oadp-cli/releases/download/v0.0.0/kubectl-oadp-windows-arm64.tar.gz
+    sha256: ""
+    files:
+    - from: kubectl-oadp.exe
+      to: .
+    - from: LICENSE
+      to: .
+    bin: kubectl-oadp.exe

@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Build all architectures
+      run: |
+        set -e
+        echo "Building all architectures for release..."
+        if ! make release-build; then
+          echo "❌ Build failed"
+          exit 1
+        fi
+        echo "✅ All builds completed"
+
+    - name: Create release archives
+      run: |
+        set -e
+        echo "Creating release archives..."
+        
+        # Create archives for each binary
+        for binary in kubectl-oadp-*; do
+          if [[ -f "$binary" ]]; then
+            # Extract platform info from filename
+            platform=$(echo "$binary" | sed 's/kubectl-oadp-//')
+            echo "Creating archive for $platform..."
+            
+            # Create archive
+            if [[ "$platform" == *"windows"* ]]; then
+              # Windows binary should be .exe
+              cp "$binary" kubectl-oadp.exe
+              tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp.exe LICENSE
+              rm kubectl-oadp.exe
+            else
+              # Unix binary
+              cp "$binary" kubectl-oadp
+              tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp LICENSE
+              rm kubectl-oadp
+            fi
+            
+            echo "✅ Created kubectl-oadp-${platform}.tar.gz"
+          fi
+        done
+        
+        echo ""
+        echo "Release archives created:"
+        ls -la *.tar.gz
+
+    - name: Generate SHA256 checksums
+      run: |
+        set -e
+        echo "Generating SHA256 checksums..."
+        sha256sum *.tar.gz > checksums.txt
+        echo ""
+        echo "Checksums:"
+        cat checksums.txt
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          *.tar.gz
+          checksums.txt
+        body: |
+          ## OADP CLI ${{ github.ref_name }}
+          
+          Cross-platform kubectl plugin for managing OpenShift API for Data Protection (OADP) backup and restore operations.
+          
+          ### Installation
+          
+          #### Via krew (recommended)
+          ```bash
+          kubectl krew install oadp
+          ```
+          
+          #### Manual installation
+          1. Download the appropriate binary for your platform
+          2. Extract the archive
+          3. Add the binary to your PATH
+          4. Verify installation: `kubectl oadp --help`
+          
+          ### Supported Platforms
+          - Linux (amd64, arm64)
+          - macOS (amd64, arm64) 
+          - Windows (amd64, arm64)
+          
+          ### Checksums
+          SHA256 checksums are provided in `checksums.txt` for verification.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

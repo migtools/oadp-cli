@@ -2,9 +2,9 @@ name: Cross-Architecture Build Test
 
 on:
   push:
-    branches: [ main, krew-init, install-test-workflow ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, krew-init ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -78,7 +78,7 @@ jobs:
           - os: ubuntu-latest
             arch: amd64
             binary: kubectl-oadp-linux-amd64
-          - os: ubuntu-latest-arm64
+          - os: ubuntu-24.04-arm
             arch: arm64  
             binary: kubectl-oadp-linux-arm64
     

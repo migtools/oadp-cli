@@ -108,7 +108,9 @@ jobs:
         fi
         
         # Use envsubst to substitute environment variables in template
-        envsubst < oadp.yaml > kubectl-oadp.yaml
+        # Save original template and generate final manifest
+        cp oadp.yaml oadp-template.yaml
+        envsubst < oadp-template.yaml > oadp.yaml
         
         echo "✅ Final krew manifest generated successfully!"
         echo ""
@@ -123,7 +125,7 @@ jobs:
         
         echo ""
         echo "Final manifest preview:"
-        grep -E "(version:|sha256:)" kubectl-oadp.yaml
+        grep -E "(version:|sha256:)" oadp.yaml
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
@@ -131,7 +133,7 @@ jobs:
         files: |
           *.tar.gz
           checksums.txt
-          kubectl-oadp.yaml
+          oadp.yaml
         body: |
           ## OADP CLI ${{ github.ref_name }}
           
@@ -146,8 +148,8 @@ jobs:
           
           #### Via krew manifest (for testing or custom indexes)
           ```bash
-          curl -LO https://github.com/migtools/oadp-cli/releases/download/${{ github.ref_name }}/kubectl-oadp.yaml
-          kubectl krew install --manifest=kubectl-oadp.yaml
+          curl -LO https://github.com/migtools/oadp-cli/releases/download/${{ github.ref_name }}/oadp.yaml
+          kubectl krew install --manifest=oadp.yaml
           ```
           
           #### Manual installation
@@ -164,10 +166,10 @@ jobs:
           ### Files Included
           - **Binary archives**: Platform-specific kubectl-oadp binaries with LICENSE
           - **checksums.txt**: SHA256 checksums for all binaries  
-          - **kubectl-oadp.yaml**: Final krew plugin manifest with populated SHA256 values
+          - **oadp.yaml**: Final krew plugin manifest with populated SHA256 values (ready for krew index)
           
           ### For Krew Index Maintainers
-          The `kubectl-oadp.yaml` file contains the complete krew plugin manifest with all SHA256 checksums populated and can be used directly for krew index submissions.
+          The `oadp.yaml` file contains the complete krew plugin manifest with all SHA256 checksums populated and can be used directly for krew index submissions.
         draft: false
         prerelease: false
       env:

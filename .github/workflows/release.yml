@@ -85,12 +85,97 @@ jobs:
         echo "Checksums:"
         cat checksums.txt
 
+    - name: Generate final krew manifest
+      run: |
+        set -e
+        echo "Generating final krew manifest with version ${{ github.ref_name }}..."
+        
+        python3 << 'EOF'
+        import re
+        import sys
+        
+        # Read the template manifest
+        with open('oadp.yaml', 'r') as f:
+            manifest = f.read()
+        
+        # Read checksums
+        checksums = {}
+        with open('checksums.txt', 'r') as f:
+            for line in f:
+                sha, filename = line.strip().split('  ')
+                # Extract platform from filename (e.g., kubectl-oadp-linux-amd64.tar.gz -> linux-amd64)
+                platform = filename.replace('kubectl-oadp-', '').replace('.tar.gz', '')
+                checksums[platform] = sha
+        
+        # Get version from GitHub ref
+        version = "${{ github.ref_name }}"
+        print(f"Using version: {version}")
+        
+        # Update version field
+        manifest = re.sub(r'version: v\d+\.\d+\.\d+', f'version: {version}', manifest)
+        
+        # Update download URLs with correct version
+        manifest = re.sub(
+            r'/download/v\d+\.\d+\.\d+/',
+            f'/download/{version}/',
+            manifest
+        )
+        
+        # Update SHA256 checksums for each platform
+        platform_map = {
+            'linux-amd64': 'linux-amd64',
+            'linux-arm64': 'linux-arm64', 
+            'darwin-amd64': 'darwin-amd64',
+            'darwin-arm64': 'darwin-arm64',
+            'windows-amd64': 'windows-amd64',
+            'windows-arm64': 'windows-arm64'
+        }
+        
+        for platform, checksum_key in platform_map.items():
+            if checksum_key in checksums:
+                sha = checksums[checksum_key]
+                print(f"Updating {platform}: {sha}")
+                
+                # Find the section for this platform and update its SHA256
+                pattern = f'kubectl-oadp-{platform}\.tar\.gz.*?sha256: ""'
+                replacement = f'kubectl-oadp-{platform}.tar.gz\n    sha256: "{sha}"'
+                manifest = re.sub(pattern, replacement, manifest, flags=re.DOTALL)
+            else:
+                print(f"❌ No checksum found for {platform}")
+                sys.exit(1)
+        
+        # Validate no empty SHA256 values remain
+        if 'sha256: ""' in manifest:
+            print("❌ Some SHA256 values are still empty!")
+            empty_lines = [line for line in manifest.split('\n') if 'sha256: ""' in line]
+            for line in empty_lines:
+                print(f"  {line.strip()}")
+            sys.exit(1)
+        
+        # Write final manifest
+        with open('kubectl-oadp.yaml', 'w') as f:
+            f.write(manifest)
+        
+        print("✅ Final krew manifest generated successfully!")
+        
+        # Show summary
+        print(f"\nSummary:")
+        print(f"Version: {version}")
+        for platform, sha in checksums.items():
+            print(f"{platform}: {sha[:16]}...")
+        EOF
+        
+        echo ""
+        echo "Final manifest preview:"
+        grep -E "(version:|sha256:)" kubectl-oadp.yaml
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
           *.tar.gz
           checksums.txt
+          kubectl-oadp.yaml
         body: |
           ## OADP CLI ${{ github.ref_name }}
           
@@ -101,6 +186,12 @@ jobs:
           #### Via krew (recommended)
           ```bash
           kubectl krew install oadp
+          ```
+          
+          #### Via krew manifest (for testing or custom indexes)
+          ```bash
+          curl -LO https://github.com/migtools/oadp-cli/releases/download/${{ github.ref_name }}/kubectl-oadp.yaml
+          kubectl krew install --manifest=kubectl-oadp.yaml
           ```
           
           #### Manual installation
@@ -114,8 +205,13 @@ jobs:
           - macOS (amd64, arm64) 
           - Windows (amd64, arm64)
           
-          ### Checksums
-          SHA256 checksums are provided in `checksums.txt` for verification.
+          ### Files Included
+          - **Binary archives**: Platform-specific kubectl-oadp binaries with LICENSE
+          - **checksums.txt**: SHA256 checksums for all binaries  
+          - **kubectl-oadp.yaml**: Final krew plugin manifest with populated SHA256 values
+          
+          ### For Krew Index Maintainers
+          The `kubectl-oadp.yaml` file contains the complete krew plugin manifest with all SHA256 checksums populated and can be used directly for krew index submissions.
         draft: false
         prerelease: false
       env:

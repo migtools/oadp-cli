@@ -14,7 +14,7 @@ kubectl-oadp-windows-*
 # Release artifacts
 *.tar.gz
 *.sha256
-oadp-*.yaml
+oadp-v*.yaml
 
 # Test binary, built with `go test -c`
 *.test

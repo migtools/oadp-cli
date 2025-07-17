@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -40,7 +41,13 @@ func buildCLIBinary(t *testing.T) string {
 
 	// Create temporary directory for the binary
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, binaryName)
+
+	// Add .exe extension on Windows
+	binaryNameWithExt := binaryName
+	if runtime.GOOS == "windows" {
+		binaryNameWithExt += ".exe"
+	}
+	binaryPath := filepath.Join(tmpDir, binaryNameWithExt)
 
 	// Build the binary from parent directory (project root)
 	// This uses whatever code is currently on disk (including uncommitted changes)

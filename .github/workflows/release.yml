@@ -51,7 +51,9 @@ jobs:
         # Define the platforms we want for krew (must match oadp.yaml)
         declare -a platforms=(
           "linux-amd64"
-          "linux-arm64" 
+          "linux-arm64"
+          "linux-ppc64le"
+          "linux-s390x"
           "darwin-amd64"
           "darwin-arm64"
           "windows-amd64"
@@ -111,13 +113,15 @@ jobs:
         export VERSION="${{ github.ref_name }}"
         export LINUX_AMD64_SHA=$(grep "kubectl-oadp-linux-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
         export LINUX_ARM64_SHA=$(grep "kubectl-oadp-linux-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_PPC64LE_SHA=$(grep "kubectl-oadp-linux-ppc64le.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_S390X_SHA=$(grep "kubectl-oadp-linux-s390x.tar.gz" checksums.txt | cut -d' ' -f1)
         export DARWIN_AMD64_SHA=$(grep "kubectl-oadp-darwin-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
         export DARWIN_ARM64_SHA=$(grep "kubectl-oadp-darwin-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
         export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp-windows-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
         export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp-windows-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
         
         # Validate all checksums were found
-        if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
+        if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$LINUX_PPC64LE_SHA" || -z "$LINUX_S390X_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
           echo "❌ Some checksums are missing!"
           echo "Available checksums:"
           cat checksums.txt
@@ -135,6 +139,8 @@ jobs:
         echo "Version: $VERSION"
         echo "Linux amd64: ${LINUX_AMD64_SHA:0:16}..."
         echo "Linux arm64: ${LINUX_ARM64_SHA:0:16}..."
+        echo "Linux ppc64le: ${LINUX_PPC64LE_SHA:0:16}..."
+        echo "Linux s390x: ${LINUX_S390X_SHA:0:16}..."
         echo "Darwin amd64: ${DARWIN_AMD64_SHA:0:16}..."
         echo "Darwin arm64: ${DARWIN_ARM64_SHA:0:16}..."
         echo "Windows amd64: ${WINDOWS_AMD64_SHA:0:16}..."
@@ -176,7 +182,7 @@ jobs:
           4. Verify installation: `kubectl oadp --help`
           
           ### Supported Platforms
-          - Linux (amd64, arm64)
+          - Linux (amd64, arm64, ppc64le, s390x)
           - macOS (amd64, arm64) 
           - Windows (amd64, arm64)
           

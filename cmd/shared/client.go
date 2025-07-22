@@ -18,7 +18,6 @@ package shared
 
 import (
 	"fmt"
-	"strings"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -111,26 +110,6 @@ func GetCurrentNamespace() (string, error) {
 	namespace, _, err := kubeConfig.Namespace()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current namespace from kubeconfig: %w", err)
-	}
-
-	// If no namespace is set in kubeconfig, default to the user's name from context
-	if namespace == "" || namespace == "default" {
-		rawConfig, err := kubeConfig.RawConfig()
-		if err != nil {
-			return "", fmt.Errorf("failed to get raw kubeconfig: %w", err)
-		}
-
-		currentContext := rawConfig.CurrentContext
-		if _, exists := rawConfig.Contexts[currentContext]; exists {
-			// Try to extract user namespace from context name (assuming format like "user/cluster/user")
-			parts := strings.Split(currentContext, "/")
-			if len(parts) >= 3 {
-				userNamespace := parts[2] // Assuming the user namespace is the third part
-				return userNamespace, nil
-			}
-		}
-
-		return "default", nil
 	}
 
 	return namespace, nil

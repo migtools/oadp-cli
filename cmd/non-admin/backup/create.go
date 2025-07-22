@@ -64,11 +64,14 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
   # Force creation with admin defaults (no storage location specified).
   kubectl oadp nonadmin backup create backup4 --force
 
+  # Force creation with admin defaults non-interactively.
+  kubectl oadp nonadmin backup create backup5 --force --assume-yes
+
   # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  kubectl oadp nonadmin backup create backup5 --snapshot-volumes=false --storage-location my-nabsl -o yaml
+  kubectl oadp nonadmin backup create backup6 --snapshot-volumes=false --storage-location my-nabsl -o yaml
 
   # Wait for a non-admin backup to complete before returning from the command.
-  kubectl oadp nonadmin backup create backup6 --wait --storage-location my-nabsl`,
+  kubectl oadp nonadmin backup create backup7 --wait --storage-location my-nabsl`,
 	}
 
 	o.BindFlags(c.Flags())
@@ -107,6 +110,7 @@ type CreateOptions struct {
 	ItemOperationTimeout            time.Duration
 	ResPoliciesConfigmap            string
 	Force                           bool
+	AssumeYes                       bool
 	client                          kbclient.WithWatch
 	ParallelFilesUpload             int
 	currentNamespace                string
@@ -157,6 +161,7 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.DataMover, "data-mover", "", "Specify the data mover to be used by the backup. If the parameter is not set or set as 'velero', the built-in data mover will be used")
 	flags.IntVar(&o.ParallelFilesUpload, "parallel-files-upload", 0, "Number of files uploads simultaneously when running a backup. This is only applicable for the kopia uploader")
 	flags.BoolVarP(&o.Force, "force", "f", o.Force, "Force creation without specifying a storage location (uses admin defaults).")
+	flags.BoolVarP(&o.AssumeYes, "assume-yes", "y", o.AssumeYes, "Assume yes to all prompts and run non-interactively.")
 }
 
 // BindWait binds the wait flag separately so it is not called by other create
@@ -260,18 +265,23 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 	if o.Force && o.StorageLocation == "" {
 		fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
 		fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
-		fmt.Print("Do you want to continue? (y/N): ")
 
-		reader := bufio.NewReader(os.Stdin)
-		response, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("failed to read user input: %w", err)
-		}
+		if !o.AssumeYes {
+			fmt.Print("Do you want to continue? (y/N): ")
 
-		response = strings.TrimSpace(strings.ToLower(response))
-		if response != "y" && response != "yes" {
-			fmt.Println("Operation cancelled.")
-			return nil
+			reader := bufio.NewReader(os.Stdin)
+			response, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("failed to read user input: %w", err)
+			}
+
+			response = strings.TrimSpace(strings.ToLower(response))
+			if response != "y" && response != "yes" {
+				fmt.Println("Operation cancelled.")
+				return nil
+			}
+		} else {
+			fmt.Println("Proceeding with --assume-yes flag.")
 		}
 		fmt.Println() // Add blank line for better formatting
 	}

@@ -17,8 +17,10 @@ limitations under the License.
 */
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -252,6 +254,26 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 
 	if o.FromSchedule != "" {
 		fmt.Println("Creating non-admin backup from schedule, all other filters are ignored.")
+	}
+
+	// Warning prompt when using force flag without storage location
+	if o.Force && o.StorageLocation == "" {
+		fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
+		fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
+		fmt.Print("Do you want to continue? (y/N): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("Operation cancelled.")
+			return nil
+		}
+		fmt.Println() // Add blank line for better formatting
 	}
 
 	var updates chan *nacv1alpha1.NonAdminBackup

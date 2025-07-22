@@ -17,11 +17,7 @@ limitations under the License.
 package backup
 
 import (
-	"fmt"
-	"strings"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 )
@@ -165,38 +161,4 @@ func WithAnnotationsMap(annotations map[string]string) ObjectMetaOpt {
 		}
 		obj.SetAnnotations(existingAnnotations)
 	}
-}
-
-// getCurrentNamespace gets the current namespace from the kubeconfig context
-func getCurrentNamespace() (string, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-
-	namespace, _, err := kubeConfig.Namespace()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current namespace from kubeconfig: %w", err)
-	}
-
-	// If no namespace is set in kubeconfig, default to the user's name from context
-	if namespace == "" || namespace == "default" {
-		rawConfig, err := kubeConfig.RawConfig()
-		if err != nil {
-			return "", fmt.Errorf("failed to get raw kubeconfig: %w", err)
-		}
-
-		currentContext := rawConfig.CurrentContext
-		if _, exists := rawConfig.Contexts[currentContext]; exists {
-			// Try to extract user namespace from context name (assuming format like "user/cluster/user")
-			parts := strings.Split(currentContext, "/")
-			if len(parts) >= 3 {
-				userNamespace := parts[2] // Assuming the user namespace is the third part
-				return userNamespace, nil
-			}
-		}
-
-		return "default", nil
-	}
-
-	return namespace, nil
 }

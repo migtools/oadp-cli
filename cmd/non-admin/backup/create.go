@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/builder"
@@ -219,19 +220,17 @@ func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	if len(args) > 0 {
 		o.Name = args[0]
 	}
-	client, err := f.KubebuilderWatchClient()
+
+	// Create client with NonAdmin scheme
+	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
+		IncludeNonAdminTypes: true,
+	})
 	if err != nil {
 		return err
 	}
 
-	// Add NonAdminBackup types to the scheme
-	err = nacv1alpha1.AddToScheme(client.Scheme())
-	if err != nil {
-		return fmt.Errorf("failed to add NonAdminBackup types to scheme: %w", err)
-	}
-
 	// Get the current namespace from kubeconfig instead of using factory namespace
-	currentNS, err := getCurrentNamespace()
+	currentNS, err := shared.GetCurrentNamespace()
 	if err != nil {
 		return fmt.Errorf("failed to determine current namespace: %w", err)
 	}

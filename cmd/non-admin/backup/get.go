@@ -21,12 +21,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	corev1 "k8s.io/api/core/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,26 +37,15 @@ func NewGetCommand(f client.Factory, use string) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get the current namespace from kubectl context
-			userNamespace, err := getCurrentNamespace()
+			userNamespace, err := shared.GetCurrentNamespace()
 			if err != nil {
 				return fmt.Errorf("failed to determine current namespace: %w", err)
 			}
 
-			// Setup client using factory and add schemes to its existing scheme
-			kbClient, err := f.KubebuilderWatchClient()
+			// Create client with full scheme
+			kbClient, err := shared.NewClientWithFullScheme(f)
 			if err != nil {
-				return fmt.Errorf("failed to create controller-runtime client: %w", err)
-			}
-
-			// Add types to the existing client scheme
-			if err := nacv1alpha1.AddToScheme(kbClient.Scheme()); err != nil {
-				return fmt.Errorf("failed to add OADP non-admin types to scheme: %w", err)
-			}
-			if err := velerov1.AddToScheme(kbClient.Scheme()); err != nil {
-				return fmt.Errorf("failed to add Velero types to scheme: %w", err)
-			}
-			if err := corev1.AddToScheme(kbClient.Scheme()); err != nil {
-				return fmt.Errorf("failed to add Core types to scheme: %w", err)
+				return err
 			}
 
 			if len(args) == 1 {

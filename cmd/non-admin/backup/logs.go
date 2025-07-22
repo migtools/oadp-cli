@@ -25,12 +25,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,19 +44,21 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			defer cancel()
 
 			// Get the current namespace from kubectl context
-			userNamespace, err := getCurrentNamespace()
+			userNamespace, err := shared.GetCurrentNamespace()
 			if err != nil {
 				return fmt.Errorf("failed to determine current namespace: %w", err)
 			}
 			backupName := args[0]
 
-			scheme := runtime.NewScheme()
-			if err := nacv1alpha1.AddToScheme(scheme); err != nil {
-				return fmt.Errorf("failed to add OADP non-admin types to scheme: %w", err)
+			// Create scheme with required types
+			scheme, err := shared.NewSchemeWithTypes(shared.ClientOptions{
+				IncludeNonAdminTypes: true,
+				IncludeVeleroTypes:   true,
+			})
+			if err != nil {
+				return err
 			}
-			if err := velerov1.AddToScheme(scheme); err != nil {
-				return fmt.Errorf("failed to add Velero types to scheme: %w", err)
-			}
+
 			restConfig, err := f.ClientConfig()
 			if err != nil {
 				return fmt.Errorf("failed to get rest config: %w", err)

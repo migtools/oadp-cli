@@ -32,6 +32,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 )
 
@@ -80,22 +81,18 @@ func (o *DeleteOptions) BindFlags(flags *pflag.FlagSet) {
 func (o *DeleteOptions) Complete(args []string, f client.Factory) error {
 	o.Names = args
 
-	// Get the Kubernetes client
-	kbClient, err := f.KubebuilderWatchClient()
+	// Create client with NonAdmin scheme
+	kbClient, err := shared.NewClientWithScheme(f, shared.ClientOptions{
+		IncludeNonAdminTypes: true,
+	})
 	if err != nil {
 		return err
-	}
-
-	// Add NonAdminBackup types to the scheme
-	err = nacv1alpha1.AddToScheme(kbClient.Scheme())
-	if err != nil {
-		return fmt.Errorf("failed to add NonAdminBackup types to scheme: %w", err)
 	}
 
 	o.client = kbClient
 
 	// Always use the current namespace from kubectl context
-	currentNS, err := getCurrentNamespace()
+	currentNS, err := shared.GetCurrentNamespace()
 	if err != nil {
 		return fmt.Errorf("failed to determine current namespace: %w", err)
 	}

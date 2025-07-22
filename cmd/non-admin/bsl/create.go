@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/pflag"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
@@ -87,15 +88,12 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	o.Name = args[0]
 
-	client, err := f.KubebuilderWatchClient()
+	// Create client with Velero scheme for BackupStorageLocation access
+	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
+		IncludeVeleroTypes: true,
+	})
 	if err != nil {
 		return err
-	}
-
-	// Add Velero types to the scheme so we can fetch BackupStorageLocation objects
-	err = velerov1.AddToScheme(client.Scheme())
-	if err != nil {
-		return fmt.Errorf("failed to add Velero types to scheme: %w", err)
 	}
 
 	o.client = client

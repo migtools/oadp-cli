@@ -1,7 +1,5 @@
-package backup
-
 /*
-Copyright 2017 the Velero contributors.
+Copyright 2025 The OADP CLI Contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,26 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+package bsl
+
 import (
 	"github.com/spf13/cobra"
-
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
 
-// NewBackupCommand creates the "backup" subcommand under nonadmin
-func NewBackupCommand(f client.Factory) *cobra.Command {
+// NewBSLCommand creates the "bsl" subcommand under nonadmin
+func NewBSLCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "backup",
-		Short: "Work with non-admin backups",
-		Long:  "Work with non-admin backups",
+		Use:   "bsl",
+		Short: "Work with non-admin backup storage locations",
+		Long:  "Work with non-admin backup storage locations",
 	}
 
 	c.AddCommand(
 		NewCreateCommand(f, "create"),
-		NewGetCommand(f, "get"),
-		NewLogsCommand(f, "logs"),
-		NewDescribeCommand(f, "describe"),
-		NewDeleteCommand(f, "delete"),
 	)
 
 	return c

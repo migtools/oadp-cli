@@ -17,8 +17,10 @@ limitations under the License.
 */
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/builder"
@@ -50,19 +53,25 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Create a non-admin backup containing all resources in the current namespace.
-  kubectl oadp nonadmin backup create backup1
+  kubectl oadp nonadmin backup create backup1 --storage-location my-nabsl
 
   # Create a non-admin backup with specific resource types.
-  kubectl oadp nonadmin backup create backup2 --include-resources deployments,services
+  kubectl oadp nonadmin backup create backup2 --include-resources deployments,services --storage-location my-nabsl
 
   # Create a non-admin backup excluding certain resources.
-  kubectl oadp nonadmin backup create backup3 --exclude-resources secrets
+  kubectl oadp nonadmin backup create backup3 --exclude-resources secrets --storage-location my-nabsl
+
+  # Force creation with admin defaults (no storage location specified).
+  kubectl oadp nonadmin backup create backup4 --force
+
+  # Force creation with admin defaults non-interactively.
+  kubectl oadp nonadmin backup create backup5 --force --assume-yes
 
   # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  kubectl oadp nonadmin backup create backup4 --snapshot-volumes=false -o yaml
+  kubectl oadp nonadmin backup create backup6 --snapshot-volumes=false --storage-location my-nabsl -o yaml
 
   # Wait for a non-admin backup to complete before returning from the command.
-  kubectl oadp nonadmin backup create backup5 --wait`,
+  kubectl oadp nonadmin backup create backup7 --wait --storage-location my-nabsl`,
 	}
 
 	o.BindFlags(c.Flags())
@@ -100,6 +109,8 @@ type CreateOptions struct {
 	CSISnapshotTimeout              time.Duration
 	ItemOperationTimeout            time.Duration
 	ResPoliciesConfigmap            string
+	Force                           bool
+	AssumeYes                       bool
 	client                          kbclient.WithWatch
 	ParallelFilesUpload             int
 	currentNamespace                string
@@ -149,6 +160,8 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.ResPoliciesConfigmap, "resource-policies-configmap", "", "Reference to the resource policies configmap that backup should use")
 	flags.StringVar(&o.DataMover, "data-mover", "", "Specify the data mover to be used by the backup. If the parameter is not set or set as 'velero', the built-in data mover will be used")
 	flags.IntVar(&o.ParallelFilesUpload, "parallel-files-upload", 0, "Number of files uploads simultaneously when running a backup. This is only applicable for the kopia uploader")
+	flags.BoolVarP(&o.Force, "force", "f", o.Force, "Force creation without specifying a storage location (uses admin defaults).")
+	flags.BoolVarP(&o.AssumeYes, "assume-yes", "y", o.AssumeYes, "Assume yes to all prompts and run non-interactively.")
 }
 
 // BindWait binds the wait flag separately so it is not called by other create
@@ -191,6 +204,10 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 	// Note: Storage location and snapshot location validation removed for NonAdminBackup
 	// as these are typically managed by the underlying Velero backup resource
 
+	if !o.Force && o.StorageLocation == "" {
+		return fmt.Errorf("a valid NonAdminBackupStorageLocation must be provided via --storage-location, or use --force to create with admin defaults")
+	}
+
 	return nil
 }
 
@@ -210,19 +227,17 @@ func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	if len(args) > 0 {
 		o.Name = args[0]
 	}
-	client, err := f.KubebuilderWatchClient()
+
+	// Create client with NonAdmin scheme
+	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
+		IncludeNonAdminTypes: true,
+	})
 	if err != nil {
 		return err
 	}
 
-	// Add NonAdminBackup types to the scheme
-	err = nacv1alpha1.AddToScheme(client.Scheme())
-	if err != nil {
-		return fmt.Errorf("failed to add NonAdminBackup types to scheme: %w", err)
-	}
-
 	// Get the current namespace from kubeconfig instead of using factory namespace
-	currentNS, err := getCurrentNamespace()
+	currentNS, err := shared.GetCurrentNamespace()
 	if err != nil {
 		return fmt.Errorf("failed to determine current namespace: %w", err)
 	}
@@ -244,6 +259,31 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 
 	if o.FromSchedule != "" {
 		fmt.Println("Creating non-admin backup from schedule, all other filters are ignored.")
+	}
+
+	// Warning prompt when using force flag without storage location
+	if o.Force && o.StorageLocation == "" {
+		fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
+		fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
+
+		if !o.AssumeYes {
+			fmt.Print("Do you want to continue? (y/N): ")
+
+			reader := bufio.NewReader(os.Stdin)
+			response, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("failed to read user input: %w", err)
+			}
+
+			response = strings.TrimSpace(strings.ToLower(response))
+			if response != "y" && response != "yes" {
+				fmt.Println("Operation cancelled.")
+				return nil
+			}
+		} else {
+			fmt.Println("Proceeding with --assume-yes flag.")
+		}
+		fmt.Println() // Add blank line for better formatting
 	}
 
 	var updates chan *nacv1alpha1.NonAdminBackup
@@ -296,7 +336,11 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 		return err
 	}
 
-	fmt.Printf("NonAdminBackup request %q submitted successfully.\n", nonAdminBackup.Name)
+	if o.Force && o.StorageLocation == "" {
+		fmt.Printf("NonAdminBackup request %q submitted successfully (using admin defaults).\n", nonAdminBackup.Name)
+	} else {
+		fmt.Printf("NonAdminBackup request %q submitted successfully.\n", nonAdminBackup.Name)
+	}
 	if o.Wait {
 		fmt.Println("Waiting for non-admin backup to complete. You may safely press ctrl-c to stop waiting - your backup will continue in the background.")
 		ticker := time.NewTicker(time.Second)
@@ -314,7 +358,11 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 
 				// Check NonAdminBackup status phase for completion states
 				if backup.Status.Phase == "BackupDone" || backup.Status.Phase == "BackupFailed" {
-					fmt.Printf("\nNonAdminBackup completed with status: %s. You may check for more information using the commands `oadp nonadmin backup describe %s` and `oadp nonadmin backup logs %s`.\n", backup.Status.Phase, backup.Name, backup.Name)
+					if o.Force && o.StorageLocation == "" {
+						fmt.Printf("\nNonAdminBackup completed with status: %s (using admin defaults). You may check for more information using the commands `oadp nonadmin backup describe %s` and `oadp nonadmin backup logs %s`.\n", backup.Status.Phase, backup.Name, backup.Name)
+					} else {
+						fmt.Printf("\nNonAdminBackup completed with status: %s. You may check for more information using the commands `oadp nonadmin backup describe %s` and `oadp nonadmin backup logs %s`.\n", backup.Status.Phase, backup.Name, backup.Name)
+					}
 					return nil
 				}
 			}
@@ -322,7 +370,11 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 	}
 
 	// Not waiting
-	fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.\n", nonAdminBackup.Name, nonAdminBackup.Name)
+	if o.Force && o.StorageLocation == "" {
+		fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details. (Created using admin defaults)\n", nonAdminBackup.Name, nonAdminBackup.Name)
+	} else {
+		fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.\n", nonAdminBackup.Name, nonAdminBackup.Name)
+	}
 
 	return nil
 }

@@ -25,13 +25,17 @@ import (
 // NewNonAdminCommand creates the top-level "nonadmin" subcommand
 func NewNonAdminCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "nonadmin",
-		Short: "Work with non-admin resources",
-		Long:  "Work with non-admin resources like backups",
+		Use:     "nonadmin",
+		Short:   "Work with non-admin resources",
+		Long:    "Work with non-admin resources like backups and backup storage locations",
+		Aliases: []string{"na"},
 	}
 
 	// Add backup subcommand
 	c.AddCommand(backup.NewBackupCommand(f))
+
+	// Add backup storage location subcommand
+	//c.AddCommand(bsl.NewBSLCommand(f))
 
 	return c
 }

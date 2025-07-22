@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -18,7 +19,6 @@ import (
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,57 +31,137 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			backupName := args[0]
 
 			// Get the current namespace from kubectl context
-			userNamespace, err := getCurrentNamespace()
+			userNamespace, err := shared.GetCurrentNamespace()
 			if err != nil {
 				return fmt.Errorf("failed to determine current namespace: %w", err)
 			}
 
-			// Setup scheme and client for NonAdminBackup resources
-			scheme := runtime.NewScheme()
-			if err := nacv1alpha1.AddToScheme(scheme); err != nil {
-				return fmt.Errorf("failed to add OADP non-admin types to scheme: %w", err)
-			}
-			if err := velerov1.AddToScheme(scheme); err != nil {
-				return fmt.Errorf("failed to add Velero types to scheme: %w", err)
-			}
-			if err := corev1.AddToScheme(scheme); err != nil {
-				return fmt.Errorf("failed to add core v1 types to scheme: %w", err)
-			}
-
-			restConfig, err := f.ClientConfig()
+			// Create client with required scheme types
+			kbClient, err := shared.NewClientWithScheme(f, shared.ClientOptions{
+				IncludeNonAdminTypes: true,
+				IncludeVeleroTypes:   true,
+				IncludeCoreTypes:     true,
+			})
 			if err != nil {
-				return fmt.Errorf("failed to get rest config: %w", err)
-			}
-
-			kbClient, err := kbclient.New(restConfig, kbclient.Options{Scheme: scheme})
-			if err != nil {
-				return fmt.Errorf("failed to create controller-runtime client: %w", err)
+				return err
 			}
 
 			// Shows NonAdminBackup resources
 			var nabList nacv1alpha1.NonAdminBackupList
-			if err := kbClient.List(context.TODO(), &nabList, kbclient.InNamespace(userNamespace)); err != nil {
-				return fmt.Errorf("failed to list NonAdminBackup resources: %w", err)
+			if err := kbClient.List(context.Background(), &nabList, &kbclient.ListOptions{
+				Namespace: userNamespace,
+			}); err != nil {
+				return fmt.Errorf("failed to list NonAdminBackup: %w", err)
 			}
 
-			// Finds the backup
-			var foundNAB *nacv1alpha1.NonAdminBackup
+			// Find the specific backup
+			var targetBackup *nacv1alpha1.NonAdminBackup
 			for i := range nabList.Items {
 				if nabList.Items[i].Name == backupName {
-					foundNAB = &nabList.Items[i]
+					targetBackup = &nabList.Items[i]
 					break
 				}
 			}
 
-			if foundNAB == nil {
+			if targetBackup == nil {
 				return fmt.Errorf("NonAdminBackup %q not found in namespace %q", backupName, userNamespace)
 			}
 
-			return NonAdminDescribeBackup(cmd, kbClient, foundNAB, userNamespace)
+			// Print basic info
+			fmt.Printf("Name:\t%s\n", targetBackup.Name)
+			fmt.Printf("Namespace:\t%s\n", targetBackup.Namespace)
+
+			// Print labels if any
+			if len(targetBackup.Labels) > 0 {
+				fmt.Printf("Labels:\t")
+				var labelPairs []string
+				for k, v := range targetBackup.Labels {
+					labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
+				}
+				sort.Strings(labelPairs)
+				fmt.Printf("%s\n", strings.Join(labelPairs, ","))
+			} else {
+				fmt.Printf("Labels:\t<none>\n")
+			}
+
+			// Print annotations if any
+			if len(targetBackup.Annotations) > 0 {
+				fmt.Printf("Annotations:\t")
+				var annotationPairs []string
+				for k, v := range targetBackup.Annotations {
+					annotationPairs = append(annotationPairs, fmt.Sprintf("%s=%s", k, v))
+				}
+				sort.Strings(annotationPairs)
+				fmt.Printf("%s\n", strings.Join(annotationPairs, ","))
+			} else {
+				fmt.Printf("Annotations:\t<none>\n")
+			}
+
+			// Print phase/status
+			fmt.Printf("Phase:\t%s\n", targetBackup.Status.Phase)
+
+			// Print conditions
+			if len(targetBackup.Status.Conditions) > 0 {
+				fmt.Printf("Conditions:\n")
+				for _, condition := range targetBackup.Status.Conditions {
+					fmt.Printf("  Type:\t%s\n", condition.Type)
+					fmt.Printf("  Status:\t%s\n", condition.Status)
+					if condition.Reason != "" {
+						fmt.Printf("  Reason:\t%s\n", condition.Reason)
+					}
+					if condition.Message != "" {
+						fmt.Printf("  Message:\t%s\n", condition.Message)
+					}
+					fmt.Printf("  Last Transition Time:\t%s\n", condition.LastTransitionTime.Format(time.RFC3339))
+					fmt.Printf("\n")
+				}
+			}
+
+			// Print related Velero backup info if available
+			if targetBackup.Status.VeleroBackup != nil {
+				fmt.Printf("Velero Backup:\n")
+				fmt.Printf("  Name:\t%s\n", targetBackup.Status.VeleroBackup.Name)
+				fmt.Printf("  Namespace:\t%s\n", targetBackup.Status.VeleroBackup.Namespace)
+				if targetBackup.Status.VeleroBackup.Status != nil {
+					fmt.Printf("  Status:\n")
+					// Print some key status fields
+					if targetBackup.Status.VeleroBackup.Status.Phase != "" {
+						fmt.Printf("    Phase:\t%s\n", targetBackup.Status.VeleroBackup.Status.Phase)
+					}
+					if !targetBackup.Status.VeleroBackup.Status.StartTimestamp.IsZero() {
+						fmt.Printf("    Start Time:\t%s\n", targetBackup.Status.VeleroBackup.Status.StartTimestamp.Format(time.RFC3339))
+					}
+					if !targetBackup.Status.VeleroBackup.Status.CompletionTimestamp.IsZero() {
+						fmt.Printf("    Completion Time:\t%s\n", targetBackup.Status.VeleroBackup.Status.CompletionTimestamp.Format(time.RFC3339))
+					}
+					if targetBackup.Status.VeleroBackup.Status.Expiration != nil {
+						fmt.Printf("    Expiration:\t%s\n", targetBackup.Status.VeleroBackup.Status.Expiration.Format(time.RFC3339))
+					}
+				}
+			}
+
+			// Print the spec (what was requested)
+			if targetBackup.Spec.BackupSpec != nil {
+				fmt.Printf("\nBackup Spec:\n")
+				specBytes, err := yaml.Marshal(targetBackup.Spec.BackupSpec)
+				if err != nil {
+					fmt.Printf("  Error marshaling spec: %v\n", err)
+				} else {
+					// Indent the YAML output
+					specLines := strings.Split(string(specBytes), "\n")
+					for _, line := range specLines {
+						if line != "" {
+							fmt.Printf("  %s\n", line)
+						}
+					}
+				}
+			}
+
+			return nil
 		},
-		Example: `  # Describe a non-admin backup with detailed information
-  kubectl oadp nonadmin backup describe my-backup`,
+		Example: `  kubectl oadp nonadmin backup describe my-backup`,
 	}
+
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
 

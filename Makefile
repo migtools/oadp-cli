@@ -4,7 +4,7 @@
 
 # Variables
 BINARY_NAME = kubectl-oadp
-INSTALL_PATH ?= /usr/local/bin
+INSTALL_PATH ?= $(HOME)/.local/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Centralized platform definitions to avoid duplication

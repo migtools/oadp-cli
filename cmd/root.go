@@ -67,15 +67,46 @@ func NewVeleroRootCommand() *cobra.Command {
 	// This factory uses the current kubeconfig context namespace instead of hardcoded openshift-adp
 	nonAdminFactory := nonadmin.NewNonAdminFactory()
 
+	// Create the commands and modify their help text before adding them
+	backupCmd := backup.NewCommand(veleroFactory)
+	restoreCmd := restore.NewCommand(veleroFactory)
+
+	// Modify help text to replace "velero" with "oadp"
+	updateCommandHelpText(backupCmd, usagePrefix)
+	updateCommandHelpText(restoreCmd, usagePrefix)
+
 	// Add subcommands to the root command
 	rootCmd.AddCommand(version.NewCommand(veleroFactory))
-	rootCmd.AddCommand(backup.NewCommand(veleroFactory))
-	rootCmd.AddCommand(restore.NewCommand(veleroFactory))
+	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(restoreCmd)
 
 	// Custom subcommands - use NonAdmin factory
 	rootCmd.AddCommand(nonadmin.NewNonAdminCommand(nonAdminFactory))
 
 	return rootCmd
+}
+
+// updateCommandHelpText recursively updates help text in commands and subcommands
+func updateCommandHelpText(cmd *cobra.Command, usagePrefix string) {
+	// Update examples that contain "velero"
+	if strings.Contains(cmd.Example, "velero") {
+		cmd.Example = strings.ReplaceAll(cmd.Example, "velero", usagePrefix)
+	}
+
+	// Update long description if it contains "velero"
+	if strings.Contains(cmd.Long, "velero") {
+		cmd.Long = strings.ReplaceAll(cmd.Long, "velero", "oadp")
+	}
+
+	// Update short description if it contains "velero"
+	if strings.Contains(cmd.Short, "velero") {
+		cmd.Short = strings.ReplaceAll(cmd.Short, "velero", "oadp")
+	}
+
+	// Recursively update subcommands
+	for _, subCmd := range cmd.Commands() {
+		updateCommandHelpText(subCmd, usagePrefix)
+	}
 }
 
 func Execute() {

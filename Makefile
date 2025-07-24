@@ -4,7 +4,7 @@
 
 # Variables
 BINARY_NAME = kubectl-oadp
-INSTALL_PATH ?= /usr/local/bin
+INSTALL_PATH ?= $(HOME)/.local/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Centralized platform definitions to avoid duplication
@@ -29,6 +29,17 @@ help: ## Show this help message
 	@echo ""
 	@echo "Available targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "Installation options:"
+	@echo "  \033[36mmake install\033[0m        # Install to ~/.local/bin (recommended, no sudo)"
+	@echo "  \033[36mmake install-user\033[0m   # Same as install (legacy alias)"
+	@echo "  \033[36mmake install-bin\033[0m    # Install to ~/bin (alternative, no sudo)"
+	@echo "  \033[36mmake install-system\033[0m # Install to /usr/local/bin (requires sudo)"
+	@echo ""
+	@echo "Uninstall options:"
+	@echo "  \033[36mmake uninstall\033[0m        # Remove from user locations (no sudo)"
+	@echo "  \033[36mmake uninstall-system\033[0m # Remove from system locations (requires sudo)"
+	@echo "  \033[36mmake uninstall-all\033[0m    # Remove from all locations (user + system)"
 	@echo ""
 	@echo "Build with different platforms:"
 	@echo "  make build PLATFORM=linux/amd64"
@@ -59,11 +70,116 @@ build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compil
 
 # Installation targets
 .PHONY: install
-install: build ## Build and install the kubectl plugin
+install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo required)
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_PATH)..."
-	mv $(BINARY_NAME) $(INSTALL_PATH)/
-	@echo "✅ $(BINARY_NAME) installed successfully!"
-	@echo "You can now use: kubectl oadp --help"
+	@mkdir -p $(INSTALL_PATH)
+	cp $(BINARY_NAME) $(INSTALL_PATH)/
+	@echo "✅ Installed to $(INSTALL_PATH)"
+	@echo ""
+	@PATH_UPDATED=false; \
+	PATH_IN_CONFIG=false; \
+	if [[ ":$$PATH:" != *":$(INSTALL_PATH):"* ]]; then \
+		if [[ "$$SHELL" == */zsh* ]] && [[ -f "$$HOME/.zshrc" ]]; then \
+			if ! grep -q "/.local/bin" "$$HOME/.zshrc" 2>/dev/null; then \
+				echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> "$$HOME/.zshrc"; \
+				echo "✅ Added to ~/.zshrc"; \
+				PATH_UPDATED=true; \
+			else \
+				echo "ℹ️  Already configured in ~/.zshrc"; \
+				PATH_IN_CONFIG=true; \
+			fi; \
+		elif [[ "$$SHELL" == */bash* ]] && [[ -f "$$HOME/.bashrc" ]]; then \
+			if ! grep -q "/.local/bin" "$$HOME/.bashrc" 2>/dev/null; then \
+				echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> "$$HOME/.bashrc"; \
+				echo "✅ Added to ~/.bashrc"; \
+				PATH_UPDATED=true; \
+			else \
+				echo "ℹ️  Already configured in ~/.bashrc"; \
+				PATH_IN_CONFIG=true; \
+			fi; \
+		else \
+			echo "⚠️  Add to your shell config: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+			PATH_UPDATED=true; \
+		fi; \
+	else \
+		echo "✅ PATH already configured"; \
+	fi; \
+	echo ""; \
+	if [[ "$$PATH_UPDATED" == "true" ]] || [[ "$$PATH_IN_CONFIG" == "true" ]]; then \
+		echo "🔄 Restart terminal or run: source ~/.zshrc"; \
+	fi; \
+	echo "Test: kubectl oadp --help"
+
+.PHONY: install-user
+install-user: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo required)
+	@echo "Installing $(BINARY_NAME) to ~/.local/bin..."
+	@mkdir -p ~/.local/bin
+	cp $(BINARY_NAME) ~/.local/bin/
+	@echo "✅ Installed to ~/.local/bin"
+	@echo "Add to PATH: export PATH=\"\$$HOME/.local/bin:\$$PATH\""
+	@echo "Test: kubectl oadp --help"
+
+.PHONY: install-bin
+install-bin: build ## Build and install the kubectl plugin to ~/bin (no sudo required)
+	@echo "Installing $(BINARY_NAME) to ~/bin..."
+	@mkdir -p ~/bin
+	cp $(BINARY_NAME) ~/bin/
+	@echo "✅ Installed to ~/bin"
+	@echo "Add to PATH: export PATH=\"\$$HOME/bin:\$$PATH\""
+	@echo "Test: kubectl oadp --help"
+
+.PHONY: install-system
+install-system: build ## Build and install the kubectl plugin to /usr/local/bin (requires sudo)
+	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
+	@sudo mv $(BINARY_NAME) /usr/local/bin/
+	@echo "✅ Installed to /usr/local/bin"
+	@echo "Test: kubectl oadp --help"
+
+.PHONY: uninstall
+uninstall: ## Uninstall the kubectl plugin from user locations
+	@echo "Removing $(BINARY_NAME) from user locations..."
+	@removed=false; \
+	if [ -f "$(INSTALL_PATH)/$(BINARY_NAME)" ]; then \
+		rm -f "$(INSTALL_PATH)/$(BINARY_NAME)"; \
+		echo "✅ Removed from $(INSTALL_PATH)"; \
+		removed=true; \
+	fi; \
+	if [ -f "$$HOME/.local/bin/$(BINARY_NAME)" ] && [ "$(INSTALL_PATH)" != "$$HOME/.local/bin" ]; then \
+		rm -f "$$HOME/.local/bin/$(BINARY_NAME)"; \
+		echo "✅ Removed from ~/.local/bin"; \
+		removed=true; \
+	fi; \
+	if [ -f "$$HOME/bin/$(BINARY_NAME)" ] && [ "$(INSTALL_PATH)" != "$$HOME/bin" ]; then \
+		rm -f "$$HOME/bin/$(BINARY_NAME)"; \
+		echo "✅ Removed from ~/bin"; \
+		removed=true; \
+	fi; \
+	if [ "$$removed" = "false" ]; then \
+		echo "⚠️  Not found in user locations"; \
+	fi
+
+.PHONY: uninstall-system
+uninstall-system: ## Uninstall the kubectl plugin from system locations (requires sudo)
+	@echo "Removing $(BINARY_NAME) from system locations..."
+	@removed=false; \
+	if [ -f "/usr/local/bin/$(BINARY_NAME)" ]; then \
+		sudo rm -f "/usr/local/bin/$(BINARY_NAME)"; \
+		echo "✅ Removed from /usr/local/bin"; \
+		removed=true; \
+	fi; \
+	if [ -f "/usr/bin/$(BINARY_NAME)" ]; then \
+		sudo rm -f "/usr/bin/$(BINARY_NAME)"; \
+		echo "✅ Removed from /usr/bin"; \
+		removed=true; \
+	fi; \
+	if [ "$$removed" = "false" ]; then \
+		echo "⚠️  Not found in system locations"; \
+	fi
+
+.PHONY: uninstall-all
+uninstall-all: ## Uninstall the kubectl plugin from all locations (user + system)
+	@make --no-print-directory uninstall
+	@make --no-print-directory uninstall-system
 
 # Testing targets
 .PHONY: test

@@ -46,13 +46,21 @@ kubectl oadp --help
 ### Manual Build and Install
 
 ```sh
-# Build and install directly
+# Recommended: Rootless install (no sudo required)
 make install
 
-# Or build manually
-make build
-sudo mv kubectl-oadp /usr/local/bin/
+# After install, refresh your terminal:
+source ~/.zshrc  # or ~/.bashrc
+# OR restart your terminal
+
+# Test the installation
+kubectl oadp --help
+
+# Alternative: System-wide install (requires sudo)
+make install-system
 ```
+
+**💡 Important:** After installation, you may need to refresh your terminal or run `source ~/.zshrc` (or `~/.bashrc`) for the `kubectl oadp` command to work.
 
 ## Usage Guide
 

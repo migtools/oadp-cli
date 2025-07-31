@@ -103,8 +103,6 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 		// Show a concise summary
 		return NonAdminDescribeBackupSummary(cmd, kbClient, nab, userNamespace, ctx)
 	}
-
-	return nil
 }
 
 // NonAdminDescribeBackupSummary provides a concise backup summary
@@ -553,40 +551,6 @@ func formatBackupResourceList(data string) string {
 	}
 
 	return result.String()
-}
-
-// Helper to filter out includednamespaces from YAML output
-func filterIncludedNamespaces(yamlContent string) string {
-	lines := strings.Split(yamlContent, "\n")
-	var filteredLines []string
-	skipNext := false
-
-	for _, line := range lines {
-		// Skip lines containing includednamespaces and the values that follow
-		if strings.Contains(line, "includednamespaces") || strings.Contains(line, "includedNamespaces") {
-			skipNext = true
-			continue
-		}
-
-		// If we're skipping and this line starts with whitespace (indicating it's part of the array/list)
-		if skipNext {
-			trimmed := strings.TrimSpace(line)
-			// If it's an array item (starts with -) or seems to be a namespace value, skip it
-			if strings.HasPrefix(trimmed, "-") || (trimmed != "" && !strings.Contains(line, ":")) {
-				continue
-			}
-			// If we hit a new field (contains :), stop skipping
-			if strings.Contains(line, ":") {
-				skipNext = false
-			}
-		}
-
-		if !skipNext {
-			filteredLines = append(filteredLines, line)
-		}
-	}
-
-	return strings.Join(filteredLines, "\n")
 }
 
 // indent adds the specified prefix to each line of the input string

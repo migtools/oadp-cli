@@ -37,7 +37,6 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 
 	// Add restore subcommand
 	c.AddCommand(restore.NewRestoreCommand(f))
-
 	// Add backup storage location subcommand
 	//c.AddCommand(bsl.NewBSLCommand(f))
 

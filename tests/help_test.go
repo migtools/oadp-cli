@@ -63,6 +63,7 @@ func TestCLIHelpCommands(t *testing.T) {
 				"Work with non-admin resources",
 				"Work with non-admin resources like backups",
 				"backup",
+				"bsl",
 			},
 		},
 		{
@@ -78,6 +79,66 @@ func TestCLIHelpCommands(t *testing.T) {
 			args: []string{"nonadmin", "backup", "create", "--help"},
 			expectContains: []string{
 				"Create a non-admin backup",
+			},
+		},
+		{
+			name: "nonadmin bsl help",
+			args: []string{"nonadmin", "bsl", "--help"},
+			expectContains: []string{
+				"Create and manage non-admin backup storage locations",
+				"create",
+				"request",
+			},
+		},
+		{
+			name: "nonadmin bsl create help",
+			args: []string{"nonadmin", "bsl", "create", "--help"},
+			expectContains: []string{
+				"Create a non-admin backup storage location",
+				"--provider",
+				"--bucket",
+				"--credential-name",
+			},
+		},
+		{
+			name: "nonadmin bsl request help",
+			args: []string{"nonadmin", "bsl", "request", "--help"},
+			expectContains: []string{
+				"View and manage approval requests",
+				"approve",
+				"deny",
+				"describe",
+				"get",
+			},
+		},
+		{
+			name: "nonadmin bsl request approve help",
+			args: []string{"nonadmin", "bsl", "request", "approve", "--help"},
+			expectContains: []string{
+				"Approve a pending backup storage location request",
+				"--reason",
+			},
+		},
+		{
+			name: "nonadmin bsl request deny help",
+			args: []string{"nonadmin", "bsl", "request", "deny", "--help"},
+			expectContains: []string{
+				"Deny a pending backup storage location request",
+				"--reason",
+			},
+		},
+		{
+			name: "nonadmin bsl request get help",
+			args: []string{"nonadmin", "bsl", "request", "get", "--help"},
+			expectContains: []string{
+				"Get non-admin backup storage location requests",
+			},
+		},
+		{
+			name: "nonadmin bsl request describe help",
+			args: []string{"nonadmin", "bsl", "request", "describe", "--help"},
+			expectContains: []string{
+				"Describe a non-admin backup storage location request",
 			},
 		},
 	}
@@ -103,6 +164,14 @@ func TestCLIHelpFlags(t *testing.T) {
 		{"nonadmin", "-h"},
 		{"backup", "--help"},
 		{"backup", "-h"},
+		{"nonadmin", "bsl", "--help"},
+		{"nonadmin", "bsl", "-h"},
+		{"nonadmin", "bsl", "request", "--help"},
+		{"nonadmin", "bsl", "request", "-h"},
+		{"nonadmin", "bsl", "request", "approve", "--help"},
+		{"nonadmin", "bsl", "request", "approve", "-h"},
+		{"nonadmin", "bsl", "request", "deny", "--help"},
+		{"nonadmin", "bsl", "request", "deny", "-h"},
 	}
 
 	for _, cmd := range commands {

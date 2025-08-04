@@ -21,17 +21,19 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
 
-// NewBSLCommand creates the "bsl" subcommand under nonadmin
-func NewBSLCommand(f client.Factory) *cobra.Command {
+// NewRequestCommand creates the "request" subcommand under bsl
+func NewRequestCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "bsl",
-		Short: "Create and manage backup storage locations",
-		Long:  "Create and manage non-admin backup storage locations and their approval requests",
+		Use:   "request",
+		Short: "Manage backup storage location approval requests",
+		Long:  "View and manage approval requests for backup storage locations. Requests are automatically created when users create backup storage locations and require admin approval.",
 	}
 
 	c.AddCommand(
-		NewCreateCommand(f),
-		NewRequestCommand(f),
+		NewRequestGetCommand(f),
+		NewRequestDescribeCommand(f),
+		NewRequestApproveCommand(f),
+		NewRequestDenyCommand(f),
 	)
 
 	return c

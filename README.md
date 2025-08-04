@@ -1,113 +1,186 @@
 # OADP CLI
 
-A kubectl plugin for working with OpenShift API for Data Protection (OADP) resources, including NonAdminBackup operations.
+[![Cross-Architecture Build Test](https://github.com/migtools/oadp-cli/actions/workflows/cross-arch-build-test.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/cross-arch-build-test.yml)
 
-> This project provides a `kubectl` plugin CLI that extends OADP functionality, allowing users to work with both regular Velero resources and NonAdminBackup resources through a unified interface.
+A kubectl plugin for OpenShift API for Data Protection (OADP) that provides both administrative and non-administrative backup operations.
 
-## Features
+> **What it does**: Extends OADP functionality with a unified CLI that supports both cluster-wide Velero operations (admin) and namespace-scoped self-service operations (non-admin users).
 
-- **Regular OADP operations**: Standard Velero backup, restore, and version commands
-- **NonAdmin operations**: Create and manage NonAdminBackup resources for namespace-scoped backup operations
-- **Automatic namespace detection**: NonAdminBackup automatically uses your current kubectl context namespace
-- **Kubectl plugin integration**: Works seamlessly as a kubectl plugin
+## Key Capabilities
+
+- **Admin Operations**: Full Velero backup, restore, and version commands (requires cluster admin permissions)
+- **Non-Admin Operations**: Namespace-scoped backup operations using non-admin CRDs (works with regular user permissions)
+- **Smart Namespace Handling**: Non-admin commands automatically operate in your current kubectl context namespace
+- **Seamless Integration**: Works as a standard kubectl plugin
 
 ## Command Structure
 
 ```
-oadp
-├── backup (Velero backups)
-├── restore (Velero restores) 
-├── version
-└── nonadmin
+kubectl oadp
+├── backup          # Velero cluster-wide backups (admin)
+├── restore         # Velero cluster-wide restores (admin) 
+├── version         # Version information
+└── nonadmin (na)   # Namespace-scoped operations (non-admin)
     └── backup
-        └── create
+        ├── create
+        ├── describe
+        ├── logs
+        └── delete
 ```
 
-## Build and Install
+## Installation
 
-### Quick Installation
-
-Use the provided script for quick build and installation:
+### Using Krew (Available soon!)
 
 ```sh
-chmod +x quick-create.sh
-./quick-create.sh
+# Install Krew if you haven't already
+kubectl krew install krew
+
+# Install the OADP plugin
+kubectl krew install oadp
+
+# Verify installation
+kubectl oadp --help
 ```
 
-### Manual Installation
-
-1. **Build the CLI:**
-   ```sh
-   go build -o kubectl-oadp .
-   ```
-
-2. **Install as kubectl plugin:**
-   ```sh
-   sudo mv kubectl-oadp /usr/local/bin/
-   ```
-
-3. **Verify installation:**
-   ```sh
-   kubectl oadp --help
-   ```
-
-## Usage Examples
-
-### NonAdminBackup Operations
+### Manual Build and Install
 
 ```sh
-# Create a non-admin backup of the current namespace
+# Recommended: Rootless install (no sudo required)
+make install
+
+# After install, refresh your terminal:
+source ~/.zshrc  # or ~/.bashrc
+# OR restart your terminal
+
+# Test the installation
+kubectl oadp --help
+
+# Alternative: System-wide install (requires sudo)
+make install-system
+```
+
+**💡 Important:** After installation, you may need to refresh your terminal or run `source ~/.zshrc` (or `~/.bashrc`) for the `kubectl oadp` command to work.
+
+## Usage Guide
+
+### Non-Admin Backup Operations
+
+Non-admin commands work within your current namespace and user permissions:
+
+```sh
+# Basic backup of current namespace
 kubectl oadp nonadmin backup create my-backup
+# Short form
+kubectl oadp na backup create my-backup
 
-# Create backup with specific resource types
-kubectl oadp nonadmin backup create my-backup --include-resources deployments,services
+# Include specific resource types only
+kubectl oadp na backup create app-backup --include-resources deployments,services,configmaps
 
-# Create backup excluding certain resources
-kubectl oadp nonadmin backup create my-backup --exclude-resources secrets
+# Exclude sensitive data
+kubectl oadp na backup create safe-backup --exclude-resources secrets
 
-# View backup YAML without creating it
-kubectl oadp nonadmin backup create my-backup --snapshot-volumes=false -o yaml
+# Preview backup configuration without creating
+kubectl oadp na backup create test-backup --snapshot-volumes=false -o yaml
 
-# Wait for backup completion
-kubectl oadp nonadmin backup create my-backup --wait
+# Create backup and wait for completion
+kubectl oadp na backup create prod-backup --wait
+
+# Check backup status
+kubectl oadp na backup describe my-backup
+
+# View backup logs
+kubectl oadp na backup logs my-backup
+
+# Delete a backup
+kubectl oadp na backup delete my-backup
 ```
 
-### Regular OADP Operations
+### Admin Operations
+
+Admin commands require cluster-level permissions and operate across all namespaces:
 
 ```sh
-# Work with regular Velero backups
-kubectl oadp backup --help
+# Cluster-wide backup operations
+kubectl oadp backup create cluster-backup --include-namespaces namespace1,namespace2
 
-# Work with restores
-kubectl oadp restore --help
+# Restore operations
+kubectl oadp restore create --from-backup cluster-backup
 
-# Check version
+# Check OADP/Velero version
 kubectl oadp version
 ```
 
-## Key Features of NonAdminBackup
+## How Non-Admin Backups Work
 
-- **Namespace-scoped**: Automatically backs up the namespace where the NonAdminBackup resource is created
-- **Simplified workflow**: No need to specify `--include-namespaces` - it uses your current kubectl context
-- **Permission-aware**: Works within the permissions of the current user/service account
-- **Integration with OADP**: Leverages the underlying Velero infrastructure managed by OADP operator
+1. **Namespace Detection**: Commands automatically use your current kubectl context namespace
+2. **Permission Model**: Works with standard namespace-level RBAC permissions
+3. **Resource Creation**: Creates `Non-admin` custom resources that are processed by the OADP operator
+4. **Velero Integration**: OADP operator translates NonAdminBackup resources into standard Velero backup jobs
 
-## Testing
+**Example workflow:**
+```sh
+# Switch to your project namespace
+kubectl config set-context --current --namespace=my-project
 
-This project includes comprehensive CLI integration tests organized by functionality.
+# Create backup (automatically backs up 'my-project' namespace)
+kubectl oadp na backup create project-backup --wait
 
-### Quick Test Commands
-
-```bash
-# Run all tests (standard Go pattern)
-go test ./...
+# Monitor progress
+kubectl oadp na backup logs project-backup
 ```
-
-📖 **For detailed test documentation, see [tests/README.md](tests/README.md)**
 
 ## Development
 
-This CLI is built using:
-- [Cobra](https://github.com/spf13/cobra) for CLI framework
-- [Velero client libraries](https://github.com/vmware-tanzu/velero) for core functionality  
-- [OADP NonAdmin APIs](https://github.com/migtools/oadp-non-admin) for NonAdminBackup operations
+### Quick Development Commands
+
+```sh
+# Build and test locally
+make build
+./kubectl-oadp --help
+
+# Run integration tests
+make test
+
+# Build release archives
+make release
+
+# Generate Krew manifest
+make krew-manifest
+```
+
+### Project Structure
+
+- **`cmd/`**: Command definitions and CLI logic
+- **`cmd/non-admin/`**: Non-admin specific commands
+- **`tests/`**: Integration tests and test utilities
+- **`Makefile`**: Build automation and common tasks
+
+## Testing
+
+Comprehensive integration tests verify CLI functionality:
+
+```bash
+# Run all tests
+make test
+
+# For detailed test information
+cat tests/README.md
+```
+
+## Technical Details
+
+**Built with:**
+- [Cobra](https://github.com/spf13/cobra) - CLI framework
+- [Velero client libraries](https://github.com/vmware-tanzu/velero) - Core backup functionality  
+- [OADP NonAdmin APIs](https://github.com/migtools/oadp-non-admin) - NonAdminBackup CRD support
+
+**Dependencies:**
+- OADP Operator installed in cluster
+- Appropriate RBAC permissions for your use case
+
+## License
+
+Apache License 2.0 - see [LICENSE](LICENSE) file.
+
+Integrates with Apache 2.0 licensed projects: [Velero](https://github.com/vmware-tanzu/velero), [OADP](https://github.com/openshift/oadp-operator), [Kubernetes](https://github.com/kubernetes/kubernetes).

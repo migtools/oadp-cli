@@ -1,0 +1,199 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: false
+
+    - name: Clean Go environment
+      run: |
+        echo "Cleaning Go environment for fresh build..."
+        go clean -cache -modcache -i -r || true
+        echo "Go environment cleaned"
+
+    - name: Download dependencies
+      run: |
+        echo "Downloading fresh dependencies..."
+        go mod download
+        go mod verify
+        echo "Dependencies ready"
+
+    - name: Build all architectures
+      run: |
+        set -e
+        echo "Building all architectures for release..."
+        if ! make release-build; then
+          echo "❌ Build failed"
+          exit 1
+        fi
+        echo "✅ All builds completed"
+
+    - name: Create release archives
+      run: |
+        set -e
+        echo "Creating release archives..."
+        
+        # Define the platforms we want for krew (must match oadp.yaml)
+        declare -a platforms=(
+          "linux-amd64"
+          "linux-arm64"
+          "linux-ppc64le"
+          "linux-s390x"
+          "darwin-amd64"
+          "darwin-arm64"
+          "windows-amd64"
+          "windows-arm64"
+        )
+        
+        # Create archives only for krew platforms
+        for platform in "${platforms[@]}"; do
+          if [[ "$platform" == *"windows"* ]]; then
+            # Windows binaries have .exe extension
+            binary="kubectl-oadp-${platform}.exe"
+            if [[ -f "$binary" ]]; then
+              echo "Creating archive for $platform..."
+              cp "$binary" kubectl-oadp.exe
+              tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp.exe LICENSE
+              rm kubectl-oadp.exe
+              echo "✅ Created kubectl-oadp-${platform}.tar.gz"
+            else
+              echo "❌ Binary not found: $binary"
+              exit 1
+            fi
+          else
+            # Unix binaries (no extension)
+            binary="kubectl-oadp-${platform}"
+            if [[ -f "$binary" ]]; then
+              echo "Creating archive for $platform..."
+              cp "$binary" kubectl-oadp
+              tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp LICENSE
+              rm kubectl-oadp
+              echo "✅ Created kubectl-oadp-${platform}.tar.gz"
+            else
+              echo "❌ Binary not found: $binary"
+              exit 1
+            fi
+          fi
+        done
+        
+        echo ""
+        echo "Release archives created:"
+        ls -la *.tar.gz
+
+    - name: Generate SHA256 checksums
+      run: |
+        set -e
+        echo "Generating SHA256 checksums..."
+        sha256sum *.tar.gz > checksums.txt
+        echo ""
+        echo "Checksums:"
+        cat checksums.txt
+
+    - name: Generate final krew manifest
+      run: |
+        set -e
+        echo "Generating final krew manifest with version ${{ github.ref_name }}..."
+        
+        # Set environment variables for template substitution
+        export VERSION="${{ github.ref_name }}"
+        export LINUX_AMD64_SHA=$(grep "kubectl-oadp-linux-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_ARM64_SHA=$(grep "kubectl-oadp-linux-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_PPC64LE_SHA=$(grep "kubectl-oadp-linux-ppc64le.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_S390X_SHA=$(grep "kubectl-oadp-linux-s390x.tar.gz" checksums.txt | cut -d' ' -f1)
+        export DARWIN_AMD64_SHA=$(grep "kubectl-oadp-darwin-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export DARWIN_ARM64_SHA=$(grep "kubectl-oadp-darwin-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp-windows-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp-windows-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        
+        # Validate all checksums were found
+        if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$LINUX_PPC64LE_SHA" || -z "$LINUX_S390X_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
+          echo "❌ Some checksums are missing!"
+          echo "Available checksums:"
+          cat checksums.txt
+          exit 1
+        fi
+        
+        # Use envsubst to substitute environment variables in template
+        # Save original template and generate final manifest
+        cp oadp.yaml oadp-template.yaml
+        envsubst < oadp-template.yaml > oadp.yaml
+        
+        echo "✅ Final krew manifest generated successfully!"
+        echo ""
+        echo "Summary:"
+        echo "Version: $VERSION"
+        echo "Linux amd64: ${LINUX_AMD64_SHA:0:16}..."
+        echo "Linux arm64: ${LINUX_ARM64_SHA:0:16}..."
+        echo "Linux ppc64le: ${LINUX_PPC64LE_SHA:0:16}..."
+        echo "Linux s390x: ${LINUX_S390X_SHA:0:16}..."
+        echo "Darwin amd64: ${DARWIN_AMD64_SHA:0:16}..."
+        echo "Darwin arm64: ${DARWIN_ARM64_SHA:0:16}..."
+        echo "Windows amd64: ${WINDOWS_AMD64_SHA:0:16}..."
+        echo "Windows arm64: ${WINDOWS_ARM64_SHA:0:16}..."
+        
+        echo ""
+        echo "Final manifest preview:"
+        grep -E "(version:|sha256:)" oadp.yaml
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          *.tar.gz
+          checksums.txt
+          oadp.yaml
+        body: |
+          ## OADP CLI ${{ github.ref_name }}
+          
+          Cross-platform kubectl plugin for managing OpenShift API for Data Protection (OADP) backup and restore operations.
+          
+          ### Installation
+          
+          #### Via krew (recommended)
+          ```bash
+          kubectl krew install oadp
+          ```
+          
+          #### Via krew manifest (for testing or custom indexes)
+          ```bash
+          curl -LO https://github.com/migtools/oadp-cli/releases/download/${{ github.ref_name }}/oadp.yaml
+          kubectl krew install --manifest=oadp.yaml
+          ```
+          
+          #### Manual installation
+          1. Download the appropriate binary for your platform
+          2. Extract the archive
+          3. Add the binary to your PATH
+          4. Verify installation: `kubectl oadp --help`
+          
+          ### Supported Platforms
+          - Linux (amd64, arm64, ppc64le, s390x)
+          - macOS (amd64, arm64) 
+          - Windows (amd64, arm64)
+          
+          ### Files Included
+          - **Binary archives**: Platform-specific kubectl-oadp binaries with LICENSE
+          - **checksums.txt**: SHA256 checksums for all binaries  
+          - **oadp.yaml**: Final krew plugin manifest with populated SHA256 values (ready for krew index)
+          
+          ### For Krew Index Maintainers
+          The `oadp.yaml` file contains the complete krew plugin manifest with all SHA256 checksums populated and can be used directly for krew index submissions.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

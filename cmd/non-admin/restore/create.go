@@ -72,28 +72,24 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 }
 
 type CreateOptions struct {
-	Name                            string
-	FromBackup                      string
-	IncludeResources                flag.StringArray
-	ExcludeResources                flag.StringArray
-	IncludeClusterScopedResources   flag.StringArray
-	ExcludeClusterScopedResources   flag.StringArray
-	IncludeNamespaceScopedResources flag.StringArray
-	ExcludeNamespaceScopedResources flag.StringArray
-	NamespaceMapping                flag.Map
-	Labels                          flag.Map
-	Annotations                     flag.Map
-	Selector                        flag.LabelSelector
-	OrSelector                      flag.OrLabelSelector
-	IncludeClusterResources         flag.OptionalBool
-	Wait                            bool
-	RestorePVs                      flag.OptionalBool
-	PreserveNodePorts               flag.OptionalBool
-	ItemOperationTimeout            time.Duration
-	ExistingResourcePolicy          string
-	UploaderConfig                  flag.Map
-	client                          kbclient.WithWatch
-	currentNamespace                string
+	Name                    string
+	FromBackup              string
+	IncludeResources        flag.StringArray
+	ExcludeResources        flag.StringArray
+	NamespaceMapping        flag.Map
+	Labels                  flag.Map
+	Annotations             flag.Map
+	Selector                flag.LabelSelector
+	OrSelector              flag.OrLabelSelector
+	IncludeClusterResources flag.OptionalBool
+	Wait                    bool
+	RestorePVs              flag.OptionalBool
+	PreserveNodePorts       flag.OptionalBool
+	ItemOperationTimeout    time.Duration
+	ExistingResourcePolicy  string
+	UploaderConfig          flag.Map
+	client                  kbclient.WithWatch
+	currentNamespace        string
 }
 
 func NewCreateOptions() *CreateOptions {
@@ -111,12 +107,8 @@ func NewCreateOptions() *CreateOptions {
 
 func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.FromBackup, "from-backup", o.FromBackup, "Backup to restore from (required).")
-	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the restore, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources). Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
-	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the restore, formatted as resource.group, such as storageclasses.storage.k8s.io. Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
-	flags.Var(&o.IncludeClusterScopedResources, "include-cluster-scoped-resources", "Cluster-scoped resources to include in the restore, formatted as resource.group, such as storageclasses.storage.k8s.io(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.ExcludeClusterScopedResources, "exclude-cluster-scoped-resources", "Cluster-scoped resources to exclude from the restore, formatted as resource.group, such as storageclasses.storage.k8s.io(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.IncludeNamespaceScopedResources, "include-namespace-scoped-resources", "Namespaced resources to include in the restore, formatted as resource.group, such as deployments.apps(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.ExcludeNamespaceScopedResources, "exclude-namespace-scoped-resources", "Namespaced resources to exclude from the restore, formatted as resource.group, such as deployments.apps(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
+	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the restore, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources).")
+	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the restore, formatted as resource.group, such as storageclasses.storage.k8s.io.")
 	flags.Var(&o.Labels, "labels", "Labels to apply to the restore.")
 	flags.Var(&o.Annotations, "annotations", "Annotations to apply to the restore.")
 	// Note: namespace-mappings are restricted for non-admin users and therefore not exposed
@@ -214,6 +206,10 @@ func (o *CreateOptions) buildRestore() *nacv1alpha1.NonAdminRestore {
 	if len(o.ExcludeResources) > 0 {
 		restoreSpec.ExcludedResources = o.ExcludeResources
 	}
+
+	// Note: The namespace-scoped and cluster-scoped resource filters are only available
+	// in backup operations, not restore operations in Velero RestoreSpec.
+	// For restores, use IncludedResources/ExcludedResources with specific resource types.
 
 	// Note: Namespace mappings are restricted for non-admin users and therefore not processed
 

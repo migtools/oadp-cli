@@ -55,6 +55,11 @@ help: ## Show this help message
 	@echo "  make build PLATFORM=windows/amd64"
 	@echo "  make build PLATFORM=windows/arm64"
 	@echo ""
+	@echo "Testing commands:"
+	@echo "  make test              # Run all tests (unit + integration)"
+	@echo "  make test-unit         # Run unit tests only"
+	@echo "  make test-integration  # Run integration tests only"
+	@echo ""
 	@echo "Release commands:"
 	@echo "  make release-build         # Build binaries for all platforms"
 	@echo "  make release-archives      # Create tar.gz archives for all platforms"
@@ -212,8 +217,23 @@ uninstall-all: ## Uninstall the kubectl plugin from all locations (user + system
 .PHONY: test
 test: ## Run all tests
 	@echo "Running tests..."
-	go test ./...
+	@echo "🧪 Running unit tests..."
+	go test ./cmd/... ./internal/...
+	@echo "🔗 Running integration tests..."
+	go test . -v
 	@echo "✅ Tests completed!"
+
+.PHONY: test-unit
+test-unit: ## Run unit tests only
+	@echo "Running unit tests..."
+	go test ./cmd/... ./internal/...
+	@echo "✅ Unit tests completed!"
+
+.PHONY: test-integration
+test-integration: ## Run integration tests only
+	@echo "Running integration tests..."
+	go test . -v
+	@echo "✅ Integration tests completed!"
 
 # Cleanup targets
 .PHONY: clean

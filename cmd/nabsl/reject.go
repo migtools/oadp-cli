@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package bsl
+package nabsl
 
 import (
 	"context"
@@ -30,20 +30,20 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 )
 
-// NewRequestDenyCommand creates the "deny" subcommand under bsl request
-func NewRequestDenyCommand(f client.Factory) *cobra.Command {
-	o := NewRequestDenyOptions()
+// NewRejectCommand creates the "deny" subcommand under bsl request
+func NewRejectCommand(f client.Factory) *cobra.Command {
+	o := NewRejectOptions()
 
 	c := &cobra.Command{
-		Use:   "deny REQUEST_NAME",
-		Short: "Deny a pending backup storage location request",
-		Long:  "Deny a pending backup storage location request to reject the user's request for a backup storage location",
+		Use:   "reject REQUEST_NAME",
+		Short: "Reject a pending backup storage location request",
+		Long:  "Reject a pending backup storage location request to deny the user's request for a backup storage location",
 		Args:  cobra.ExactArgs(1),
 		Example: `  # Deny a request by NABSL name (admin access required)
-  kubectl oadp nonadmin bsl request deny user-test-bsl --reason "Invalid configuration"
+  kubectl oadp nabsl reject user-test-bsl --reason "Invalid configuration"
 
   # Deny a request by UUID with detailed reason
-  kubectl oadp nonadmin bsl request deny nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Bucket does not exist in specified region"`,
+  kubectl oadp nabsl reject nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Bucket does not exist in specified region"`,
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate(c, args, f))
@@ -56,21 +56,21 @@ func NewRequestDenyCommand(f client.Factory) *cobra.Command {
 	return c
 }
 
-type RequestDenyOptions struct {
+type RejectOptions struct {
 	RequestName string
 	Reason      string
 	client      kbclient.WithWatch
 }
 
-func NewRequestDenyOptions() *RequestDenyOptions {
-	return &RequestDenyOptions{}
+func NewRejectOptions() *RejectOptions {
+	return &RejectOptions{}
 }
 
-func (o *RequestDenyOptions) BindFlags(flags *pflag.FlagSet) {
+func (o *RejectOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.Reason, "reason", "", "Reason for denial (recommended)")
 }
 
-func (o *RequestDenyOptions) Complete(args []string, f client.Factory) error {
+func (o *RejectOptions) Complete(args []string, f client.Factory) error {
 	o.RequestName = args[0]
 
 	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
@@ -85,13 +85,16 @@ func (o *RequestDenyOptions) Complete(args []string, f client.Factory) error {
 	return nil
 }
 
-func (o *RequestDenyOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
+func (o *RejectOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
 	return nil
 }
 
-func (o *RequestDenyOptions) Run(c *cobra.Command, f client.Factory) error {
+func (o *RejectOptions) Run(c *cobra.Command, f client.Factory) error {
+	// Get the admin namespace (from client config) where requests are stored
+	adminNS := f.Namespace()
+
 	// Find the request either by UUID or by looking up NABSL name
-	requestName, err := o.findRequestName()
+	requestName, err := o.findRequestName(adminNS)
 	if err != nil {
 		return err
 	}
@@ -100,7 +103,7 @@ func (o *RequestDenyOptions) Run(c *cobra.Command, f client.Factory) error {
 	var request nacv1alpha1.NonAdminBackupStorageLocationRequest
 	err = o.client.Get(context.Background(), kbclient.ObjectKey{
 		Name:      requestName,
-		Namespace: "openshift-adp",
+		Namespace: adminNS,
 	}, &request)
 	if err != nil {
 		return fmt.Errorf("failed to get request %q: %w", requestName, err)
@@ -140,12 +143,12 @@ func (o *RequestDenyOptions) Run(c *cobra.Command, f client.Factory) error {
 	return nil
 }
 
-func (o *RequestDenyOptions) findRequestName() (string, error) {
+func (o *RejectOptions) findRequestName(adminNS string) (string, error) {
 	// First check if o.RequestName is already a UUID by trying to get it directly
 	var testRequest nacv1alpha1.NonAdminBackupStorageLocationRequest
 	err := o.client.Get(context.Background(), kbclient.ObjectKey{
 		Name:      o.RequestName,
-		Namespace: "openshift-adp",
+		Namespace: adminNS,
 	}, &testRequest)
 	if err == nil {
 		// Found it directly, it's a UUID
@@ -155,7 +158,7 @@ func (o *RequestDenyOptions) findRequestName() (string, error) {
 	// Not found directly, so o.RequestName might be a NABSL name
 	// We need to search through all requests to find one with matching source NABSL name
 	var requestList nacv1alpha1.NonAdminBackupStorageLocationRequestList
-	err = o.client.List(context.Background(), &requestList, kbclient.InNamespace("openshift-adp"))
+	err = o.client.List(context.Background(), &requestList, kbclient.InNamespace(adminNS))
 	if err != nil {
 		return "", fmt.Errorf("failed to list requests: %w", err)
 	}

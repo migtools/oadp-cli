@@ -41,10 +41,3 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 	return c
 }
 
-// NewNonAdminFactory creates a client factory for NonAdminBackup operations
-// that uses the current kubeconfig context namespace instead of hardcoded openshift-adp
-func NewNonAdminFactory() client.Factory {
-	// Don't set a default namespace, let it use the kubeconfig context
-	cfg := client.VeleroConfig{}
-	return client.NewFactory("oadp-nonadmin-cli", cfg)
-}

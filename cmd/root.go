@@ -22,9 +22,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/migtools/oadp-cli/cmd/nabsl"
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/restore"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/version"
 )
@@ -65,11 +67,12 @@ func NewVeleroRootCommand() *cobra.Command {
 
 	// Create NonAdmin client factory for NonAdminBackup commands
 	// This factory uses the current kubeconfig context namespace instead of hardcoded openshift-adp
-	nonAdminFactory := nonadmin.NewNonAdminFactory()
+	nonAdminFactory := NewNonAdminFactory()
 
 	// Create the commands and modify their help text before adding them
 	backupCmd := backup.NewCommand(veleroFactory)
 	restoreCmd := restore.NewCommand(veleroFactory)
+	clientCmd := client.NewCommand()
 
 	// Modify help text to replace "velero" with "oadp"
 	updateCommandHelpText(backupCmd, usagePrefix)
@@ -79,34 +82,15 @@ func NewVeleroRootCommand() *cobra.Command {
 	rootCmd.AddCommand(version.NewCommand(veleroFactory))
 	rootCmd.AddCommand(backupCmd)
 	rootCmd.AddCommand(restoreCmd)
+	rootCmd.AddCommand(clientCmd)
+
+	// Admin NABSL commands - use Velero factory (admin namespace)
+	rootCmd.AddCommand(nabsl.NewNABSLCommand(veleroFactory))
 
 	// Custom subcommands - use NonAdmin factory
 	rootCmd.AddCommand(nonadmin.NewNonAdminCommand(nonAdminFactory))
 
 	return rootCmd
-}
-
-// updateCommandHelpText recursively updates help text in commands and subcommands
-func updateCommandHelpText(cmd *cobra.Command, usagePrefix string) {
-	// Update examples that contain "velero"
-	if strings.Contains(cmd.Example, "velero") {
-		cmd.Example = strings.ReplaceAll(cmd.Example, "velero", usagePrefix)
-	}
-
-	// Update long description if it contains "velero"
-	if strings.Contains(cmd.Long, "velero") {
-		cmd.Long = strings.ReplaceAll(cmd.Long, "velero", "oadp")
-	}
-
-	// Update short description if it contains "velero"
-	if strings.Contains(cmd.Short, "velero") {
-		cmd.Short = strings.ReplaceAll(cmd.Short, "velero", "oadp")
-	}
-
-	// Recursively update subcommands
-	for _, subCmd := range cmd.Commands() {
-		updateCommandHelpText(subCmd, usagePrefix)
-	}
 }
 
 func Execute() {

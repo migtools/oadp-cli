@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,10 +28,11 @@ import (
 	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/builder"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd"
+	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,7 +52,7 @@ func NewCreateCommand(f client.Factory) *cobra.Command {
   kubectl oadp nonadmin bsl create my-storage \
     --provider aws \
     --bucket my-velero-bucket \
-    --credential-name cloud-credentials \
+    --credential cloud-credentials=cloud \
     --region us-east-1
 
   # Create with prefix for organizing backups
@@ -58,14 +60,21 @@ func NewCreateCommand(f client.Factory) *cobra.Command {
     --provider aws \
     --bucket my-velero-bucket \
     --prefix velero-backups \
-    --credential-name cloud-credentials \
+    --credential cloud-credentials=cloud \
+    --region us-east-1
+
+  # Create with custom credential key
+  kubectl oadp nonadmin bsl create my-storage \
+    --provider aws \
+    --bucket my-velero-bucket \
+    --credential my-secret=service-account-key \
     --region us-east-1
 
   # View the YAML without creating the resource
   kubectl oadp nonadmin bsl create my-storage \
     --provider aws \
     --bucket my-bucket \
-    --credential-name cloud-credentials \
+    --credential cloud-credentials=cloud \
     --region us-east-1 \
     -o yaml`,
 	}
@@ -78,20 +87,21 @@ func NewCreateCommand(f client.Factory) *cobra.Command {
 }
 
 type CreateOptions struct {
-	Name           string
-	Namespace      string
-	Provider       string
-	Bucket         string
-	Prefix         string
-	CredentialName string
-	Region         string
-	Config         map[string]string
-	client         kbclient.WithWatch
+	Name       string
+	Namespace  string
+	Provider   string
+	Bucket     string
+	Prefix     string
+	Credential flag.Map
+	Region     string
+	Config     map[string]string
+	client     kbclient.WithWatch
 }
 
 func NewCreateOptions() *CreateOptions {
 	return &CreateOptions{
-		Config: make(map[string]string),
+		Credential: flag.NewMap(),
+		Config:     make(map[string]string),
 	}
 }
 
@@ -99,7 +109,7 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.Provider, "provider", "", "Storage provider (required). Examples: aws, azure, gcp")
 	flags.StringVar(&o.Bucket, "bucket", "", "Object storage bucket name (required)")
 	flags.StringVar(&o.Prefix, "prefix", "", "Prefix for backup objects in the bucket")
-	flags.StringVar(&o.CredentialName, "credential-name", "", "Name of the credential secret (required)")
+	flags.Var(&o.Credential, "credential", "The credential to be used by this location as a key-value pair, where the key is the Kubernetes Secret name, and the value is the data key name within the Secret. Required, one value only.")
 	flags.StringVar(&o.Region, "region", "", "Storage region (required for some providers like AWS)")
 	flags.StringToStringVar(&o.Config, "config", nil, "Additional provider-specific configuration (key=value pairs)")
 }
@@ -132,8 +142,11 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 	if o.Bucket == "" {
 		return fmt.Errorf("--bucket is required")
 	}
-	if o.CredentialName == "" {
-		return fmt.Errorf("--credential-name is required")
+	if len(o.Credential.Data()) == 0 {
+		return errors.New("--credential is required")
+	}
+	if len(o.Credential.Data()) > 1 {
+		return errors.New("--credential can only contain 1 key/value pair")
 	}
 
 	return nil
@@ -160,12 +173,6 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 			BackupStorageLocationSpec: &velerov1.BackupStorageLocationSpec{
 				Provider: o.Provider,
 				Config:   config,
-				Credential: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: o.CredentialName,
-					},
-					Key: "cloud", // Standard key name for cloud credentials
-				},
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
 						Bucket: o.Bucket,
@@ -174,6 +181,12 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 				},
 			},
 		},
+	}
+
+	// Set credential from user-provided key-value pair
+	for secretName, secretKey := range o.Credential.Data() {
+		nabsl.Spec.BackupStorageLocationSpec.Credential = builder.ForSecretKeySelector(secretName, secretKey).Result()
+		break
 	}
 
 	if printed, err := output.PrintWithFormat(c, nabsl); printed || err != nil {

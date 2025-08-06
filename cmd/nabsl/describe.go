@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package bsl
+package nabsl
 
 import (
 	"context"
@@ -31,8 +31,8 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 )
 
-func NewRequestDescribeCommand(f client.Factory) *cobra.Command {
-	o := NewRequestDescribeOptions()
+func NewDescribeCommand(f client.Factory) *cobra.Command {
+	o := NewDescribeOptions()
 
 	c := &cobra.Command{
 		Use:   "describe NAME",
@@ -44,25 +44,25 @@ func NewRequestDescribeCommand(f client.Factory) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Describe a request by NABSL name
-  kubectl oadp nonadmin bsl request describe my-bsl-request
+  kubectl oadp nabsl describe my-bsl-request
 
   # Describe a request by UUID
-  kubectl oadp nonadmin bsl request describe nacuser01-my-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8`,
+  kubectl oadp nabsl describe nacuser01-my-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8`,
 	}
 
 	return c
 }
 
-type RequestDescribeOptions struct {
+type DescribeOptions struct {
 	Name   string
 	client kbclient.WithWatch
 }
 
-func NewRequestDescribeOptions() *RequestDescribeOptions {
-	return &RequestDescribeOptions{}
+func NewDescribeOptions() *DescribeOptions {
+	return &DescribeOptions{}
 }
 
-func (o *RequestDescribeOptions) Complete(args []string, f client.Factory) error {
+func (o *DescribeOptions) Complete(args []string, f client.Factory) error {
 	o.Name = args[0]
 
 	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
@@ -77,11 +77,14 @@ func (o *RequestDescribeOptions) Complete(args []string, f client.Factory) error
 	return nil
 }
 
-func (o *RequestDescribeOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
+func (o *DescribeOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
 	return nil
 }
 
-func (o *RequestDescribeOptions) Run(c *cobra.Command, f client.Factory) error {
+func (o *DescribeOptions) Run(c *cobra.Command, f client.Factory) error {
+	// Get the admin namespace (from client config) where requests are stored
+	adminNS := f.Namespace()
+
 	// Get the current namespace to find user's NABSLs
 	currentNS, err := shared.GetCurrentNamespace()
 	if err != nil {
@@ -116,7 +119,7 @@ func (o *RequestDescribeOptions) Run(c *cobra.Command, f client.Factory) error {
 	var request nacv1alpha1.NonAdminBackupStorageLocationRequest
 	err = o.client.Get(context.Background(), kbclient.ObjectKey{
 		Name:      targetUUID,
-		Namespace: "openshift-adp",
+		Namespace: adminNS,
 	}, &request)
 	if err != nil {
 		return fmt.Errorf("failed to get request for %q: %w", o.Name, err)

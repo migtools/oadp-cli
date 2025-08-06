@@ -6,6 +6,8 @@
 BINARY_NAME = kubectl-oadp
 INSTALL_PATH ?= $(HOME)/.local/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VELERO_NAMESPACE ?= openshift-adp
+ASSUME_DEFAULT ?= false
 
 # Centralized platform definitions to avoid duplication
 # Matches architectures supported by Kubernetes: https://kubernetes.io/releases/download/#binaries
@@ -31,10 +33,12 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Installation options:"
-	@echo "  \033[36mmake install\033[0m        # Install to ~/.local/bin (recommended, no sudo)"
-	@echo "  \033[36mmake install-user\033[0m   # Same as install (legacy alias)"
-	@echo "  \033[36mmake install-bin\033[0m    # Install to ~/bin (alternative, no sudo)"
-	@echo "  \033[36mmake install-system\033[0m # Install to /usr/local/bin (requires sudo)"
+	@echo "  \033[36mmake install\033[0m                            # Install with interactive namespace prompt"
+	@echo "  \033[36mmake install ASSUME_DEFAULT=true\033[0m      # Install with default namespace (no prompt)"
+	@echo "  \033[36mmake install VELERO_NAMESPACE=velero\033[0m  # Install with custom namespace (no prompt)"
+	@echo "  \033[36mmake install-user\033[0m                       # Same as install (legacy alias)"
+	@echo "  \033[36mmake install-bin\033[0m                        # Install to ~/bin (alternative, no sudo)"
+	@echo "  \033[36mmake install-system\033[0m                     # Install to /usr/local/bin (requires sudo)"
 	@echo ""
 	@echo "Uninstall options:"
 	@echo "  \033[36mmake uninstall\033[0m        # Remove from user locations (no sudo)"
@@ -108,7 +112,30 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 	if [[ "$$PATH_UPDATED" == "true" ]] || [[ "$$PATH_IN_CONFIG" == "true" ]]; then \
 		echo "🔄 Restart terminal or run: source ~/.zshrc"; \
 	fi; \
-	echo "Test: kubectl oadp --help"
+	echo ""; \
+	echo "📋 Configuration:"; \
+	NAMESPACE=$(VELERO_NAMESPACE); \
+	if [[ "$(ASSUME_DEFAULT)" != "true" && "$(VELERO_NAMESPACE)" == "openshift-adp" ]]; then \
+		echo ""; \
+		echo "🤔 Which namespace should admin commands use for Velero resources?"; \
+		echo "   (Common options: openshift-adp, velero, oadp)"; \
+		echo ""; \
+		printf "Enter namespace [default: $(VELERO_NAMESPACE)]: "; \
+		read -r user_input; \
+		if [[ -n "$$user_input" ]]; then \
+			NAMESPACE=$$user_input; \
+		fi; \
+		echo ""; \
+	fi; \
+	echo "Setting Velero namespace to: $$NAMESPACE"; \
+	$(INSTALL_PATH)/$(BINARY_NAME) client config set namespace=$$NAMESPACE 2>/dev/null || true; \
+	echo "✅ Client config initialized"; \
+	echo ""; \
+	echo "📋 Next steps:"; \
+	echo "  1. Test admin commands: kubectl oadp backup get"; \
+	echo "  2. Test non-admin commands: kubectl oadp nonadmin backup get"; \
+	echo "  3. Manage NABSL requests: kubectl oadp nabsl get"; \
+	echo "  4. Change namespace: kubectl oadp client config set namespace=<namespace>"
 
 .PHONY: install-user
 install-user: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo required)

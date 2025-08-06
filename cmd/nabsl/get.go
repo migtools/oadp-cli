@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package bsl
+package nabsl
 
 import (
 	"context"
@@ -34,8 +34,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewRequestGetCommand(f client.Factory) *cobra.Command {
-	o := NewRequestGetOptions()
+func NewGetCommand(f client.Factory) *cobra.Command {
+	o := NewGetOptions()
 
 	c := &cobra.Command{
 		Use:   "get [NAME]",
@@ -46,17 +46,17 @@ func NewRequestGetCommand(f client.Factory) *cobra.Command {
 			cmd.CheckError(o.Validate(c, args, f))
 			cmd.CheckError(o.Run(c, f))
 		},
-		Example: `  # Get all your backup storage location requests
-  kubectl oadp nonadmin bsl request get
+		Example: `  # Get all backup storage location requests (admin access required)
+  kubectl oadp nabsl get
 
   # Get a specific request by NABSL name
-  kubectl oadp nonadmin bsl request get my-bsl-request
+  kubectl oadp nabsl get my-bsl-request
 
   # Get a specific request by UUID
-  kubectl oadp nonadmin bsl request get nacuser01-my-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8
+  kubectl oadp nabsl get nacuser01-my-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8
 
   # Get output in YAML format
-  kubectl oadp nonadmin bsl request get my-bsl-request -o yaml`,
+  kubectl oadp nabsl get my-bsl-request -o yaml`,
 	}
 
 	o.BindFlags(c.Flags())
@@ -66,21 +66,21 @@ func NewRequestGetCommand(f client.Factory) *cobra.Command {
 	return c
 }
 
-type RequestGetOptions struct {
+type GetOptions struct {
 	Name          string
 	AllNamespaces bool
 	client        kbclient.WithWatch
 }
 
-func NewRequestGetOptions() *RequestGetOptions {
-	return &RequestGetOptions{}
+func NewGetOptions() *GetOptions {
+	return &GetOptions{}
 }
 
-func (o *RequestGetOptions) BindFlags(flags *pflag.FlagSet) {
+func (o *GetOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&o.AllNamespaces, "all-namespaces", false, "If present, list requests across all namespaces")
 }
 
-func (o *RequestGetOptions) Complete(args []string, f client.Factory) error {
+func (o *GetOptions) Complete(args []string, f client.Factory) error {
 	if len(args) > 0 {
 		o.Name = args[0]
 	}
@@ -97,11 +97,14 @@ func (o *RequestGetOptions) Complete(args []string, f client.Factory) error {
 	return nil
 }
 
-func (o *RequestGetOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
+func (o *GetOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
 	return nil
 }
 
-func (o *RequestGetOptions) Run(c *cobra.Command, f client.Factory) error {
+func (o *GetOptions) Run(c *cobra.Command, f client.Factory) error {
+	// Get the admin namespace (from client config) where requests are stored
+	adminNS := f.Namespace()
+
 	// Get the current namespace to find user's NABSLs
 	currentNS, err := shared.GetCurrentNamespace()
 	if err != nil {
@@ -145,7 +148,7 @@ func (o *RequestGetOptions) Run(c *cobra.Command, f client.Factory) error {
 			var request nacv1alpha1.NonAdminBackupStorageLocationRequest
 			err := o.client.Get(context.Background(), kbclient.ObjectKey{
 				Name:      targetUUID,
-				Namespace: "openshift-adp",
+				Namespace: adminNS,
 			}, &request)
 			if err != nil {
 				return fmt.Errorf("failed to get request for %q: %w", o.Name, err)
@@ -170,7 +173,7 @@ func (o *RequestGetOptions) Run(c *cobra.Command, f client.Factory) error {
 		var request nacv1alpha1.NonAdminBackupStorageLocationRequest
 		err := o.client.Get(context.Background(), kbclient.ObjectKey{
 			Name:      uuid,
-			Namespace: "openshift-adp",
+			Namespace: adminNS,
 		}, &request)
 		if err != nil {
 			// Request might not exist yet, skip

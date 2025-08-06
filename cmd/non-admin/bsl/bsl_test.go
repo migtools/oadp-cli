@@ -83,7 +83,6 @@ func TestBSLNoLongerHasRequestCommands(t *testing.T) {
 				continue
 			}
 			if inAvailableCommands && strings.Contains(line, "Flags:") {
-				inAvailableCommands = false
 				break
 			}
 			if inAvailableCommands && strings.Contains(strings.TrimSpace(line), "request") {

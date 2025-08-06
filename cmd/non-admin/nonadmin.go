@@ -40,4 +40,3 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 
 	return c
 }
-

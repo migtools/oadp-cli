@@ -67,7 +67,11 @@ func BuildCLIBinary(t *testing.T) string {
 
 	// Create temp directory for the binary
 	tempDir := t.TempDir()
-	binaryPath := filepath.Join(tempDir, "oadp-test")
+	binaryName := "oadp-test"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	binaryPath := filepath.Join(tempDir, binaryName)
 
 	t.Logf("Building CLI binary: %s", binaryPath)
 	t.Logf("Project root: %s", projectRoot)

@@ -19,6 +19,7 @@ package main
 import (
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -46,7 +47,11 @@ func TestMakefileInstallation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Failed to restore original directory: %v", err)
+		}
+	}()
 
 	err = os.Chdir(projectRoot)
 	if err != nil {
@@ -76,7 +81,9 @@ func TestMakefileInstallation(t *testing.T) {
 
 	t.Run("make build works", func(t *testing.T) {
 		// Clean first
-		exec.Command("make", "clean").Run()
+		if err := exec.Command("make", "clean").Run(); err != nil {
+			t.Logf("Failed to clean (non-fatal): %v", err)
+		}
 
 		cmd := exec.Command("make", "build")
 		output, err := cmd.CombinedOutput()
@@ -85,12 +92,16 @@ func TestMakefileInstallation(t *testing.T) {
 		}
 
 		// Check binary was created
-		if _, err := os.Stat("kubectl-oadp"); os.IsNotExist(err) {
-			t.Errorf("Binary kubectl-oadp was not created")
+		binaryName := "kubectl-oadp"
+		if runtime.GOOS == "windows" {
+			binaryName += ".exe"
+		}
+		if _, err := os.Stat(binaryName); os.IsNotExist(err) {
+			t.Errorf("Binary %s was not created", binaryName)
 		}
 
 		// Cleanup
-		os.Remove("kubectl-oadp")
+		os.Remove(binaryName)
 	})
 }
 

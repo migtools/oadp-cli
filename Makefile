@@ -68,21 +68,38 @@ help: ## Show this help message
 .PHONY: build
 build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compilation)
 	@if [ -n "$(PLATFORM)" ]; then \
+		if [ "$(GOOS)" = "windows" ]; then \
+			binary_suffix=".exe"; \
+		else \
+			binary_suffix=""; \
+		fi; \
 		echo "Building $(BINARY_NAME) for $(PLATFORM)..."; \
-		GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BINARY_NAME)-$(GOOS)-$(GOARCH) .; \
-		echo "✅ Built $(BINARY_NAME)-$(GOOS)-$(GOARCH) successfully!"; \
+		GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BINARY_NAME)-$(GOOS)-$(GOARCH)$$binary_suffix .; \
+		echo "✅ Built $(BINARY_NAME)-$(GOOS)-$(GOARCH)$$binary_suffix successfully!"; \
 	else \
-		echo "Building $(BINARY_NAME) for current platform ($$(go env GOOS)/$$(go env GOARCH))..."; \
-		go build -o $(BINARY_NAME) .; \
-		echo "✅ Built $(BINARY_NAME) successfully!"; \
+		GOOS=$$(go env GOOS); \
+		if [ "$$GOOS" = "windows" ]; then \
+			binary_name="$(BINARY_NAME).exe"; \
+		else \
+			binary_name="$(BINARY_NAME)"; \
+		fi; \
+		echo "Building $$binary_name for current platform ($$GOOS/$$(go env GOARCH))..."; \
+		go build -o $$binary_name .; \
+		echo "✅ Built $$binary_name successfully!"; \
 	fi
 
 # Installation targets
 .PHONY: install
 install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo required)
-	@echo "Installing $(BINARY_NAME) to $(INSTALL_PATH)..."
-	@mkdir -p $(INSTALL_PATH)
-	cp $(BINARY_NAME) $(INSTALL_PATH)/
+	@GOOS=$$(go env GOOS); \
+	if [ "$$GOOS" = "windows" ]; then \
+		binary_name="$(BINARY_NAME).exe"; \
+	else \
+		binary_name="$(BINARY_NAME)"; \
+	fi; \
+	echo "Installing $$binary_name to $(INSTALL_PATH)..."; \
+	mkdir -p $(INSTALL_PATH); \
+	cp $$binary_name $(INSTALL_PATH)/
 	@echo "✅ Installed to $(INSTALL_PATH)"
 	@echo ""
 	@PATH_UPDATED=false; \
@@ -132,9 +149,15 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		fi; \
 		echo ""; \
 	fi; \
-	echo "Setting Velero namespace to: $$NAMESPACE"; \
-	$(INSTALL_PATH)/$(BINARY_NAME) client config set namespace=$$NAMESPACE 2>/dev/null || true; \
-	echo "✅ Client config initialized"; \
+			echo "Setting Velero namespace to: $$NAMESPACE"; \
+		GOOS=$$(go env GOOS); \
+		if [ "$$GOOS" = "windows" ]; then \
+			binary_name="$(BINARY_NAME).exe"; \
+		else \
+			binary_name="$(BINARY_NAME)"; \
+		fi; \
+		$(INSTALL_PATH)/$$binary_name client config set namespace=$$NAMESPACE 2>/dev/null || true; \
+		echo "✅ Client config initialized"; \
 	echo ""; \
 	echo "📋 Next steps:"; \
 	echo "  1. Test admin commands: kubectl oadp backup get"; \
@@ -239,7 +262,7 @@ test-integration: ## Run integration tests only
 .PHONY: clean
 clean: ## Remove built binaries
 	@echo "Cleaning up..."
-	@rm -f $(BINARY_NAME) $(BINARY_NAME)-linux-* $(BINARY_NAME)-darwin-* $(BINARY_NAME)-windows-*
+	@rm -f $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-linux-* $(BINARY_NAME)-darwin-* $(BINARY_NAME)-windows-*
 	@rm -f *.tar.gz *.sha256
 	@rm -f oadp-*.yaml oadp-*.yaml.tmp
 	@echo "✅ Cleanup complete!"

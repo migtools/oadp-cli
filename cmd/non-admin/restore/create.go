@@ -76,7 +76,6 @@ type CreateOptions struct {
 	FromBackup              string
 	IncludeResources        flag.StringArray
 	ExcludeResources        flag.StringArray
-	NamespaceMapping        flag.Map
 	Labels                  flag.Map
 	Annotations             flag.Map
 	Selector                flag.LabelSelector
@@ -97,7 +96,6 @@ func NewCreateOptions() *CreateOptions {
 		IncludeResources:        flag.NewStringArray("*"),
 		Labels:                  flag.NewMap(),
 		Annotations:             flag.NewMap(),
-		NamespaceMapping:        flag.NewMap(),
 		UploaderConfig:          flag.NewMap(),
 		IncludeClusterResources: flag.NewOptionalBool(nil),
 		RestorePVs:              flag.NewOptionalBool(nil),
@@ -111,7 +109,6 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the restore, formatted as resource.group, such as storageclasses.storage.k8s.io.")
 	flags.Var(&o.Labels, "labels", "Labels to apply to the restore.")
 	flags.Var(&o.Annotations, "annotations", "Annotations to apply to the restore.")
-	// Note: namespace-mappings are restricted for non-admin users and therefore not exposed
 	flags.VarP(&o.Selector, "selector", "l", "Only restore resources matching this label selector.")
 	flags.Var(&o.OrSelector, "or-selector", "Restore resources matching at least one of the label selector from the list. Label selectors should be separated by ' or '. For example, foo=bar or app=nginx")
 	flags.DurationVar(&o.ItemOperationTimeout, "item-operation-timeout", o.ItemOperationTimeout, "How long to wait for async plugin operations before timeout.")

@@ -30,23 +30,10 @@ kubectl oadp
 
 ## Installation
 
-### Using Krew (Available soon!)
-
-```sh
-# Install Krew if you haven't already
-kubectl krew install krew
-
-# Install the OADP plugin
-kubectl krew install oadp
-
-# Verify installation
-kubectl oadp --help
-```
-
 ### Manual Build and Install
 
 ```sh
-# Recommended: Rootless install (no sudo required)
+# Recommended: Smart install with auto-detection (no sudo required)
 make install
 
 # After install, refresh your terminal:
@@ -60,7 +47,25 @@ kubectl oadp --help
 make install-system
 ```
 
+The `make install` command automatically detects your OADP deployment namespace by looking for:
+1. **OADP Controller** (`openshift-adp-controller-manager` deployment)
+2. **DPA Resources** (`DataProtectionApplication` custom resources)  
+3. **Velero Deployment** (fallback for vanilla Velero installations)
+
+If no OADP resources are detected, you'll be prompted to specify the namespace manually.
+
+**Installation Options:**
+```sh
+make install                          # Smart detection + interactive prompt
+make install ASSUME_DEFAULT=true     # Use default namespace (no detection)
+make install VELERO_NAMESPACE=custom # Use specific namespace (no detection)
+```
+
 **💡 Important:** After installation, you may need to refresh your terminal or run `source ~/.zshrc` (or `~/.bashrc`) for the `kubectl oadp` command to work.
+
+You can set the velero namespace afterwards using the oadp client command
+
+
 
 ## Usage Guide
 

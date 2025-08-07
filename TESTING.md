@@ -160,3 +160,29 @@ func TestNewCommand(t *testing.T) {
 6. **Use descriptive test names** that explain what's being tested
 
 This testing architecture ensures comprehensive coverage while maintaining clarity and ease of maintenance.
+
+## Installation Features
+
+The `make install` command includes intelligent namespace detection that automatically discovers where OADP is deployed in your cluster:
+
+### Automatic Detection Process
+
+1. **OADP Controller Detection**: Looks for `openshift-adp-controller-manager` deployment
+2. **DPA Resource Detection**: Searches for `DataProtectionApplication` custom resources  
+3. **Velero Fallback**: Falls back to looking for `velero` deployment
+4. **Interactive Prompt**: If no resources found, prompts for manual input
+
+### Installation Modes
+
+```bash
+# Smart detection + interactive prompt (default)
+make install
+
+# Skip detection, use default namespace
+make install ASSUME_DEFAULT=true
+
+# Skip detection, use custom namespace  
+make install VELERO_NAMESPACE=my-oadp-namespace
+```
+
+This intelligent detection eliminates the guesswork of finding the correct OADP namespace in your cluster.

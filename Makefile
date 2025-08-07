@@ -33,9 +33,9 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Installation options:"
-	@echo "  \033[36mmake install\033[0m                            # Install with interactive namespace prompt"
-	@echo "  \033[36mmake install ASSUME_DEFAULT=true\033[0m      # Install with default namespace (no prompt)"
-	@echo "  \033[36mmake install VELERO_NAMESPACE=velero\033[0m  # Install with custom namespace (no prompt)"
+	@echo "  \033[36mmake install\033[0m                            # Install with auto-detection & interactive prompt"
+	@echo "  \033[36mmake install ASSUME_DEFAULT=true\033[0m      # Install with default namespace (no detection/prompt)"
+	@echo "  \033[36mmake install VELERO_NAMESPACE=velero\033[0m  # Install with custom namespace (no detection/prompt)"
 	@echo "  \033[36mmake install-user\033[0m                       # Same as install (legacy alias)"
 	@echo "  \033[36mmake install-bin\033[0m                        # Install to ~/bin (alternative, no sudo)"
 	@echo "  \033[36mmake install-system\033[0m                     # Install to /usr/local/bin (requires sudo)"
@@ -135,21 +135,51 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		echo "🔄 Restart terminal or run: source ~/.zshrc"; \
 	fi; \
 	echo ""; \
-	echo "📋 Configuration:"; \
+		echo "📋 Configuration:"; \
 	NAMESPACE=$(VELERO_NAMESPACE); \
+	DETECTED=false; \
 	if [[ "$(ASSUME_DEFAULT)" != "true" && "$(VELERO_NAMESPACE)" == "openshift-adp" ]]; then \
 		echo ""; \
-		echo "🤔 Which namespace should admin commands use for Velero resources?"; \
-		echo "   (Common options: openshift-adp, velero, oadp)"; \
-		echo ""; \
-		printf "Enter namespace [default: $(VELERO_NAMESPACE)]: "; \
-		read -r user_input; \
-		if [[ -n "$$user_input" ]]; then \
-			NAMESPACE=$$user_input; \
+		echo "🔍 Detecting OADP deployment in cluster..."; \
+		DETECTED_NS=$$(kubectl get deployment openshift-adp-controller-manager --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
+		if [[ -n "$$DETECTED_NS" ]]; then \
+			echo "✅ Found OADP controller in namespace: $$DETECTED_NS"; \
+			NAMESPACE=$$DETECTED_NS; \
+			DETECTED=true; \
+		else \
+			echo "   Could not find openshift-adp-controller-manager deployment"; \
+			echo "🔍 Looking for DataProtectionApplication (DPA) resources..."; \
+			DETECTED_NS=$$(kubectl get dataprotectionapplication --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
+			if [[ -n "$$DETECTED_NS" ]]; then \
+				echo "✅ Found DPA resource in namespace: $$DETECTED_NS"; \
+				NAMESPACE=$$DETECTED_NS; \
+				DETECTED=true; \
+			else \
+				echo "   Could not find DataProtectionApplication resources"; \
+				echo "🔍 Looking for Velero deployment as fallback..."; \
+				DETECTED_NS=$$(kubectl get deployment velero --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
+				if [[ -n "$$DETECTED_NS" ]]; then \
+					echo "✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
+					NAMESPACE=$$DETECTED_NS; \
+					DETECTED=true; \
+				else \
+					echo "⚠️  Could not detect OADP or Velero deployment in cluster"; \
+				fi; \
+			fi; \
+		fi; \
+		if [[ "$$DETECTED" == "false" ]]; then \
+			echo "🤔 Which namespace should admin commands use for Velero resources?"; \
+			echo "   (Common options: openshift-adp, velero, oadp)"; \
+			echo ""; \
+			printf "Enter namespace [default: $(VELERO_NAMESPACE)]: "; \
+			read -r user_input; \
+			if [[ -n "$$user_input" ]]; then \
+				NAMESPACE=$$user_input; \
+			fi; \
 		fi; \
 		echo ""; \
 	fi; \
-			echo "Setting Velero namespace to: $$NAMESPACE"; \
+		echo "Setting Velero namespace to: $$NAMESPACE"; \
 		GOOS=$$(go env GOOS); \
 		if [ "$$GOOS" = "windows" ]; then \
 			binary_name="$(BINARY_NAME).exe"; \

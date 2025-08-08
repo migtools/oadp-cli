@@ -32,8 +32,8 @@ func TestNABSLCommands(t *testing.T) {
 		expectContains []string
 	}{
 		{
-			name: "nabsl help",
-			args: []string{"nabsl", "--help"},
+			name: "nabsl-request help",
+			args: []string{"nabsl-request", "--help"},
 			expectContains: []string{
 				"Manage approval requests for non-admin backup storage locations",
 				"approve",
@@ -43,31 +43,31 @@ func TestNABSLCommands(t *testing.T) {
 			},
 		},
 		{
-			name: "nabsl approve help",
-			args: []string{"nabsl", "approve", "--help"},
+			name: "nabsl-request approve help",
+			args: []string{"nabsl-request", "approve", "--help"},
 			expectContains: []string{
 				"Approve a pending backup storage location request",
 				"--reason",
 			},
 		},
 		{
-			name: "nabsl reject help",
-			args: []string{"nabsl", "reject", "--help"},
+			name: "nabsl-request reject help",
+			args: []string{"nabsl-request", "reject", "--help"},
 			expectContains: []string{
 				"Reject a pending backup storage location request",
 				"--reason",
 			},
 		},
 		{
-			name: "nabsl get help",
-			args: []string{"nabsl", "get", "--help"},
+			name: "nabsl-request get help",
+			args: []string{"nabsl-request", "get", "--help"},
 			expectContains: []string{
 				"Get non-admin backup storage location requests",
 			},
 		},
 		{
-			name: "nabsl describe help",
-			args: []string{"nabsl", "describe", "--help"},
+			name: "nabsl-request describe help",
+			args: []string{"nabsl-request", "describe", "--help"},
 			expectContains: []string{
 				"Describe a non-admin backup storage location request",
 			},
@@ -81,21 +81,21 @@ func TestNABSLCommands(t *testing.T) {
 	}
 }
 
-// TestNABSLHelpFlags tests that both --help and -h work for nabsl commands
+// TestNABSLHelpFlags tests that both --help and -h work for nabsl-request commands
 func TestNABSLHelpFlags(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	commands := [][]string{
-		{"nabsl", "--help"},
-		{"nabsl", "-h"},
-		{"nabsl", "approve", "--help"},
-		{"nabsl", "approve", "-h"},
-		{"nabsl", "reject", "--help"},
-		{"nabsl", "reject", "-h"},
-		{"nabsl", "get", "--help"},
-		{"nabsl", "get", "-h"},
-		{"nabsl", "describe", "--help"},
-		{"nabsl", "describe", "-h"},
+		{"nabsl-request", "--help"},
+		{"nabsl-request", "-h"},
+		{"nabsl-request", "approve", "--help"},
+		{"nabsl-request", "approve", "-h"},
+		{"nabsl-request", "reject", "--help"},
+		{"nabsl-request", "reject", "-h"},
+		{"nabsl-request", "get", "--help"},
+		{"nabsl-request", "get", "-h"},
+		{"nabsl-request", "describe", "--help"},
+		{"nabsl-request", "describe", "-h"},
 	}
 
 	for _, cmd := range commands {
@@ -105,33 +105,33 @@ func TestNABSLHelpFlags(t *testing.T) {
 	}
 }
 
-// TestNABSLClientConfigIntegration tests that NABSL commands respect client config
+// TestNABSLClientConfigIntegration tests that NABSL request commands respect client config
 func TestNABSLClientConfigIntegration(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 	_, cleanup := testutil.SetupTempHome(t)
 	defer cleanup()
 
-	t.Run("nabsl commands work with client config", func(t *testing.T) {
+	t.Run("nabsl-request commands work with client config", func(t *testing.T) {
 		// Set a known namespace
 		_, err := testutil.RunCommand(t, binaryPath, "client", "config", "set", "namespace=admin-namespace")
 		if err != nil {
 			t.Fatalf("Failed to set client config: %v", err)
 		}
 
-		// Test that nabsl commands can be invoked (they should respect the namespace)
+		// Test that nabsl-request commands can be invoked (they should respect the namespace)
 		// We test help commands since they don't require actual K8s resources
 		commands := [][]string{
-			{"nabsl", "get", "--help"},
-			{"nabsl", "approve", "--help"},
-			{"nabsl", "reject", "--help"},
-			{"nabsl", "describe", "--help"},
+			{"nabsl-request", "get", "--help"},
+			{"nabsl-request", "approve", "--help"},
+			{"nabsl-request", "reject", "--help"},
+			{"nabsl-request", "describe", "--help"},
 		}
 
 		for _, cmd := range commands {
 			t.Run("config_test_"+cmd[1], func(t *testing.T) {
 				output, err := testutil.RunCommand(t, binaryPath, cmd...)
 				if err != nil {
-					t.Fatalf("NABSL command should work with client config: %v", err)
+					t.Fatalf("NABSL request command should work with client config: %v", err)
 				}
 				if output == "" {
 					t.Errorf("Expected help output for %v", cmd)

@@ -135,7 +135,7 @@ func TestCommandArchitecture(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	t.Run("all major commands exist", func(t *testing.T) {
-		majorCommands := []string{"backup", "restore", "nabsl", "nonadmin", "client", "version"}
+		majorCommands := []string{"backup", "restore", "nabsl-request", "nonadmin", "client", "version"}
 
 		output, _ := testutil.RunCommand(t, binaryPath, "--help")
 
@@ -146,14 +146,14 @@ func TestCommandArchitecture(t *testing.T) {
 		}
 	})
 
-	t.Run("nabsl command has correct subcommands", func(t *testing.T) {
+	t.Run("nabsl-request command has correct subcommands", func(t *testing.T) {
 		expectedSubcommands := []string{"approve", "reject", "describe", "get"}
 
-		output, _ := testutil.RunCommand(t, binaryPath, "nabsl", "--help")
+		output, _ := testutil.RunCommand(t, binaryPath, "nabsl-request", "--help")
 
 		for _, subcmd := range expectedSubcommands {
 			if !strings.Contains(output, subcmd) {
-				t.Errorf("Expected nabsl help to contain %q subcommand", subcmd)
+				t.Errorf("Expected nabsl-request help to contain %q subcommand", subcmd)
 			}
 		}
 	})

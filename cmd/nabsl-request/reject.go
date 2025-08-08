@@ -40,10 +40,10 @@ func NewRejectCommand(f client.Factory) *cobra.Command {
 		Long:  "Reject a pending backup storage location request to deny the user's request for a backup storage location",
 		Args:  cobra.ExactArgs(1),
 		Example: `  # Deny a request by NABSL name (admin access required)
-  kubectl oadp nabsl reject user-test-bsl --reason "Invalid configuration"
+  kubectl oadp nabsl-request reject user-test-bsl --reason "Invalid configuration"
 
   # Deny a request by UUID with detailed reason
-  kubectl oadp nabsl reject nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Bucket does not exist in specified region"`,
+  kubectl oadp nabsl-request reject nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Bucket does not exist in specified region"`,
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate(c, args, f))
@@ -94,7 +94,7 @@ func (o *RejectOptions) Run(c *cobra.Command, f client.Factory) error {
 	adminNS := f.Namespace()
 
 	// Find the request either by UUID or by looking up NABSL name
-	requestName, err := o.findRequestName(adminNS)
+	requestName, err := shared.FindNABSLRequestByNameOrUUID(context.Background(), o.client, o.RequestName, adminNS)
 	if err != nil {
 		return err
 	}
@@ -143,32 +143,3 @@ func (o *RejectOptions) Run(c *cobra.Command, f client.Factory) error {
 	return nil
 }
 
-func (o *RejectOptions) findRequestName(adminNS string) (string, error) {
-	// First check if o.RequestName is already a UUID by trying to get it directly
-	var testRequest nacv1alpha1.NonAdminBackupStorageLocationRequest
-	err := o.client.Get(context.Background(), kbclient.ObjectKey{
-		Name:      o.RequestName,
-		Namespace: adminNS,
-	}, &testRequest)
-	if err == nil {
-		// Found it directly, it's a UUID
-		return o.RequestName, nil
-	}
-
-	// Not found directly, so o.RequestName might be a NABSL name
-	// We need to search through all requests to find one with matching source NABSL name
-	var requestList nacv1alpha1.NonAdminBackupStorageLocationRequestList
-	err = o.client.List(context.Background(), &requestList, kbclient.InNamespace(adminNS))
-	if err != nil {
-		return "", fmt.Errorf("failed to list requests: %w", err)
-	}
-
-	for _, request := range requestList.Items {
-		if request.Status.SourceNonAdminBSL != nil &&
-			request.Status.SourceNonAdminBSL.Name == o.RequestName {
-			return request.Name, nil
-		}
-	}
-
-	return "", fmt.Errorf("request for NABSL %q not found", o.RequestName)
-}

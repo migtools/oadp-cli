@@ -47,16 +47,16 @@ func NewGetCommand(f client.Factory) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Get all backup storage location requests (admin access required)
-  kubectl oadp nabsl get
+  kubectl oadp nabsl-request get
 
   # Get a specific request by NABSL name
-  kubectl oadp nabsl get my-bsl-request
+  kubectl oadp nabsl-request get my-bsl-request
 
   # Get a specific request by UUID
-  kubectl oadp nabsl get nacuser01-my-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8
+  kubectl oadp nabsl-request get nacuser01-my-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8
 
   # Get output in YAML format
-  kubectl oadp nabsl get my-bsl-request -o yaml`,
+  kubectl oadp nabsl-request get my-bsl-request -o yaml`,
 	}
 
 	o.BindFlags(c.Flags())

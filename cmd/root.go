@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/migtools/oadp-cli/cmd/nabsl"
+	"github.com/migtools/oadp-cli/cmd/nabsl-request"
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
@@ -84,8 +84,8 @@ func NewVeleroRootCommand() *cobra.Command {
 	rootCmd.AddCommand(restoreCmd)
 	rootCmd.AddCommand(clientCmd)
 
-	// Admin NABSL commands - use Velero factory (admin namespace)
-	rootCmd.AddCommand(nabsl.NewNABSLCommand(veleroFactory))
+	// Admin NABSL request commands - use Velero factory (admin namespace)
+	rootCmd.AddCommand(nabsl.NewNABSLRequestCommand(veleroFactory))
 
 	// Custom subcommands - use NonAdmin factory
 	rootCmd.AddCommand(nonadmin.NewNonAdminCommand(nonAdminFactory))

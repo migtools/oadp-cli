@@ -69,7 +69,7 @@ make test-integration
 ### Specific Package
 ```bash
 # Test specific command
-go test ./cmd/nabsl -v
+go test ./cmd/nabsl-request -v
 
 # Test with coverage
 go test ./cmd/... -cover

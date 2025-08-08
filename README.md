@@ -20,6 +20,7 @@ kubectl oadp
 ├── backup          # Velero cluster-wide backups (admin)
 ├── restore         # Velero cluster-wide restores (admin) 
 ├── version         # Version information
+├── nabsl-request   # Manage NonAdminBackupStorageLocation approval requests
 └── nonadmin (na)   # Namespace-scoped operations (non-admin)
     └── backup
         ├── create

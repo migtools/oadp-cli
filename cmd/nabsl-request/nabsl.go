@@ -21,28 +21,28 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
 
-// NewNABSLCommand creates the "nabsl" command for managing non-admin backup storage location requests
-func NewNABSLCommand(f client.Factory) *cobra.Command {
+// NewNABSLRequestCommand creates the "nabsl-request" command for managing non-admin backup storage location requests
+func NewNABSLRequestCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "nabsl",
-		Short: "Manage non-admin backup storage location requests",
+		Use:   "nabsl-request",
+		Short: "Manage non-admin backup storage location approval requests",
 		Long: `Manage approval requests for non-admin backup storage locations.
 
 Non-admin backup storage locations (NABSL) require admin approval before they can be used.
 When users create NABSLs, approval requests are automatically generated for admin review.
 
 Use these commands to view, approve, or reject pending NABSL requests.`,
-		Example: `  # List all pending NABSL requests
-  kubectl oadp nabsl get
+		Example: `  # List all pending NABSL approval requests
+  kubectl oadp nabsl-request get
 
-  # Describe a specific NABSL request
-  kubectl oadp nabsl describe my-storage-request
+  # Describe a specific NABSL approval request
+  kubectl oadp nabsl-request describe my-storage-request
 
-  # Approve a NABSL request
-  kubectl oadp nabsl approve my-storage-request
+  # Approve a NABSL approval request
+  kubectl oadp nabsl-request approve my-storage-request
 
-  # Reject a NABSL request  
-  kubectl oadp nabsl reject my-storage-request`,
+  # Reject a NABSL approval request  
+  kubectl oadp nabsl-request reject my-storage-request`,
 	}
 
 	c.AddCommand(

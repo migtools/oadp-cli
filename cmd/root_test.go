@@ -40,7 +40,7 @@ func TestRootCommand(t *testing.T) {
 				"version",
 				"backup",
 				"restore",
-				"nabsl",
+				"nabsl-request",
 				"nonadmin",
 			},
 		},

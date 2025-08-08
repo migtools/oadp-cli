@@ -59,7 +59,7 @@ func TestBSLCommands(t *testing.T) {
 	}
 }
 
-// TestBSLNoLongerHasRequestCommands verifies that request commands were moved to nabsl
+// TestBSLNoLongerHasRequestCommands verifies that request commands were moved to nabsl-request
 func TestBSLNoLongerHasRequestCommands(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 

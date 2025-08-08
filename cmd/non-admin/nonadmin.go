@@ -18,6 +18,7 @@ package nonadmin
 
 import (
 	"github.com/migtools/oadp-cli/cmd/non-admin/backup"
+	"github.com/migtools/oadp-cli/cmd/non-admin/bsl"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
@@ -35,15 +36,7 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 	c.AddCommand(backup.NewBackupCommand(f))
 
 	// Add backup storage location subcommand
-	//c.AddCommand(bsl.NewBSLCommand(f))
+	c.AddCommand(bsl.NewBSLCommand(f))
 
 	return c
-}
-
-// NewNonAdminFactory creates a client factory for NonAdminBackup operations
-// that uses the current kubeconfig context namespace instead of hardcoded openshift-adp
-func NewNonAdminFactory() client.Factory {
-	// Don't set a default namespace, let it use the kubeconfig context
-	cfg := client.VeleroConfig{}
-	return client.NewFactory("oadp-nonadmin-cli", cfg)
 }

@@ -63,8 +63,8 @@ func TestClientConfigIntegrationPattern(t *testing.T, testNamespace string, comm
 type ClientConfigTestCommands struct {
 	Name         string
 	Commands     [][]string
-	TestSetup    func(t *testing.T, binaryPath string) // Optional additional setup
-	Namespace    string                               // Namespace to configure
+	TestSetup    func(t *testing.T, binaryPath string)           // Optional additional setup
+	Namespace    string                                          // Namespace to configure
 	ValidateFunc func(t *testing.T, cmd []string, output string) // Optional output validation
 }
 

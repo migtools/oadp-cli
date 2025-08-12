@@ -65,7 +65,7 @@ func ReadVeleroClientConfig() (*ClientConfig, error) {
 	}
 
 	configPath := filepath.Join(homeDir, ".config", "velero", "config.json")
-	
+
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return &ClientConfig{}, nil // Return empty config if file doesn't exist

@@ -142,4 +142,3 @@ func (o *RejectOptions) Run(c *cobra.Command, f client.Factory) error {
 
 	return nil
 }
-

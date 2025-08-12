@@ -144,7 +144,7 @@ func TestNonAdminBackupCreateFlags(t *testing.T) {
 			"--include-resources",
 			"--exclude-resources",
 			"--labels",
-			"--annotations", 
+			"--annotations",
 			"--wait",
 			"--force",
 			"--assume-yes",
@@ -154,8 +154,8 @@ func TestNonAdminBackupCreateFlags(t *testing.T) {
 			"--or-selector",
 		}
 
-		testutil.TestHelpCommand(t, binaryPath, 
-			[]string{"nonadmin", "backup", "create", "--help"}, 
+		testutil.TestHelpCommand(t, binaryPath,
+			[]string{"nonadmin", "backup", "create", "--help"},
 			expectedFlags)
 	})
 }
@@ -181,7 +181,7 @@ func TestNonAdminBackupExamples(t *testing.T) {
 	t.Run("main backup help shows subcommands", func(t *testing.T) {
 		expectedSubcommands := []string{
 			"create",
-			"delete", 
+			"delete",
 			"describe",
 			"get",
 			"logs",

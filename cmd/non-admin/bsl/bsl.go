@@ -25,12 +25,12 @@ import (
 func NewBSLCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "bsl",
-		Short: "Work with non-admin backup storage locations",
-		Long:  "Work with non-admin backup storage locations",
+		Short: "Create and manage backup storage locations",
+		Long:  "Create and manage non-admin backup storage locations",
 	}
 
 	c.AddCommand(
-		NewCreateCommand(f, "create"),
+		NewCreateCommand(f),
 	)
 
 	return c

@@ -11,18 +11,19 @@ if ! complete -p kubectl &>/dev/null; then
 fi
 
 if ! complete -p oc &>/dev/null; then
-    # Check for oc in common locations
+    # Check for oc in common locations, prioritizing ~/.local/bin
     oc_cmd=""
-    if command -v oc &>/dev/null; then
-        oc_cmd="oc"
-    elif [[ -x "$HOME/.local/bin/oc" ]]; then
+    if [[ -x "$HOME/.local/bin/oc" ]]; then
         oc_cmd="$HOME/.local/bin/oc"
+    elif command -v oc &>/dev/null; then
+        oc_cmd="oc"
     elif [[ -x "/usr/local/bin/oc" ]]; then
         oc_cmd="/usr/local/bin/oc"
     fi
     
     if [[ -n "$oc_cmd" ]]; then
-        source <($oc_cmd completion bash 2>/dev/null)
+        # Load oc completion and ensure it gets registered
+        eval "$($oc_cmd completion bash 2>/dev/null)"
         echo "Loaded oc completion from: $oc_cmd"
     fi
 fi

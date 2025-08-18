@@ -19,6 +19,7 @@ package nonadmin
 import (
 	"github.com/migtools/oadp-cli/cmd/non-admin/backup"
 	"github.com/migtools/oadp-cli/cmd/non-admin/bsl"
+	"github.com/migtools/oadp-cli/cmd/non-admin/restore"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
@@ -28,13 +29,15 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "nonadmin",
 		Short:   "Work with non-admin resources",
-		Long:    "Work with non-admin resources like backups and backup storage locations",
+		Long:    "Work with non-admin resources like backups, restores, and backup storage locations",
 		Aliases: []string{"na"},
 	}
 
 	// Add backup subcommand
 	c.AddCommand(backup.NewBackupCommand(f))
 
+	// Add restore subcommand
+	c.AddCommand(restore.NewRestoreCommand(f))
 	// Add backup storage location subcommand
 	c.AddCommand(bsl.NewBSLCommand(f))
 

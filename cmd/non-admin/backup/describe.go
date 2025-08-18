@@ -1,11 +1,8 @@
 package backup
 
 import (
-	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -16,13 +13,17 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	"gopkg.in/yaml.v2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// DescribeOptions holds options for the describe command
+type DescribeOptions struct {
+	Details bool
+}
+
 func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
+	options := &DescribeOptions{}
+
 	c := &cobra.Command{
 		Use:   use + " NAME",
 		Short: "Describe a non-admin backup",
@@ -46,7 +47,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 				return err
 			}
 
-			// Shows NonAdminBackup resources
+			// Find the NonAdminBackup
 			var nabList nacv1alpha1.NonAdminBackupList
 			if err := kbClient.List(context.Background(), &nabList, &kbclient.ListOptions{
 				Namespace: userNamespace,
@@ -54,113 +55,29 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("failed to list NonAdminBackup: %w", err)
 			}
 
-			// Find the specific backup
-			var targetBackup *nacv1alpha1.NonAdminBackup
+			var foundNAB *nacv1alpha1.NonAdminBackup
 			for i := range nabList.Items {
 				if nabList.Items[i].Name == backupName {
-					targetBackup = &nabList.Items[i]
+					foundNAB = &nabList.Items[i]
 					break
 				}
 			}
 
-			if targetBackup == nil {
+			if foundNAB == nil {
 				return fmt.Errorf("NonAdminBackup %q not found in namespace %q", backupName, userNamespace)
 			}
 
-			// Print basic info
-			fmt.Printf("Name:\t%s\n", targetBackup.Name)
-			fmt.Printf("Namespace:\t%s\n", targetBackup.Namespace)
-
-			// Print labels if any
-			if len(targetBackup.Labels) > 0 {
-				fmt.Printf("Labels:\t")
-				var labelPairs []string
-				for k, v := range targetBackup.Labels {
-					labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
-				}
-				sort.Strings(labelPairs)
-				fmt.Printf("%s\n", strings.Join(labelPairs, ","))
-			} else {
-				fmt.Printf("Labels:\t<none>\n")
-			}
-
-			// Print annotations if any
-			if len(targetBackup.Annotations) > 0 {
-				fmt.Printf("Annotations:\t")
-				var annotationPairs []string
-				for k, v := range targetBackup.Annotations {
-					annotationPairs = append(annotationPairs, fmt.Sprintf("%s=%s", k, v))
-				}
-				sort.Strings(annotationPairs)
-				fmt.Printf("%s\n", strings.Join(annotationPairs, ","))
-			} else {
-				fmt.Printf("Annotations:\t<none>\n")
-			}
-
-			// Print phase/status
-			fmt.Printf("Phase:\t%s\n", targetBackup.Status.Phase)
-
-			// Print conditions
-			if len(targetBackup.Status.Conditions) > 0 {
-				fmt.Printf("Conditions:\n")
-				for _, condition := range targetBackup.Status.Conditions {
-					fmt.Printf("  Type:\t%s\n", condition.Type)
-					fmt.Printf("  Status:\t%s\n", condition.Status)
-					if condition.Reason != "" {
-						fmt.Printf("  Reason:\t%s\n", condition.Reason)
-					}
-					if condition.Message != "" {
-						fmt.Printf("  Message:\t%s\n", condition.Message)
-					}
-					fmt.Printf("  Last Transition Time:\t%s\n", condition.LastTransitionTime.Format(time.RFC3339))
-					fmt.Printf("\n")
-				}
-			}
-
-			// Print related Velero backup info if available
-			if targetBackup.Status.VeleroBackup != nil {
-				fmt.Printf("Velero Backup:\n")
-				fmt.Printf("  Name:\t%s\n", targetBackup.Status.VeleroBackup.Name)
-				fmt.Printf("  Namespace:\t%s\n", targetBackup.Status.VeleroBackup.Namespace)
-				if targetBackup.Status.VeleroBackup.Status != nil {
-					fmt.Printf("  Status:\n")
-					// Print some key status fields
-					if targetBackup.Status.VeleroBackup.Status.Phase != "" {
-						fmt.Printf("    Phase:\t%s\n", targetBackup.Status.VeleroBackup.Status.Phase)
-					}
-					if !targetBackup.Status.VeleroBackup.Status.StartTimestamp.IsZero() {
-						fmt.Printf("    Start Time:\t%s\n", targetBackup.Status.VeleroBackup.Status.StartTimestamp.Format(time.RFC3339))
-					}
-					if !targetBackup.Status.VeleroBackup.Status.CompletionTimestamp.IsZero() {
-						fmt.Printf("    Completion Time:\t%s\n", targetBackup.Status.VeleroBackup.Status.CompletionTimestamp.Format(time.RFC3339))
-					}
-					if targetBackup.Status.VeleroBackup.Status.Expiration != nil {
-						fmt.Printf("    Expiration:\t%s\n", targetBackup.Status.VeleroBackup.Status.Expiration.Format(time.RFC3339))
-					}
-				}
-			}
-
-			// Print the spec (what was requested)
-			if targetBackup.Spec.BackupSpec != nil {
-				fmt.Printf("\nBackup Spec:\n")
-				specBytes, err := yaml.Marshal(targetBackup.Spec.BackupSpec)
-				if err != nil {
-					fmt.Printf("  Error marshaling spec: %v\n", err)
-				} else {
-					// Indent the YAML output
-					specLines := strings.Split(string(specBytes), "\n")
-					for _, line := range specLines {
-						if line != "" {
-							fmt.Printf("  %s\n", line)
-						}
-					}
-				}
-			}
-
-			return nil
+			return NonAdminDescribeBackup(cmd, kbClient, foundNAB, userNamespace, options)
 		},
-		Example: `  kubectl oadp nonadmin backup describe my-backup`,
+		Example: `  # Describe a non-admin backup (concise summary)
+  kubectl oadp nonadmin backup describe my-backup
+  
+  # Describe with complete detailed output (same as Velero)
+  kubectl oadp nonadmin backup describe my-backup --details`,
 	}
+
+	// Add the --details flag
+	c.Flags().BoolVar(&options.Details, "details", false, "Show complete detailed output (same as Velero backup describe --details)")
 
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
@@ -168,276 +85,361 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 	return c
 }
 
-// NonAdminDescribeBackup mirrors Velero's output.DescribeBackup functionality
+// NonAdminDescribeBackup provides a Velero-style detailed output format
 // but works within non-admin RBAC boundaries using NonAdminDownloadRequest
-func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string) error {
+func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string, options *DescribeOptions) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	// Print basic backup information
+	if options.Details {
+		// Show the full Velero-style detailed output using filtering approach
+		return NonAdminDescribeBackupDetailed(cmd, kbClient, nab, userNamespace, ctx)
+	} else {
+		// Show a concise summary
+		return NonAdminDescribeBackupSummary(cmd, kbClient, nab, userNamespace, ctx)
+	}
+}
+
+// NonAdminDescribeBackupSummary provides a concise backup summary
+func NonAdminDescribeBackupSummary(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, _ string, ctx context.Context) error {
+	_ = ctx // Context not currently used but kept for future use
+
+	// Header
 	fmt.Fprintf(cmd.OutOrStdout(), "Name:         %s\n", nab.Name)
 	fmt.Fprintf(cmd.OutOrStdout(), "Namespace:    %s\n", nab.Namespace)
+	fmt.Fprintf(cmd.OutOrStdout(), "Phase:        %s\n", nab.Status.Phase)
 
-	// Print labels
-	fmt.Fprintf(cmd.OutOrStdout(), "Labels:\n")
-	if len(nab.Labels) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "  <none>\n")
-	} else {
-		labelKeys := make([]string, 0, len(nab.Labels))
-		for k := range nab.Labels {
-			labelKeys = append(labelKeys, k)
+	// Basic timing if available
+	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
+		vStatus := nab.Status.VeleroBackup.Status
+		if vStatus.StartTimestamp != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Started:      %s\n", vStatus.StartTimestamp.Format("2006-01-02 15:04:05 -0700 MST"))
 		}
-		sort.Strings(labelKeys)
-		for _, k := range labelKeys {
-			fmt.Fprintf(cmd.OutOrStdout(), "  %s=%s\n", k, nab.Labels[k])
+		if vStatus.CompletionTimestamp != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Completed:    %s\n", vStatus.CompletionTimestamp.Format("2006-01-02 15:04:05 -0700 MST"))
 		}
-	}
-
-	// Print annotations
-	fmt.Fprintf(cmd.OutOrStdout(), "Annotations:\n")
-	if len(nab.Annotations) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "  <none>\n")
-	} else {
-		annotationKeys := make([]string, 0, len(nab.Annotations))
-		for k := range nab.Annotations {
-			annotationKeys = append(annotationKeys, k)
+		if vStatus.Progress != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Items backed up: %d\n", vStatus.Progress.ItemsBackedUp)
 		}
-		sort.Strings(annotationKeys)
-		for _, k := range annotationKeys {
-			fmt.Fprintf(cmd.OutOrStdout(), "  %s=%s\n", k, nab.Annotations[k])
+		if vStatus.Errors > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "Errors:       %d\n", vStatus.Errors)
 		}
-	}
-
-	// Print timestamps and status from NonAdminBackup
-	fmt.Fprintf(cmd.OutOrStdout(), "Creation Timestamp:  %s\n", nab.CreationTimestamp.Format(time.RFC3339))
-	fmt.Fprintf(cmd.OutOrStdout(), "Phase:               %s\n", nab.Status.Phase)
-
-	// If there's a referenced Velero backup, get more details
-	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Name != "" {
-		veleroBackupName := nab.Status.VeleroBackup.Name
-
-		// Try to get additional backup details, but don't block if they're not available
-		fmt.Fprintf(cmd.OutOrStdout(), "\nFetching additional backup details...")
-
-		// Get backup results using NonAdminDownloadRequest (most important data)
-		if results, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResults"); err == nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Results:\n")
-			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(results, "  "))
-		}
-
-		// Get backup details using NonAdminDownloadRequest for BackupResourceList
-		if resourceList, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResourceList"); err == nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Resource List:\n")
-			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(resourceList, "  "))
-		}
-
-		// Get backup volume info using NonAdminDownloadRequest
-		if volumeInfo, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupVolumeInfos"); err == nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Volume Info:\n")
-			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(volumeInfo, "  "))
-		}
-
-		// Get backup item operations using NonAdminDownloadRequest
-		if itemOps, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupItemOperations"); err == nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Item Operations:\n")
-			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(itemOps, "  "))
-		}
-
-		fmt.Fprintf(cmd.OutOrStdout(), "\nDone fetching additional details.")
-	}
-
-	// Print NonAdminBackup Spec (excluding sensitive information)
-	if nab.Spec.BackupSpec != nil {
-		specYaml, err := yaml.Marshal(nab.Spec.BackupSpec)
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nSpec: <error marshaling spec: %v>\n", err)
-		} else {
-			filteredSpec := filterIncludedNamespaces(string(specYaml))
-			fmt.Fprintf(cmd.OutOrStdout(), "\nSpec:\n%s", indent(filteredSpec, "  "))
-		}
-	}
-
-	// Print NonAdminBackup Status (excluding sensitive information)
-	statusYaml, err := yaml.Marshal(nab.Status)
-	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "\nStatus: <error marshaling status: %v>\n", err)
-	} else {
-		// Filter out includednamespaces from status output as well
-		filteredStatus := filterIncludedNamespaces(string(statusYaml))
-		fmt.Fprintf(cmd.OutOrStdout(), "\nStatus:\n%s", indent(filteredStatus, "  "))
-	}
-
-	// Print Events for NonAdminBackup
-	fmt.Fprintf(cmd.OutOrStdout(), "\nEvents:\n")
-	var eventList corev1.EventList
-	if err := kbClient.List(ctx, &eventList, kbclient.InNamespace(userNamespace)); err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "  <error fetching events: %v>\n", err)
-	} else {
-		// Filter events related to this NonAdminBackup
-		var relatedEvents []corev1.Event
-		for _, event := range eventList.Items {
-			if event.InvolvedObject.Kind == "NonAdminBackup" && event.InvolvedObject.Name == nab.Name {
-				relatedEvents = append(relatedEvents, event)
-			}
-		}
-
-		if len(relatedEvents) == 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "  <none>\n")
-		} else {
-			for _, e := range relatedEvents {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %s\n", e.Reason, e.Message)
-			}
+		if vStatus.Warnings > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "Warnings:     %d\n", vStatus.Warnings)
 		}
 	}
 
 	return nil
 }
 
-// downloadBackupData uses NonAdminDownloadRequest to fetch detailed backup information
-// This replaces direct access to Velero backups with RBAC-compliant requests
-func downloadBackupData(ctx context.Context, kbClient kbclient.Client, userNamespace, backupName, dataType string) (string, error) {
-	// Create NonAdminDownloadRequest for the specified data type
-	req := &nacv1alpha1.NonAdminDownloadRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: backupName + "-" + strings.ToLower(dataType) + "-",
-			Namespace:    userNamespace,
-		},
-		Spec: nacv1alpha1.NonAdminDownloadRequestSpec{
-			Target: velerov1.DownloadTarget{
-				Kind: velerov1.DownloadTargetKind(dataType),
-				Name: backupName,
-			},
-		},
-	}
-
-	if err := kbClient.Create(ctx, req); err != nil {
-		return "", fmt.Errorf("failed to create NonAdminDownloadRequest for %s: %w", dataType, err)
-	}
-
-	// Clean up the download request when done
-	defer func() {
-		deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancelDelete()
-		_ = kbClient.Delete(deleteCtx, req)
-	}()
-
-	// Wait for the download request to be processed
-	timeout := time.After(10 * time.Second) // Reduced timeout since most failures are quick
-	tick := time.Tick(1 * time.Second)
-
-	for {
-		select {
-		case <-timeout:
-			return "", fmt.Errorf("timed out waiting for %s download request to be processed", dataType)
-		case <-tick:
-			var updated nacv1alpha1.NonAdminDownloadRequest
-			if err := kbClient.Get(ctx, kbclient.ObjectKey{
-				Namespace: req.Namespace,
-				Name:      req.Name,
-			}, &updated); err != nil {
-				return "", fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
-			}
-
-			// Check if the download request was processed successfully
-			for _, condition := range updated.Status.Conditions {
-				if condition.Type == "Processed" && condition.Status == "True" {
-					if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
-						// Download and return the content
-						return downloadContent(updated.Status.VeleroDownloadRequest.Status.DownloadURL)
-					}
-				}
-			}
-
-			// Check for failure conditions
-			for _, condition := range updated.Status.Conditions {
-				if condition.Status == "True" && condition.Reason == "Error" {
-					return "", fmt.Errorf("NonAdminDownloadRequest failed for %s: %s - %s", dataType, condition.Type, condition.Message)
-				}
-			}
-		}
-	}
-}
-
-// downloadContent fetches content from a signed URL and returns it as a string
-func downloadContent(url string) (string, error) {
-	resp, err := http.Get(url)
+// NonAdminDescribeBackupDetailed leverages Velero's native describe logic with filtering for non-admin users
+func NonAdminDescribeBackupDetailed(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, _ string, ctx context.Context) error {
+	// Step 1: Get the underlying Velero Backup
+	veleroBackup, err := getVeleroBackupFromNAB(nab, kbClient, ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to download content from URL %q: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to download content: status %s, body: %s", resp.Status, string(bodyBytes))
+		return fmt.Errorf("failed to get Velero backup: %w", err)
 	}
 
-	// Try to decompress if it's gzipped
-	var reader io.Reader = resp.Body
-	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
-		gzr, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return "", fmt.Errorf("failed to create gzip reader: %w", err)
-		}
-		defer gzr.Close()
-		reader = gzr
+	// Step 2: Create our own detailed output by filtering Velero-style information
+	filteredOutput := createFilteredVeleroOutput(veleroBackup, nab)
+
+	// Step 3: Present the refined output
+	fmt.Fprint(cmd.OutOrStdout(), filteredOutput)
+	return nil
+}
+
+// getVeleroBackupFromNAB retrieves the underlying Velero Backup from NonAdminBackup
+func getVeleroBackupFromNAB(nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, ctx context.Context) (*velerov1.Backup, error) {
+	if nab.Status.VeleroBackup == nil || nab.Status.VeleroBackup.Name == "" {
+		return nil, fmt.Errorf("no Velero backup associated with NonAdminBackup %s", nab.Name)
 	}
 
-	// Read all content
-	content, err := io.ReadAll(reader)
+	veleroBackupName := nab.Status.VeleroBackup.Name
+	veleroNamespace := nab.Status.VeleroBackup.Namespace
+	if veleroNamespace == "" {
+		veleroNamespace = "openshift-adp" // Default OADP namespace
+	}
+
+	var veleroBackup velerov1.Backup
+	err := kbClient.Get(ctx, kbclient.ObjectKey{
+		Namespace: veleroNamespace,
+		Name:      veleroBackupName,
+	}, &veleroBackup)
+
 	if err != nil {
-		return "", fmt.Errorf("failed to read content: %w", err)
+		return nil, fmt.Errorf("failed to get Velero backup %s/%s: %w", veleroNamespace, veleroBackupName, err)
 	}
 
-	return string(content), nil
+	return &veleroBackup, nil
 }
 
-// Helper to filter out includednamespaces from YAML output
-func filterIncludedNamespaces(yamlContent string) string {
-	lines := strings.Split(yamlContent, "\n")
-	var filtered []string
-	skip := false
-	var skipIndentLevel int
+// createFilteredVeleroOutput creates a Velero-style output with non-admin field restrictions applied
+func createFilteredVeleroOutput(veleroBackup *velerov1.Backup, nab *nacv1alpha1.NonAdminBackup) string {
+	var output strings.Builder
 
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		trimmed := strings.TrimSpace(line)
+	// Header in Velero style
+	output.WriteString(fmt.Sprintf("Name:         %s\n", nab.Name))
+	output.WriteString(fmt.Sprintf("Namespace:    %s\n", nab.Namespace))
 
-		// Calculate indentation level
-		indentLevel := len(line) - len(strings.TrimLeft(line, " \t"))
-
-		// Check if this line starts the includednamespaces field
-		if !skip && (trimmed == "includednamespaces:" || trimmed == "includedNamespaces:" ||
-			strings.HasPrefix(trimmed, "includednamespaces: ") || strings.HasPrefix(trimmed, "includedNamespaces: ")) {
-			skip = true
-			skipIndentLevel = indentLevel
-			continue
+	// Labels (Velero-style format) - Admin Enforceable: Yes
+	if len(nab.Labels) > 0 {
+		output.WriteString("Labels:       ")
+		labelPairs := make([]string, 0, len(nab.Labels))
+		for k, v := range nab.Labels {
+			labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
 		}
-
-		if skip {
-			// Stop skipping if we found a line at the same or lesser indentation level
-			// and it's not an empty line and it's not a list item belonging to the skipped field
-			if trimmed != "" && indentLevel <= skipIndentLevel && !strings.HasPrefix(trimmed, "- ") {
-				skip = false
-				// Process this line since we're no longer skipping
-				filtered = append(filtered, line)
-			}
-			// If we're still skipping, don't add the line
-			continue
-		}
-
-		// Add the line if we're not skipping
-		filtered = append(filtered, line)
+		sort.Strings(labelPairs)
+		output.WriteString(fmt.Sprintf("%s\n", strings.Join(labelPairs, ",")))
+	} else {
+		output.WriteString("Labels:       <none>\n")
 	}
-	return strings.Join(filtered, "\n")
+
+	// Annotations (Velero-style format) - Admin Enforceable: Yes
+	if len(nab.Annotations) > 0 {
+		output.WriteString("Annotations:  ")
+		annotationPairs := make([]string, 0, len(nab.Annotations))
+		for k, v := range nab.Annotations {
+			annotationPairs = append(annotationPairs, fmt.Sprintf("%s=%s", k, v))
+		}
+		sort.Strings(annotationPairs)
+		output.WriteString(fmt.Sprintf("%s\n", strings.Join(annotationPairs, ",")))
+	} else {
+		output.WriteString("Annotations:  <none>\n")
+	}
+
+	output.WriteString("\n")
+
+	// Phase/Status information - Admin Enforceable: Yes
+	output.WriteString(fmt.Sprintf("Phase:  %s\n", nab.Status.Phase))
+
+	// Add error/warning information if available - Admin Enforceable: Yes
+	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
+		vStatus := nab.Status.VeleroBackup.Status
+		if vStatus.Errors > 0 {
+			output.WriteString(fmt.Sprintf("Errors:    %d\n", vStatus.Errors))
+		}
+		if vStatus.Warnings > 0 {
+			output.WriteString(fmt.Sprintf("Warnings:  %d\n", vStatus.Warnings))
+		}
+	}
+
+	output.WriteString("\n")
+
+	// === ADMIN ENFORCEABLE FIELDS (only show if configured) ===
+
+	// CSISnapshotTimeout - Admin Enforceable: Yes
+	if veleroBackup.Spec.CSISnapshotTimeout.Duration > 0 {
+		output.WriteString(fmt.Sprintf("CSI Snapshot Timeout:      %s\n", veleroBackup.Spec.CSISnapshotTimeout.Duration.String()))
+	}
+
+	// ItemOperationTimeout - Admin Enforceable: Yes
+	if veleroBackup.Spec.ItemOperationTimeout.Duration > 0 {
+		output.WriteString(fmt.Sprintf("Item Operation Timeout:    %s\n", veleroBackup.Spec.ItemOperationTimeout.Duration.String()))
+	}
+
+	// ResourcePolicy - Admin Enforceable: Yes (special case - admins can enforce config-map in OADP Operator NS)
+	if veleroBackup.Spec.ResourcePolicy != nil {
+		output.WriteString(fmt.Sprintf("Resource Policy:           %s\n", veleroBackup.Spec.ResourcePolicy.Name))
+	}
+
+	// ExcludedNamespaces - Admin Enforceable: Yes, Restricted: Yes (special case - restricted but admin enforceable)
+	if len(veleroBackup.Spec.ExcludedNamespaces) > 0 {
+		output.WriteString(fmt.Sprintf("Excluded Namespaces:       %s\n", strings.Join(veleroBackup.Spec.ExcludedNamespaces, ", ")))
+	}
+
+	// IncludedResources - Admin Enforceable: Yes
+	if nab.Spec.BackupSpec != nil && len(nab.Spec.BackupSpec.IncludedResources) > 0 {
+		output.WriteString(fmt.Sprintf("Included Resources:        %s\n", strings.Join(nab.Spec.BackupSpec.IncludedResources, ", ")))
+	} else {
+		output.WriteString("Included Resources:        * (all)\n")
+	}
+
+	// ExcludedResources - Admin Enforceable: Yes
+	if nab.Spec.BackupSpec != nil && len(nab.Spec.BackupSpec.ExcludedResources) > 0 {
+		output.WriteString(fmt.Sprintf("Excluded Resources:        %s\n", strings.Join(nab.Spec.BackupSpec.ExcludedResources, ", ")))
+	}
+
+	// OrderedResources - Admin Enforceable: Yes
+	if len(veleroBackup.Spec.OrderedResources) > 0 {
+		output.WriteString("Ordered Resources:         configured\n")
+	}
+
+	// IncludeClusterResources - Admin Enforceable: Yes (special case - non-admin users can only set to false)
+	if veleroBackup.Spec.IncludeClusterResources != nil {
+		output.WriteString(fmt.Sprintf("Include Cluster Resources: %v\n", getBoolPointerValue(veleroBackup.Spec.IncludeClusterResources)))
+	} else {
+		output.WriteString("Include Cluster Resources: auto\n")
+	}
+
+	// ExcludedClusterScopedResources - Admin Enforceable: Yes
+	if len(veleroBackup.Spec.ExcludedClusterScopedResources) > 0 {
+		output.WriteString(fmt.Sprintf("Excluded Cluster Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.ExcludedClusterScopedResources, ", ")))
+	}
+
+	// IncludedClusterScopedResources - Admin Enforceable: Yes (special case - only empty list acceptable)
+	if len(veleroBackup.Spec.IncludedClusterScopedResources) > 0 {
+		output.WriteString(fmt.Sprintf("Included Cluster Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.IncludedClusterScopedResources, ", ")))
+	}
+
+	// ExcludedNamespaceScopedResources - Admin Enforceable: Yes
+	if len(veleroBackup.Spec.ExcludedNamespaceScopedResources) > 0 {
+		output.WriteString(fmt.Sprintf("Excluded Namespace Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.ExcludedNamespaceScopedResources, ", ")))
+	}
+
+	// IncludedNamespaceScopedResources - Admin Enforceable: Yes
+	if len(veleroBackup.Spec.IncludedNamespaceScopedResources) > 0 {
+		output.WriteString(fmt.Sprintf("Included Namespace Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.IncludedNamespaceScopedResources, ", ")))
+	}
+
+	// LabelSelector - Admin Enforceable: Yes
+	if nab.Spec.BackupSpec != nil && nab.Spec.BackupSpec.LabelSelector != nil {
+		output.WriteString(fmt.Sprintf("Label Selector:            %v\n", nab.Spec.BackupSpec.LabelSelector))
+	}
+
+	// OrLabelSelectors - Admin Enforceable: Yes
+	if nab.Spec.BackupSpec != nil && len(nab.Spec.BackupSpec.OrLabelSelectors) > 0 {
+		output.WriteString(fmt.Sprintf("Or Label Selectors:        %v\n", nab.Spec.BackupSpec.OrLabelSelectors))
+	}
+
+	// SnapshotVolumes - Admin Enforceable: Yes
+	output.WriteString(fmt.Sprintf("Snapshot Volumes:          %v\n", getSnapshotVolumesValue(veleroBackup.Spec.SnapshotVolumes)))
+
+	// StorageLocation - Admin Enforceable: (blank/unspecified) - should point to existing NABSL
+	if veleroBackup.Spec.StorageLocation != "" {
+		output.WriteString(fmt.Sprintf("Storage Location:          %s\n", veleroBackup.Spec.StorageLocation))
+	}
+
+	// VolumeSnapshotLocations - Admin Enforceable: (blank/unspecified) - not supported for non-admin users
+	if len(veleroBackup.Spec.VolumeSnapshotLocations) > 0 {
+		output.WriteString(fmt.Sprintf("Volume Snapshot Locations: %s\n", strings.Join(veleroBackup.Spec.VolumeSnapshotLocations, ", ")))
+	} else {
+		output.WriteString("Volume Snapshot Locations: default\n")
+	}
+
+	// TTL - Admin Enforceable: Yes
+	if veleroBackup.Spec.TTL.Duration > 0 {
+		output.WriteString(fmt.Sprintf("TTL:                       %s\n", veleroBackup.Spec.TTL.Duration.String()))
+	}
+
+	// DefaultVolumesToFsBackup - Admin Enforceable: Yes
+	if veleroBackup.Spec.DefaultVolumesToFsBackup != nil {
+		output.WriteString(fmt.Sprintf("Default Volumes to FS Backup: %v\n", getBoolPointerValue(veleroBackup.Spec.DefaultVolumesToFsBackup)))
+	}
+
+	// SnapshotMoveData - Admin Enforceable: Yes
+	if veleroBackup.Spec.SnapshotMoveData != nil {
+		output.WriteString(fmt.Sprintf("Snapshot Move Data:        %v\n", getBoolPointerValue(veleroBackup.Spec.SnapshotMoveData)))
+	}
+
+	// DataMover - Admin Enforceable: Yes
+	if veleroBackup.Spec.DataMover != "" {
+		output.WriteString(fmt.Sprintf("Data Mover:                %s\n", veleroBackup.Spec.DataMover))
+	}
+
+	// UploaderConfig.ParallelFilesUpload - Admin Enforceable: Yes
+	if veleroBackup.Spec.UploaderConfig != nil {
+		output.WriteString("Uploader Config:           configured\n")
+		if veleroBackup.Spec.UploaderConfig.ParallelFilesUpload > 0 {
+			output.WriteString(fmt.Sprintf("  Parallel Files Upload:   %d\n", veleroBackup.Spec.UploaderConfig.ParallelFilesUpload))
+		}
+	}
+
+	// Hooks - Admin Enforceable: Yes
+	if len(veleroBackup.Spec.Hooks.Resources) > 0 {
+		output.WriteString(fmt.Sprintf("Hooks:                     %d hook(s) configured\n", len(veleroBackup.Spec.Hooks.Resources)))
+	}
+
+	output.WriteString("\n")
+	output.WriteString("=== RESTRICTED FIELDS (Not shown for non-admin users) ===\n")
+	output.WriteString("Included Namespaces:       [RESTRICTED]\n")
+
+	output.WriteString("\n")
+
+	// Backup format and timing - Status information (always shown when available)
+	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
+		vStatus := nab.Status.VeleroBackup.Status
+
+		output.WriteString("=== STATUS INFORMATION ===\n")
+
+		if vStatus.FormatVersion != "" {
+			output.WriteString(fmt.Sprintf("Backup Format Version:     %s\n", vStatus.FormatVersion))
+		}
+
+		if vStatus.StartTimestamp != nil {
+			output.WriteString(fmt.Sprintf("Started:                   %s\n", vStatus.StartTimestamp.Format("2006-01-02 15:04:05 -0700 MST")))
+		}
+		if vStatus.CompletionTimestamp != nil {
+			output.WriteString(fmt.Sprintf("Completed:                 %s\n", vStatus.CompletionTimestamp.Format("2006-01-02 15:04:05 -0700 MST")))
+		}
+		if vStatus.Expiration != nil {
+			output.WriteString(fmt.Sprintf("Expiration:                %s\n", vStatus.Expiration.Format("2006-01-02 15:04:05 -0700 MST")))
+		}
+
+		output.WriteString("\n")
+
+		// Progress information
+		if vStatus.Progress != nil {
+			output.WriteString(fmt.Sprintf("Total items to be backed up: %d\n", vStatus.Progress.TotalItems))
+			output.WriteString(fmt.Sprintf("Items backed up:           %d\n", vStatus.Progress.ItemsBackedUp))
+		}
+
+		output.WriteString("\n")
+
+		// Resource List
+		output.WriteString("Resource List:\n")
+		if vStatus.Progress != nil {
+			output.WriteString(fmt.Sprintf("  Total items backed up:   %d\n", vStatus.Progress.ItemsBackedUp))
+		} else {
+			output.WriteString("  <detailed resource breakdown not available>\n")
+		}
+
+		output.WriteString("\n")
+
+		// Volume information
+		output.WriteString("Backup Volumes:\n")
+		if vStatus.VolumeSnapshotsCompleted > 0 {
+			output.WriteString(fmt.Sprintf("  Velero-Native Snapshots: <%d included>\n", vStatus.VolumeSnapshotsCompleted))
+		} else {
+			output.WriteString("  Velero-Native Snapshots: <none included>\n")
+		}
+		if vStatus.CSIVolumeSnapshotsCompleted > 0 {
+			output.WriteString(fmt.Sprintf("  CSI Snapshots:           <%d included>\n", vStatus.CSIVolumeSnapshotsCompleted))
+		} else {
+			output.WriteString("  CSI Snapshots:           <none included>\n")
+		}
+		if nab.Status.FileSystemPodVolumeBackups != nil && nab.Status.FileSystemPodVolumeBackups.Completed > 0 {
+			output.WriteString(fmt.Sprintf("  Pod Volume Backups:      <%d included>\n", nab.Status.FileSystemPodVolumeBackups.Completed))
+		} else {
+			output.WriteString("  Pod Volume Backups:      <none included>\n")
+		}
+
+		output.WriteString("\n")
+
+		// Hook status information
+		output.WriteString(fmt.Sprintf("Hooks Attempted:           %d\n", vStatus.HookStatus.HooksAttempted))
+		output.WriteString(fmt.Sprintf("Hooks Failed:              %d\n", vStatus.HookStatus.HooksFailed))
+	}
+
+	return output.String()
 }
 
-// Helper to indent YAML blocks
-func indent(s, prefix string) string {
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		if len(line) > 0 {
-			lines[i] = prefix + line
-		}
+// Helper functions for the detailed output
+func getSnapshotVolumesValue(snapshots *bool) string {
+	if snapshots == nil {
+		return "auto"
 	}
-	return strings.Join(lines, "\n")
+	if *snapshots {
+		return "true"
+	}
+	return "false"
+}
+
+func getBoolPointerValue(b *bool) string {
+	if b == nil {
+		return "auto"
+	}
+	if *b {
+		return "true"
+	}
+	return "false"
 }

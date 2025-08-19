@@ -10,6 +10,7 @@ kubectl-oadp
 kubectl-oadp-linux-*
 kubectl-oadp-darwin-*
 kubectl-oadp-windows-*
+oadp-test
 
 # Release artifacts
 *.tar.gz

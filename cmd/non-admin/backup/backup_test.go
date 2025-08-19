@@ -69,6 +69,7 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Delete one or more non-admin backups",
 				"--confirm",
+				"--all",
 			},
 		},
 		{

@@ -97,7 +97,7 @@ func TestDeleteOptionsValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.options.Validate(tt.args)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error but got none")
@@ -126,14 +126,14 @@ func TestDeleteOptionsValidateLogic(t *testing.T) {
 			Namespace: "test-namespace",
 			All:       true, // But --all flag is also specified
 		}
-		
+
 		args := []string{"backup1", "backup2"} // From command line args
-		
+
 		err := options.Validate(args)
 		if err == nil {
 			t.Errorf("expected error when both backup names and --all flag are provided")
 		}
-		
+
 		expectedMsg := "cannot specify both backup names and --all flag"
 		if err.Error() != expectedMsg {
 			t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())

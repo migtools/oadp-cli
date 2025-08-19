@@ -133,22 +133,22 @@ func (o *DeleteOptions) Validate(args []string) error {
 	if o.Namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}
-	
+
 	// Check for conflicting options: both args and --all flag
 	if o.All && len(args) > 0 {
 		return fmt.Errorf("cannot specify both backup names and --all flag")
 	}
-	
+
 	// Check if neither args nor --all flag provided
 	if !o.All && len(args) == 0 {
 		return fmt.Errorf("at least one backup name is required, or use --all to delete all backups")
 	}
-	
+
 	// Special case: if --all is used but no backups found (after Complete)
 	if o.All && len(o.Names) == 0 {
 		return fmt.Errorf("no backups found in namespace '%s'", o.Namespace)
 	}
-	
+
 	return nil
 }
 

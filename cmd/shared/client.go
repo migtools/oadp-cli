@@ -21,6 +21,7 @@ import (
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +35,8 @@ type ClientOptions struct {
 	IncludeNonAdminTypes bool
 	// IncludeVeleroTypes adds Velero CRD types to the scheme
 	IncludeVeleroTypes bool
+	// IncludeVeleroV2Alpha1Types adds Velero v2alpha1 CRD types to the scheme (DataUpload/DataDownload)
+	IncludeVeleroV2Alpha1Types bool
 	// IncludeCoreTypes adds Kubernetes core types to the scheme
 	IncludeCoreTypes bool
 }
@@ -58,6 +61,12 @@ func NewClientWithScheme(f client.Factory, opts ClientOptions) (kbclient.WithWat
 		}
 	}
 
+	if opts.IncludeVeleroV2Alpha1Types {
+		if err := velerov2alpha1.AddToScheme(kbClient.Scheme()); err != nil {
+			return nil, fmt.Errorf("failed to add Velero v2alpha1 types to scheme: %w", err)
+		}
+	}
+
 	if opts.IncludeCoreTypes {
 		if err := corev1.AddToScheme(kbClient.Scheme()); err != nil {
 			return nil, fmt.Errorf("failed to add Core types to scheme: %w", err)
@@ -70,9 +79,10 @@ func NewClientWithScheme(f client.Factory, opts ClientOptions) (kbclient.WithWat
 // NewClientWithFullScheme creates a client with all commonly used scheme types
 func NewClientWithFullScheme(f client.Factory) (kbclient.WithWatch, error) {
 	return NewClientWithScheme(f, ClientOptions{
-		IncludeNonAdminTypes: true,
-		IncludeVeleroTypes:   true,
-		IncludeCoreTypes:     true,
+		IncludeNonAdminTypes:       true,
+		IncludeVeleroTypes:         true,
+		IncludeVeleroV2Alpha1Types: true,
+		IncludeCoreTypes:           true,
 	})
 }
 
@@ -89,6 +99,12 @@ func NewSchemeWithTypes(opts ClientOptions) (*runtime.Scheme, error) {
 	if opts.IncludeVeleroTypes {
 		if err := velerov1.AddToScheme(scheme); err != nil {
 			return nil, fmt.Errorf("failed to add Velero types to scheme: %w", err)
+		}
+	}
+
+	if opts.IncludeVeleroV2Alpha1Types {
+		if err := velerov2alpha1.AddToScheme(scheme); err != nil {
+			return nil, fmt.Errorf("failed to add Velero v2alpha1 types to scheme: %w", err)
 		}
 	}
 

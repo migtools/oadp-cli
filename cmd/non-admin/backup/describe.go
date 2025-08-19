@@ -38,9 +38,10 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 
 			// Create client with required scheme types
 			kbClient, err := shared.NewClientWithScheme(f, shared.ClientOptions{
-				IncludeNonAdminTypes: true,
-				IncludeVeleroTypes:   true,
-				IncludeCoreTypes:     true,
+				IncludeNonAdminTypes:       true,
+				IncludeVeleroTypes:         true,
+				IncludeVeleroV2Alpha1Types: true,
+				IncludeCoreTypes:           true,
 			})
 			if err != nil {
 				return err
@@ -241,6 +242,19 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 		if itemOps, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupItemOperations"); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Item Operations:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(itemOps, "  "))
+		}
+
+		// Get DataUpload and DataDownload information
+		fmt.Fprintf(cmd.OutOrStdout(), "\nFetching data transfer information...")
+		uploads, _ := getDataUploadsForBackup(ctx, kbClient, veleroBackupName)
+		downloads, _ := getDataDownloadsForBackup(ctx, kbClient, veleroBackupName)
+		
+		if len(uploads) > 0 || len(downloads) > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "\n\nData Transfer Information:\n")
+			transferInfo := formatDataTransferInfo(uploads, downloads)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(transferInfo, "  "))
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "\nNo data transfer operations found for this backup.")
 		}
 
 		fmt.Fprintf(cmd.OutOrStdout(), "\nDone fetching additional details.")

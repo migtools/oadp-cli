@@ -29,6 +29,8 @@ import (
 )
 
 func NewGetCommand(f client.Factory, use string) *cobra.Command {
+	var showDataTransfer bool
+	
 	c := &cobra.Command{
 		Use:   use + " [NAME]",
 		Short: "Get non-admin backup(s)",
@@ -67,7 +69,7 @@ func NewGetCommand(f client.Factory, use string) *cobra.Command {
 				list := &nacv1alpha1.NonAdminBackupList{
 					Items: []nacv1alpha1.NonAdminBackup{nab},
 				}
-				return printNonAdminBackupTable(list)
+				return printNonAdminBackupTable(list, kbClient, showDataTransfer)
 			} else {
 				// List all backups in namespace
 				var nabList nacv1alpha1.NonAdminBackupList
@@ -83,7 +85,7 @@ func NewGetCommand(f client.Factory, use string) *cobra.Command {
 				}
 
 				// Print table format
-				return printNonAdminBackupTable(&nabList)
+				return printNonAdminBackupTable(&nabList, kbClient, showDataTransfer)
 			}
 		},
 		Example: `  # Get all non-admin backups in the current namespace
@@ -92,6 +94,9 @@ func NewGetCommand(f client.Factory, use string) *cobra.Command {
   # Get a specific non-admin backup
   kubectl oadp nonadmin backup get my-backup
 
+  # Get backups with data transfer information
+  kubectl oadp nonadmin backup get --show-data-transfer
+
   # Get backups in YAML format
   kubectl oadp nonadmin backup get -o yaml
 
@@ -99,28 +104,72 @@ func NewGetCommand(f client.Factory, use string) *cobra.Command {
   kubectl oadp nonadmin backup get my-backup -o json`,
 	}
 
+	c.Flags().BoolVar(&showDataTransfer, "show-data-transfer", false, "Include data upload/download information in the output")
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
 
 	return c
 }
 
-func printNonAdminBackupTable(nabList *nacv1alpha1.NonAdminBackupList) error {
+func printNonAdminBackupTable(nabList *nacv1alpha1.NonAdminBackupList, kbClient kbclient.Client, showDataTransfer bool) error {
 	if len(nabList.Items) == 0 {
 		fmt.Println("No non-admin backups found.")
 		return nil
 	}
 
-	// Print header
-	fmt.Printf("%-30s %-15s %-20s %-10s\n", "NAME", "STATUS", "CREATED", "AGE")
+	ctx := context.Background()
 
-	// Print each backup
-	for _, nab := range nabList.Items {
-		status := getBackupStatus(&nab)
-		created := nab.CreationTimestamp.Format("2006-01-02 15:04:05")
-		age := formatAge(nab.CreationTimestamp.Time)
+	if showDataTransfer {
+		// Print header with data transfer columns
+		fmt.Printf("%-25s %-12s %-18s %-8s %-15s %-12s\n", "NAME", "STATUS", "CREATED", "AGE", "DATA TRANSFERS", "TRANSFER STATUS")
+		
+		// Print each backup
+		for _, nab := range nabList.Items {
+			status := getBackupStatus(&nab)
+			created := nab.CreationTimestamp.Format("2006-01-02 15:04:05")
+			age := formatAge(nab.CreationTimestamp.Time)
+			
+			// Get data transfer information
+			var dataTransferCount string
+			var dataTransferStatus string
+			
+			if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Name != "" {
+				uploads, _ := getDataUploadsForBackup(ctx, kbClient, nab.Status.VeleroBackup.Name)
+				downloads, _ := getDataDownloadsForBackup(ctx, kbClient, nab.Status.VeleroBackup.Name)
+				
+				totalTransfers := len(uploads) + len(downloads)
+				if totalTransfers > 0 {
+					dataTransferCount = fmt.Sprintf("%d transfers", totalTransfers)
+					dataTransferStatus = getDataTransferStatus(uploads, downloads)
+				} else {
+					dataTransferCount = "None"
+					dataTransferStatus = "-"
+				}
+			} else {
+				dataTransferCount = "Unknown"
+				dataTransferStatus = "-"
+			}
 
-		fmt.Printf("%-30s %-15s %-20s %-10s\n", nab.Name, status, created, age)
+			fmt.Printf("%-25s %-12s %-18s %-8s %-15s %-12s\n", 
+				truncateString(nab.Name, 25), 
+				status, 
+				created, 
+				age, 
+				dataTransferCount, 
+				dataTransferStatus)
+		}
+	} else {
+		// Print header without data transfer columns (original format)
+		fmt.Printf("%-30s %-15s %-20s %-10s\n", "NAME", "STATUS", "CREATED", "AGE")
+
+		// Print each backup
+		for _, nab := range nabList.Items {
+			status := getBackupStatus(&nab)
+			created := nab.CreationTimestamp.Format("2006-01-02 15:04:05")
+			age := formatAge(nab.CreationTimestamp.Time)
+
+			fmt.Printf("%-30s %-15s %-20s %-10s\n", nab.Name, status, created, age)
+		}
 	}
 
 	return nil
@@ -149,4 +198,15 @@ func formatAge(t time.Time) string {
 	} else {
 		return "1m"
 	}
+}
+
+// truncateString truncates a string to the specified length
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen < 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }

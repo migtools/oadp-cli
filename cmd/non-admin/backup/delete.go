@@ -44,7 +44,13 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 		Use:   use + " [NAME...] | --all",
 		Short: "Delete one or more non-admin backups",
 		Long:  "Delete one or more non-admin backups by setting the deletebackup field to true",
-		Args:  cobra.ArbitraryArgs,
+		Args: func(cmd *cobra.Command, args []string) error {
+			allFlag, _ := cmd.Flags().GetBool("all")
+			if len(args) == 0 && !allFlag {
+				return fmt.Errorf("at least one backup name or the --all flag must be specified")
+			}
+			return nil
+		},
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate(args))

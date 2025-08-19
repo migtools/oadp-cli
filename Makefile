@@ -102,37 +102,58 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 	cp $$binary_name $(INSTALL_PATH)/
 	@echo "✅ Installed to $(INSTALL_PATH)"
 	@echo ""
-	@PATH_UPDATED=false; \
+	@echo "🔍 Checking PATH configuration..."
+	@PATH_NEEDS_UPDATE=false; \
+	PATH_UPDATED=false; \
 	PATH_IN_CONFIG=false; \
+	CURRENT_SESSION_NEEDS_UPDATE=false; \
+	\
 	if [[ ":$$PATH:" != *":$(INSTALL_PATH):"* ]]; then \
+		PATH_NEEDS_UPDATE=true; \
+		CURRENT_SESSION_NEEDS_UPDATE=true; \
+		echo "⚠️  $(INSTALL_PATH) is not in your current PATH"; \
+		\
 		if [[ "$$SHELL" == */zsh* ]] && [[ -f "$$HOME/.zshrc" ]]; then \
-			if ! grep -q "/.local/bin" "$$HOME/.zshrc" 2>/dev/null; then \
+			if ! grep -q '^[[:space:]]*export[[:space:]]*PATH.*\.local/bin' "$$HOME/.zshrc" 2>/dev/null; then \
 				echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> "$$HOME/.zshrc"; \
-				echo "✅ Added to ~/.zshrc"; \
+				echo "✅ Added PATH export to ~/.zshrc"; \
 				PATH_UPDATED=true; \
 			else \
-				echo "ℹ️  Already configured in ~/.zshrc"; \
+				echo "ℹ️  PATH export already exists in ~/.zshrc"; \
 				PATH_IN_CONFIG=true; \
 			fi; \
 		elif [[ "$$SHELL" == */bash* ]] && [[ -f "$$HOME/.bashrc" ]]; then \
-			if ! grep -q "/.local/bin" "$$HOME/.bashrc" 2>/dev/null; then \
+			if ! grep -q '^[[:space:]]*export[[:space:]]*PATH.*\.local/bin' "$$HOME/.bashrc" 2>/dev/null; then \
 				echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> "$$HOME/.bashrc"; \
-				echo "✅ Added to ~/.bashrc"; \
+				echo "✅ Added PATH export to ~/.bashrc"; \
 				PATH_UPDATED=true; \
 			else \
-				echo "ℹ️  Already configured in ~/.bashrc"; \
+				echo "ℹ️  PATH export already exists in ~/.bashrc"; \
 				PATH_IN_CONFIG=true; \
 			fi; \
 		else \
-			echo "⚠️  Add to your shell config: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+			echo "⚠️  Unsupported shell or config file not found"; \
+			echo "    Manually add to your shell config: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
 			PATH_UPDATED=true; \
 		fi; \
 	else \
-		echo "✅ PATH already configured"; \
+		echo "✅ $(INSTALL_PATH) is already in PATH"; \
 	fi; \
+	\
 	echo ""; \
-	if [[ "$$PATH_UPDATED" == "true" ]] || [[ "$$PATH_IN_CONFIG" == "true" ]]; then \
-		echo "🔄 Restart terminal or run: source ~/.zshrc"; \
+	if [[ "$$CURRENT_SESSION_NEEDS_UPDATE" == "true" ]]; then \
+		echo "🔧 To use kubectl oadp in this terminal session:"; \
+		echo "   export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+		echo ""; \
+		echo "🔄 For future sessions:"; \
+		if [[ "$$PATH_UPDATED" == "true" ]]; then \
+			echo "   Restart your terminal or run: source ~/.zshrc"; \
+		elif [[ "$$PATH_IN_CONFIG" == "true" ]]; then \
+			echo "   Restart your terminal or run: source ~/.zshrc"; \
+			echo "   (PATH export exists but may need shell restart)"; \
+		else \
+			echo "   Add the PATH export to your shell configuration file"; \
+		fi; \
 	fi; \
 	echo ""; \
 		echo "📋 Configuration:"; \
@@ -188,6 +209,35 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		fi; \
 		$(INSTALL_PATH)/$$binary_name client config set namespace=$$NAMESPACE 2>/dev/null || true; \
 		echo "✅ Client config initialized"; \
+	echo ""; \
+	echo "🧪 Verifying installation..."; \
+	if [[ "$$CURRENT_SESSION_NEEDS_UPDATE" == "true" ]]; then \
+		echo "   Temporarily updating PATH for verification"; \
+		if PATH="$(INSTALL_PATH):$$PATH" command -v kubectl >/dev/null 2>&1; then \
+			if PATH="$(INSTALL_PATH):$$PATH" kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
+				echo "✅ Installation verified: kubectl oadp plugin is accessible"; \
+				PATH="$(INSTALL_PATH):$$PATH" kubectl oadp version 2>/dev/null || echo "   (Note: version command requires cluster access)"; \
+			else \
+				echo "❌ Installation verification failed: kubectl oadp plugin not found"; \
+				echo "   Try running: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+			fi; \
+		else \
+			echo "⚠️  kubectl not found - cannot verify plugin accessibility"; \
+			echo "   Plugin installed to: $(INSTALL_PATH)/$$binary_name"; \
+		fi; \
+	else \
+		if command -v kubectl >/dev/null 2>&1; then \
+			if kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
+				echo "✅ Installation verified: kubectl oadp plugin is accessible"; \
+				kubectl oadp version 2>/dev/null || echo "   (Note: version command requires cluster access)"; \
+			else \
+				echo "❌ Installation verification failed: kubectl oadp plugin not found"; \
+			fi; \
+		else \
+			echo "⚠️  kubectl not found - cannot verify plugin accessibility"; \
+			echo "   Plugin installed to: $(INSTALL_PATH)/$$binary_name"; \
+		fi; \
+	fi; \
 	echo ""; \
 	echo "📋 Next steps:"; \
 	echo "  1. Test admin commands: kubectl oadp backup get"; \

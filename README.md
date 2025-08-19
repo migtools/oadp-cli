@@ -62,7 +62,7 @@ make install ASSUME_DEFAULT=true     # Use default namespace (no detection)
 make install VELERO_NAMESPACE=custom # Use specific namespace (no detection)
 ```
 
-**💡 Important:** After installation, you may need to refresh your terminal or run `source ~/.zshrc` (or `~/.bashrc`) for the `kubectl oadp` command to work.
+**💡 Path Setup:** The installer will automatically check your PATH and guide you through any necessary setup. If `kubectl oadp` doesn't work immediately after installation, follow the on-screen instructions to update your PATH for the current session or restart your terminal.
 
 You can set the velero namespace afterwards using the oadp client command
 

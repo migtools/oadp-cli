@@ -76,6 +76,8 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			args: []string{"nonadmin", "backup", "get", "--help"},
 			expectContains: []string{
 				"Get one or more non-admin backups",
+				"--show-data-transfer",
+				"Include data upload/download information",
 			},
 		},
 		{

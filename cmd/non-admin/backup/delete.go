@@ -41,7 +41,7 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 	o := NewDeleteOptions()
 
 	c := &cobra.Command{
-		Use:   use + " [NAME...] [--all]",
+		Use:   use + " [NAME...] | --all",
 		Short: "Delete one or more non-admin backups",
 		Long:  "Delete one or more non-admin backups by setting the deletebackup field to true",
 		Args:  cobra.ArbitraryArgs,

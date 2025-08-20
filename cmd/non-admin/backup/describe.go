@@ -177,42 +177,49 @@ func getVeleroBackupFromNAB(nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.C
 func createFilteredVeleroOutput(veleroBackup *velerov1.Backup, nab *nacv1alpha1.NonAdminBackup) string {
 	var output strings.Builder
 
-	// Header in Velero style
+	// Build output sections
+	writeBasicInfo(&output, nab)
+	writeMetadata(&output, nab)
+	writePhaseAndErrors(&output, nab)
+	writeAdminEnforceableFields(&output, veleroBackup, nab)
+	writeStatusInformation(&output, nab)
+
+	return output.String()
+}
+
+// writeBasicInfo writes the basic name and namespace information
+func writeBasicInfo(output *strings.Builder, nab *nacv1alpha1.NonAdminBackup) {
 	output.WriteString(fmt.Sprintf("Name:         %s\n", nab.Name))
 	output.WriteString(fmt.Sprintf("Namespace:    %s\n", nab.Namespace))
+}
 
-	// Labels (Velero-style format) - Admin Enforceable: Yes
-	if len(nab.Labels) > 0 {
-		output.WriteString("Labels:       ")
-		labelPairs := make([]string, 0, len(nab.Labels))
-		for k, v := range nab.Labels {
-			labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
-		}
-		sort.Strings(labelPairs)
-		output.WriteString(fmt.Sprintf("%s\n", strings.Join(labelPairs, ",")))
-	} else {
-		output.WriteString("Labels:       <none>\n")
-	}
-
-	// Annotations (Velero-style format) - Admin Enforceable: Yes
-	if len(nab.Annotations) > 0 {
-		output.WriteString("Annotations:  ")
-		annotationPairs := make([]string, 0, len(nab.Annotations))
-		for k, v := range nab.Annotations {
-			annotationPairs = append(annotationPairs, fmt.Sprintf("%s=%s", k, v))
-		}
-		sort.Strings(annotationPairs)
-		output.WriteString(fmt.Sprintf("%s\n", strings.Join(annotationPairs, ",")))
-	} else {
-		output.WriteString("Annotations:  <none>\n")
-	}
-
+// writeMetadata writes labels and annotations in Velero-style format
+func writeMetadata(output *strings.Builder, nab *nacv1alpha1.NonAdminBackup) {
+	writeKeyValuePairs(output, "Labels", nab.Labels)
+	writeKeyValuePairs(output, "Annotations", nab.Annotations)
 	output.WriteString("\n")
+}
 
-	// Phase/Status information - Admin Enforceable: Yes
+// writeKeyValuePairs formats and writes key-value pairs (labels or annotations)
+func writeKeyValuePairs(output *strings.Builder, fieldName string, pairs map[string]string) {
+	if len(pairs) > 0 {
+		output.WriteString(fmt.Sprintf("%-13s ", fieldName+":"))
+
+		pairStrings := make([]string, 0, len(pairs))
+		for k, v := range pairs {
+			pairStrings = append(pairStrings, fmt.Sprintf("%s=%s", k, v))
+		}
+		sort.Strings(pairStrings)
+		output.WriteString(fmt.Sprintf("%s\n", strings.Join(pairStrings, ",")))
+	} else {
+		output.WriteString(fmt.Sprintf("%-13s <none>\n", fieldName+":"))
+	}
+}
+
+// writePhaseAndErrors writes phase and error/warning information
+func writePhaseAndErrors(output *strings.Builder, nab *nacv1alpha1.NonAdminBackup) {
 	output.WriteString(fmt.Sprintf("Phase:  %s\n", nab.Status.Phase))
 
-	// Add error/warning information if available - Admin Enforceable: Yes
 	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
 		vStatus := nab.Status.VeleroBackup.Status
 		if vStatus.Errors > 0 {
@@ -223,204 +230,248 @@ func createFilteredVeleroOutput(veleroBackup *velerov1.Backup, nab *nacv1alpha1.
 		}
 	}
 
-	output.WriteString("\n")
+}
 
-	// === ADMIN ENFORCEABLE FIELDS (only show if configured) ===
+// writeAdminEnforceableFields writes all admin enforceable fields
+func writeAdminEnforceableFields(output *strings.Builder, veleroBackup *velerov1.Backup, nab *nacv1alpha1.NonAdminBackup) {
+	writeTimeoutFields(output, veleroBackup)
+	writeResourcePolicyFields(output, veleroBackup)
+	writeNamespaceFields(output, veleroBackup)
+	writeResourceFields(output, veleroBackup, nab)
+	writeClusterResourceFields(output, veleroBackup)
+	writeSelectorFields(output, nab)
+	writeVolumeFields(output, veleroBackup)
+	writeStorageFields(output, veleroBackup)
+	writeBackupPolicyFields(output, veleroBackup)
+	writeUploaderConfigFields(output, veleroBackup)
+	writeHookFields(output, veleroBackup)
+}
 
-	// CSISnapshotTimeout - Admin Enforceable: Yes
+// writeTimeoutFields writes timeout-related fields
+func writeTimeoutFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if veleroBackup.Spec.CSISnapshotTimeout.Duration > 0 {
 		output.WriteString(fmt.Sprintf("CSI Snapshot Timeout:      %s\n", veleroBackup.Spec.CSISnapshotTimeout.Duration.String()))
 	}
-
-	// ItemOperationTimeout - Admin Enforceable: Yes
 	if veleroBackup.Spec.ItemOperationTimeout.Duration > 0 {
 		output.WriteString(fmt.Sprintf("Item Operation Timeout:    %s\n", veleroBackup.Spec.ItemOperationTimeout.Duration.String()))
 	}
+}
 
-	// ResourcePolicy - Admin Enforceable: Yes (special case - admins can enforce config-map in OADP Operator NS)
+// writeResourcePolicyFields writes resource policy fields
+func writeResourcePolicyFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if veleroBackup.Spec.ResourcePolicy != nil {
 		output.WriteString(fmt.Sprintf("Resource Policy:           %s\n", veleroBackup.Spec.ResourcePolicy.Name))
 	}
+}
 
-	// ExcludedNamespaces - Admin Enforceable: Yes, Restricted: Yes (special case - restricted but admin enforceable)
+// writeNamespaceFields writes namespace-related fields
+func writeNamespaceFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if len(veleroBackup.Spec.ExcludedNamespaces) > 0 {
 		output.WriteString(fmt.Sprintf("Excluded Namespaces:       %s\n", strings.Join(veleroBackup.Spec.ExcludedNamespaces, ", ")))
 	}
+}
 
-	// IncludedResources - Admin Enforceable: Yes
+// writeResourceFields writes resource inclusion/exclusion fields
+func writeResourceFields(output *strings.Builder, veleroBackup *velerov1.Backup, nab *nacv1alpha1.NonAdminBackup) {
+	// Included Resources
 	if nab.Spec.BackupSpec != nil && len(nab.Spec.BackupSpec.IncludedResources) > 0 {
 		output.WriteString(fmt.Sprintf("Included Resources:        %s\n", strings.Join(nab.Spec.BackupSpec.IncludedResources, ", ")))
 	} else {
 		output.WriteString("Included Resources:        * (all)\n")
 	}
 
-	// ExcludedResources - Admin Enforceable: Yes
+	// Excluded Resources
 	if nab.Spec.BackupSpec != nil && len(nab.Spec.BackupSpec.ExcludedResources) > 0 {
 		output.WriteString(fmt.Sprintf("Excluded Resources:        %s\n", strings.Join(nab.Spec.BackupSpec.ExcludedResources, ", ")))
 	}
 
-	// OrderedResources - Admin Enforceable: Yes
+	// Ordered Resources
 	if len(veleroBackup.Spec.OrderedResources) > 0 {
 		output.WriteString("Ordered Resources:         configured\n")
 	}
+}
 
-	// IncludeClusterResources - Admin Enforceable: Yes (special case - non-admin users can only set to false)
+// writeClusterResourceFields writes cluster resource fields
+func writeClusterResourceFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
+	// Include Cluster Resources
 	if veleroBackup.Spec.IncludeClusterResources != nil {
 		output.WriteString(fmt.Sprintf("Include Cluster Resources: %v\n", getBoolPointerValue(veleroBackup.Spec.IncludeClusterResources)))
 	} else {
 		output.WriteString("Include Cluster Resources: auto\n")
 	}
 
-	// ExcludedClusterScopedResources - Admin Enforceable: Yes
+	// Excluded Cluster Scoped Resources
 	if len(veleroBackup.Spec.ExcludedClusterScopedResources) > 0 {
 		output.WriteString(fmt.Sprintf("Excluded Cluster Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.ExcludedClusterScopedResources, ", ")))
 	}
 
-	// IncludedClusterScopedResources - Admin Enforceable: Yes (special case - only empty list acceptable)
+	// Included Cluster Scoped Resources
 	if len(veleroBackup.Spec.IncludedClusterScopedResources) > 0 {
 		output.WriteString(fmt.Sprintf("Included Cluster Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.IncludedClusterScopedResources, ", ")))
 	}
 
-	// ExcludedNamespaceScopedResources - Admin Enforceable: Yes
+	// Excluded Namespace Scoped Resources
 	if len(veleroBackup.Spec.ExcludedNamespaceScopedResources) > 0 {
 		output.WriteString(fmt.Sprintf("Excluded Namespace Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.ExcludedNamespaceScopedResources, ", ")))
 	}
 
-	// IncludedNamespaceScopedResources - Admin Enforceable: Yes
+	// Included Namespace Scoped Resources
 	if len(veleroBackup.Spec.IncludedNamespaceScopedResources) > 0 {
 		output.WriteString(fmt.Sprintf("Included Namespace Scoped Resources: %s\n", strings.Join(veleroBackup.Spec.IncludedNamespaceScopedResources, ", ")))
 	}
+}
 
-	// LabelSelector - Admin Enforceable: Yes
+// writeSelectorFields writes label selector fields
+func writeSelectorFields(output *strings.Builder, nab *nacv1alpha1.NonAdminBackup) {
 	if nab.Spec.BackupSpec != nil && nab.Spec.BackupSpec.LabelSelector != nil {
 		output.WriteString(fmt.Sprintf("Label Selector:            %v\n", nab.Spec.BackupSpec.LabelSelector))
 	}
-
-	// OrLabelSelectors - Admin Enforceable: Yes
 	if nab.Spec.BackupSpec != nil && len(nab.Spec.BackupSpec.OrLabelSelectors) > 0 {
 		output.WriteString(fmt.Sprintf("Or Label Selectors:        %v\n", nab.Spec.BackupSpec.OrLabelSelectors))
 	}
+}
 
-	// SnapshotVolumes - Admin Enforceable: Yes
+// writeVolumeFields writes volume-related fields
+func writeVolumeFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	output.WriteString(fmt.Sprintf("Snapshot Volumes:          %v\n", getSnapshotVolumesValue(veleroBackup.Spec.SnapshotVolumes)))
+}
 
-	// StorageLocation - Admin Enforceable: (blank/unspecified) - should point to existing NABSL
+// writeStorageFields writes storage-related fields
+func writeStorageFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if veleroBackup.Spec.StorageLocation != "" {
 		output.WriteString(fmt.Sprintf("Storage Location:          %s\n", veleroBackup.Spec.StorageLocation))
 	}
 
-	// VolumeSnapshotLocations - Admin Enforceable: (blank/unspecified) - not supported for non-admin users
 	if len(veleroBackup.Spec.VolumeSnapshotLocations) > 0 {
 		output.WriteString(fmt.Sprintf("Volume Snapshot Locations: %s\n", strings.Join(veleroBackup.Spec.VolumeSnapshotLocations, ", ")))
 	} else {
 		output.WriteString("Volume Snapshot Locations: default\n")
 	}
+}
 
-	// TTL - Admin Enforceable: Yes
+// writeBackupPolicyFields writes backup policy fields
+func writeBackupPolicyFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if veleroBackup.Spec.TTL.Duration > 0 {
 		output.WriteString(fmt.Sprintf("TTL:                       %s\n", veleroBackup.Spec.TTL.Duration.String()))
 	}
 
-	// DefaultVolumesToFsBackup - Admin Enforceable: Yes
 	if veleroBackup.Spec.DefaultVolumesToFsBackup != nil {
 		output.WriteString(fmt.Sprintf("Default Volumes to FS Backup: %v\n", getBoolPointerValue(veleroBackup.Spec.DefaultVolumesToFsBackup)))
 	}
 
-	// SnapshotMoveData - Admin Enforceable: Yes
 	if veleroBackup.Spec.SnapshotMoveData != nil {
 		output.WriteString(fmt.Sprintf("Snapshot Move Data:        %v\n", getBoolPointerValue(veleroBackup.Spec.SnapshotMoveData)))
 	}
 
-	// DataMover - Admin Enforceable: Yes
 	if veleroBackup.Spec.DataMover != "" {
 		output.WriteString(fmt.Sprintf("Data Mover:                %s\n", veleroBackup.Spec.DataMover))
 	}
+}
 
-	// UploaderConfig.ParallelFilesUpload - Admin Enforceable: Yes
+// writeUploaderConfigFields writes uploader configuration fields
+func writeUploaderConfigFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if veleroBackup.Spec.UploaderConfig != nil {
 		output.WriteString("Uploader Config:           configured\n")
 		if veleroBackup.Spec.UploaderConfig.ParallelFilesUpload > 0 {
 			output.WriteString(fmt.Sprintf("  Parallel Files Upload:   %d\n", veleroBackup.Spec.UploaderConfig.ParallelFilesUpload))
 		}
 	}
+}
 
-	// Hooks - Admin Enforceable: Yes
+// writeHookFields writes hook-related fields
+func writeHookFields(output *strings.Builder, veleroBackup *velerov1.Backup) {
 	if len(veleroBackup.Spec.Hooks.Resources) > 0 {
 		output.WriteString(fmt.Sprintf("Hooks:                     %d hook(s) configured\n", len(veleroBackup.Spec.Hooks.Resources)))
 	}
+}
 
-	output.WriteString("\n")
-	output.WriteString("=== RESTRICTED FIELDS (Not shown for non-admin users) ===\n")
-	output.WriteString("Included Namespaces:       [RESTRICTED]\n")
-
-	output.WriteString("\n")
-
-	// Backup format and timing - Status information (always shown when available)
-	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
-		vStatus := nab.Status.VeleroBackup.Status
-
-		output.WriteString("=== STATUS INFORMATION ===\n")
-
-		if vStatus.FormatVersion != "" {
-			output.WriteString(fmt.Sprintf("Backup Format Version:     %s\n", vStatus.FormatVersion))
-		}
-
-		if vStatus.StartTimestamp != nil {
-			output.WriteString(fmt.Sprintf("Started:                   %s\n", vStatus.StartTimestamp.Format("2006-01-02 15:04:05 -0700 MST")))
-		}
-		if vStatus.CompletionTimestamp != nil {
-			output.WriteString(fmt.Sprintf("Completed:                 %s\n", vStatus.CompletionTimestamp.Format("2006-01-02 15:04:05 -0700 MST")))
-		}
-		if vStatus.Expiration != nil {
-			output.WriteString(fmt.Sprintf("Expiration:                %s\n", vStatus.Expiration.Format("2006-01-02 15:04:05 -0700 MST")))
-		}
-
-		output.WriteString("\n")
-
-		// Progress information
-		if vStatus.Progress != nil {
-			output.WriteString(fmt.Sprintf("Total items to be backed up: %d\n", vStatus.Progress.TotalItems))
-			output.WriteString(fmt.Sprintf("Items backed up:           %d\n", vStatus.Progress.ItemsBackedUp))
-		}
-
-		output.WriteString("\n")
-
-		// Resource List
-		output.WriteString("Resource List:\n")
-		if vStatus.Progress != nil {
-			output.WriteString(fmt.Sprintf("  Total items backed up:   %d\n", vStatus.Progress.ItemsBackedUp))
-		} else {
-			output.WriteString("  <detailed resource breakdown not available>\n")
-		}
-
-		output.WriteString("\n")
-
-		// Volume information
-		output.WriteString("Backup Volumes:\n")
-		if vStatus.VolumeSnapshotsCompleted > 0 {
-			output.WriteString(fmt.Sprintf("  Velero-Native Snapshots: <%d included>\n", vStatus.VolumeSnapshotsCompleted))
-		} else {
-			output.WriteString("  Velero-Native Snapshots: <none included>\n")
-		}
-		if vStatus.CSIVolumeSnapshotsCompleted > 0 {
-			output.WriteString(fmt.Sprintf("  CSI Snapshots:           <%d included>\n", vStatus.CSIVolumeSnapshotsCompleted))
-		} else {
-			output.WriteString("  CSI Snapshots:           <none included>\n")
-		}
-		if nab.Status.FileSystemPodVolumeBackups != nil && nab.Status.FileSystemPodVolumeBackups.Completed > 0 {
-			output.WriteString(fmt.Sprintf("  Pod Volume Backups:      <%d included>\n", nab.Status.FileSystemPodVolumeBackups.Completed))
-		} else {
-			output.WriteString("  Pod Volume Backups:      <none included>\n")
-		}
-
-		output.WriteString("\n")
-
-		// Hook status information
-		output.WriteString(fmt.Sprintf("Hooks Attempted:           %d\n", vStatus.HookStatus.HooksAttempted))
-		output.WriteString(fmt.Sprintf("Hooks Failed:              %d\n", vStatus.HookStatus.HooksFailed))
+// writeStatusInformation writes the status information section
+func writeStatusInformation(output *strings.Builder, nab *nacv1alpha1.NonAdminBackup) {
+	if nab.Status.VeleroBackup == nil || nab.Status.VeleroBackup.Status == nil {
+		return
 	}
 
-	return output.String()
+	vStatus := nab.Status.VeleroBackup.Status
+	output.WriteString("=== STATUS INFORMATION ===\n")
+
+	writeFormatAndTimestamps(output, vStatus)
+	writeProgressInformation(output, vStatus)
+	writeResourceList(output, vStatus)
+	writeVolumeInformation(output, vStatus, nab)
+	writeHookStatus(output, vStatus)
+}
+
+// writeFormatAndTimestamps writes backup format version and timestamps
+func writeFormatAndTimestamps(output *strings.Builder, vStatus *velerov1.BackupStatus) {
+	if vStatus.FormatVersion != "" {
+		output.WriteString(fmt.Sprintf("Backup Format Version:     %s\n", vStatus.FormatVersion))
+	}
+
+	if vStatus.StartTimestamp != nil {
+		output.WriteString(fmt.Sprintf("Started:                   %s\n", vStatus.StartTimestamp.Format("2006-01-02 15:04:05 -0700 MST")))
+	}
+	if vStatus.CompletionTimestamp != nil {
+		output.WriteString(fmt.Sprintf("Completed:                 %s\n", vStatus.CompletionTimestamp.Format("2006-01-02 15:04:05 -0700 MST")))
+	}
+	if vStatus.Expiration != nil {
+		output.WriteString(fmt.Sprintf("Expiration:                %s\n", vStatus.Expiration.Format("2006-01-02 15:04:05 -0700 MST")))
+	}
+
+	output.WriteString("\n")
+}
+
+// writeProgressInformation writes backup progress information
+func writeProgressInformation(output *strings.Builder, vStatus *velerov1.BackupStatus) {
+	if vStatus.Progress != nil {
+		output.WriteString(fmt.Sprintf("Total items to be backed up: %d\n", vStatus.Progress.TotalItems))
+		output.WriteString(fmt.Sprintf("Items backed up:           %d\n", vStatus.Progress.ItemsBackedUp))
+	}
+	output.WriteString("\n")
+}
+
+// writeResourceList writes the resource list information
+func writeResourceList(output *strings.Builder, vStatus *velerov1.BackupStatus) {
+	output.WriteString("Resource List:\n")
+	if vStatus.Progress != nil {
+		output.WriteString(fmt.Sprintf("  Total items backed up:   %d\n", vStatus.Progress.ItemsBackedUp))
+	} else {
+		output.WriteString("  <detailed resource breakdown not available>\n")
+	}
+	output.WriteString("\n")
+}
+
+// writeVolumeInformation writes backup volume information
+func writeVolumeInformation(output *strings.Builder, vStatus *velerov1.BackupStatus, nab *nacv1alpha1.NonAdminBackup) {
+	output.WriteString("Backup Volumes:\n")
+
+	// Velero-Native Snapshots
+	if vStatus.VolumeSnapshotsCompleted > 0 {
+		output.WriteString(fmt.Sprintf("  Velero-Native Snapshots: <%d included>\n", vStatus.VolumeSnapshotsCompleted))
+	} else {
+		output.WriteString("  Velero-Native Snapshots: <none included>\n")
+	}
+
+	// CSI Snapshots
+	if vStatus.CSIVolumeSnapshotsCompleted > 0 {
+		output.WriteString(fmt.Sprintf("  CSI Snapshots:           <%d included>\n", vStatus.CSIVolumeSnapshotsCompleted))
+	} else {
+		output.WriteString("  CSI Snapshots:           <none included>\n")
+	}
+
+	// Pod Volume Backups
+	if nab.Status.FileSystemPodVolumeBackups != nil && nab.Status.FileSystemPodVolumeBackups.Completed > 0 {
+		output.WriteString(fmt.Sprintf("  Pod Volume Backups:      <%d included>\n", nab.Status.FileSystemPodVolumeBackups.Completed))
+	} else {
+		output.WriteString("  Pod Volume Backups:      <none included>\n")
+	}
+
+	output.WriteString("\n")
+}
+
+// writeHookStatus writes hook status information
+func writeHookStatus(output *strings.Builder, vStatus *velerov1.BackupStatus) {
+	output.WriteString(fmt.Sprintf("Hooks Attempted:           %d\n", vStatus.HookStatus.HooksAttempted))
+	output.WriteString(fmt.Sprintf("Hooks Failed:              %d\n", vStatus.HookStatus.HooksFailed))
 }
 
 // Helper functions for the detailed output

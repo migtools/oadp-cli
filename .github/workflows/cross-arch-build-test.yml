@@ -2,9 +2,9 @@ name: Cross-Architecture Build Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [ oadp-dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ oadp-dev ]
   workflow_dispatch:
 
 jobs:

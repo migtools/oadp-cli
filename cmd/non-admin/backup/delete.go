@@ -41,13 +41,19 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 	o := NewDeleteOptions()
 
 	c := &cobra.Command{
-		Use:   use + " NAME [NAME...]",
+		Use:   use + " [NAME...] | --all",
 		Short: "Delete one or more non-admin backups",
 		Long:  "Delete one or more non-admin backups by setting the deletebackup field to true",
-		Args:  cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			allFlag, _ := cmd.Flags().GetBool("all")
+			if len(args) == 0 && !allFlag {
+				return fmt.Errorf("at least one backup name or the --all flag must be specified")
+			}
+			return nil
+		},
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
-			cmd.CheckError(o.Validate())
+			cmd.CheckError(o.Validate(args))
 			cmd.CheckError(o.Run())
 		},
 	}
@@ -64,6 +70,7 @@ type DeleteOptions struct {
 	Names     []string
 	Namespace string // Internal field - automatically determined from kubectl context
 	Confirm   bool   // Skip confirmation prompt
+	All       bool   // Delete all backups in the namespace
 	client    kbclient.Client
 }
 
@@ -75,11 +82,15 @@ func NewDeleteOptions() *DeleteOptions {
 // BindFlags binds the command line flags to the options
 func (o *DeleteOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&o.Confirm, "confirm", false, "Skip confirmation prompt and delete immediately")
+	flags.BoolVar(&o.All, "all", false, "Delete all backups in the current namespace")
 }
 
 // Complete completes the options by setting up the client and determining the namespace
 func (o *DeleteOptions) Complete(args []string, f client.Factory) error {
-	o.Names = args
+	// If --all flag is not used, use the provided args
+	if !o.All {
+		o.Names = args
+	}
 
 	// Create client with NonAdmin scheme
 	kbClient, err := shared.NewClientWithScheme(f, shared.ClientOptions{
@@ -98,17 +109,46 @@ func (o *DeleteOptions) Complete(args []string, f client.Factory) error {
 	}
 	o.Namespace = currentNS
 
+	// If --all flag is used, get all backup names in the namespace
+	if o.All {
+		var nabList nacv1alpha1.NonAdminBackupList
+		err := o.client.List(context.TODO(), &nabList, kbclient.InNamespace(o.Namespace))
+		if err != nil {
+			return fmt.Errorf("failed to list backups: %w", err)
+		}
+
+		// Extract backup names
+		var allNames []string
+		for _, nab := range nabList.Items {
+			allNames = append(allNames, nab.Name)
+		}
+		o.Names = allNames
+	}
+
 	return nil
 }
 
 // Validate validates the options
-func (o *DeleteOptions) Validate() error {
-	if len(o.Names) == 0 {
-		return fmt.Errorf("at least one backup name is required")
-	}
+func (o *DeleteOptions) Validate(args []string) error {
 	if o.Namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}
+
+	// Check for conflicting options: both args and --all flag
+	if o.All && len(args) > 0 {
+		return fmt.Errorf("cannot specify both backup names and --all flag")
+	}
+
+	// Check if neither args nor --all flag provided
+	if !o.All && len(args) == 0 {
+		return fmt.Errorf("at least one backup name is required, or use --all to delete all backups")
+	}
+
+	// Special case: if --all is used but no backups found (after Complete)
+	if o.All && len(o.Names) == 0 {
+		return fmt.Errorf("no backups found in namespace '%s'", o.Namespace)
+	}
+
 	return nil
 }
 

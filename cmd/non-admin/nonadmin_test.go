@@ -39,6 +39,7 @@ func TestNonAdminCommands(t *testing.T) {
 				"Work with non-admin resources like backups",
 				"backup",
 				"bsl",
+				"restore",
 			},
 		},
 		{
@@ -76,6 +77,8 @@ func TestNonAdminHelpFlags(t *testing.T) {
 		{"nonadmin", "backup", "-h"},
 		{"nonadmin", "bsl", "--help"},
 		{"nonadmin", "bsl", "-h"},
+		{"nonadmin", "restore", "--help"},
+		{"nonadmin", "restore", "-h"},
 	}
 
 	for _, cmd := range commands {

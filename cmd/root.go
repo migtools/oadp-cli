@@ -24,6 +24,7 @@ import (
 
 	"github.com/migtools/oadp-cli/cmd/nabsl-request"
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
+	"github.com/migtools/oadp-cli/cmd/verbs"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/client"
@@ -83,6 +84,13 @@ func NewVeleroRootCommand() *cobra.Command {
 	rootCmd.AddCommand(backupCmd)
 	rootCmd.AddCommand(restoreCmd)
 	rootCmd.AddCommand(clientCmd)
+
+	// Add verb-based commands for compatibility with Velero CLI pattern
+	rootCmd.AddCommand(verbs.NewGetCommand(veleroFactory, nonAdminFactory))
+	rootCmd.AddCommand(verbs.NewCreateCommand(veleroFactory, nonAdminFactory))
+	rootCmd.AddCommand(verbs.NewDeleteCommand(veleroFactory, nonAdminFactory))
+	rootCmd.AddCommand(verbs.NewDescribeCommand(veleroFactory, nonAdminFactory))
+	rootCmd.AddCommand(verbs.NewLogsCommand(veleroFactory, nonAdminFactory))
 
 	// Admin NABSL request commands - use Velero factory (admin namespace)
 	rootCmd.AddCommand(nabsl.NewNABSLRequestCommand(veleroFactory))

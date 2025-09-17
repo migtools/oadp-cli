@@ -19,6 +19,7 @@ package nonadmin
 import (
 	"github.com/migtools/oadp-cli/cmd/non-admin/backup"
 	"github.com/migtools/oadp-cli/cmd/non-admin/bsl"
+	"github.com/migtools/oadp-cli/cmd/non-admin/verbs"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
@@ -37,6 +38,13 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 
 	// Add backup storage location subcommand
 	c.AddCommand(bsl.NewBSLCommand(f))
+
+	// Add verb-based commands for compatibility with Velero CLI pattern
+	c.AddCommand(verbs.NewGetCommand(f))
+	c.AddCommand(verbs.NewCreateCommand(f))
+	c.AddCommand(verbs.NewDeleteCommand(f))
+	c.AddCommand(verbs.NewDescribeCommand(f))
+	c.AddCommand(verbs.NewLogsCommand(f))
 
 	return c
 }

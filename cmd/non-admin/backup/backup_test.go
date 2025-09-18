@@ -97,6 +97,98 @@ func TestNonAdminBackupCommands(t *testing.T) {
 				"logs",
 			},
 		},
+		// Verb-noun order help command tests
+		{
+			name: "nonadmin get backup help",
+			args: []string{"nonadmin", "get", "backup", "--help"},
+			expectContains: []string{
+				"Get one or more non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin create backup help",
+			args: []string{"nonadmin", "create", "backup", "--help"},
+			expectContains: []string{
+				"Create non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin delete backup help",
+			args: []string{"nonadmin", "delete", "backup", "--help"},
+			expectContains: []string{
+				"Delete non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin describe backup help",
+			args: []string{"nonadmin", "describe", "backup", "--help"},
+			expectContains: []string{
+				"Describe non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin logs backup help",
+			args: []string{"nonadmin", "logs", "backup", "--help"},
+			expectContains: []string{
+				"Get logs for non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		// Shorthand verb-noun order tests
+		{
+			name: "na get backup help",
+			args: []string{"na", "get", "backup", "--help"},
+			expectContains: []string{
+				"Get one or more non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "na create backup help",
+			args: []string{"na", "create", "backup", "--help"},
+			expectContains: []string{
+				"Create non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "na delete backup help",
+			args: []string{"na", "delete", "backup", "--help"},
+			expectContains: []string{
+				"Delete non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "na describe backup help",
+			args: []string{"na", "describe", "backup", "--help"},
+			expectContains: []string{
+				"Describe non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "na logs backup help",
+			args: []string{"na", "logs", "backup", "--help"},
+			expectContains: []string{
+				"Get logs for non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -125,6 +217,28 @@ func TestNonAdminBackupHelpFlags(t *testing.T) {
 		{"nonadmin", "backup", "logs", "-h"},
 		{"na", "backup", "--help"},
 		{"na", "backup", "-h"},
+		// Verb-noun order help flags
+		{"nonadmin", "get", "backup", "--help"},
+		{"nonadmin", "get", "backup", "-h"},
+		{"nonadmin", "create", "backup", "--help"},
+		{"nonadmin", "create", "backup", "-h"},
+		{"nonadmin", "delete", "backup", "--help"},
+		{"nonadmin", "delete", "backup", "-h"},
+		{"nonadmin", "describe", "backup", "--help"},
+		{"nonadmin", "describe", "backup", "-h"},
+		{"nonadmin", "logs", "backup", "--help"},
+		{"nonadmin", "logs", "backup", "-h"},
+		// Shorthand verb-noun order help flags
+		{"na", "get", "backup", "--help"},
+		{"na", "get", "backup", "-h"},
+		{"na", "create", "backup", "--help"},
+		{"na", "create", "backup", "-h"},
+		{"na", "delete", "backup", "--help"},
+		{"na", "delete", "backup", "-h"},
+		{"na", "describe", "backup", "--help"},
+		{"na", "describe", "backup", "-h"},
+		{"na", "logs", "backup", "--help"},
+		{"na", "logs", "backup", "-h"},
 	}
 
 	for _, cmd := range commands {
@@ -215,6 +329,14 @@ func TestNonAdminBackupClientConfigIntegration(t *testing.T) {
 			{"nonadmin", "backup", "delete", "--help"},
 			{"nonadmin", "backup", "logs", "--help"},
 			{"na", "backup", "get", "--help"},
+			// Verb-noun order commands
+			{"nonadmin", "get", "backup", "--help"},
+			{"nonadmin", "create", "backup", "--help"},
+			{"nonadmin", "describe", "backup", "--help"},
+			{"nonadmin", "delete", "backup", "--help"},
+			{"nonadmin", "logs", "backup", "--help"},
+			{"na", "get", "backup", "--help"},
+			{"na", "create", "backup", "--help"},
 		}
 
 		for _, cmd := range commands {
@@ -256,6 +378,80 @@ func TestNonAdminBackupCommandStructure(t *testing.T) {
 		expectedCommands := []string{"backup"}
 		for _, cmd := range expectedCommands {
 			testutil.TestHelpCommand(t, binaryPath, []string{"na", "--help"}, []string{cmd})
+		}
+	})
+}
+
+// TestVerbNounOrderExamples tests that verb-noun order commands show proper examples
+func TestVerbNounOrderExamples(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	t.Run("verb commands show proper examples", func(t *testing.T) {
+		// Test that verb commands show examples with kubectl oadp prefix
+		expectedExamples := []string{
+			"kubectl oadp nonadmin get backup",
+			"kubectl oadp nonadmin create backup",
+			"kubectl oadp nonadmin delete backup",
+			"kubectl oadp nonadmin describe backup",
+			"kubectl oadp nonadmin logs backup",
+		}
+
+		commands := [][]string{
+			{"nonadmin", "get", "--help"},
+			{"nonadmin", "create", "--help"},
+			{"nonadmin", "delete", "--help"},
+			{"nonadmin", "describe", "--help"},
+			{"nonadmin", "logs", "--help"},
+		}
+
+		for i, cmd := range commands {
+			testutil.TestHelpCommand(t, binaryPath, cmd, []string{expectedExamples[i]})
+		}
+	})
+
+	t.Run("verb commands with specific resources show proper examples", func(t *testing.T) {
+		// Test that verb commands with specific resources show examples
+		expectedExamples := []string{
+			"kubectl oadp nonadmin get backup my-backup",
+			"kubectl oadp nonadmin create backup my-backup",
+			"kubectl oadp nonadmin delete backup my-backup",
+			"kubectl oadp nonadmin describe backup my-backup",
+			"kubectl oadp nonadmin logs backup my-backup",
+		}
+
+		commands := [][]string{
+			{"nonadmin", "get", "backup", "--help"},
+			{"nonadmin", "create", "backup", "--help"},
+			{"nonadmin", "delete", "backup", "--help"},
+			{"nonadmin", "describe", "backup", "--help"},
+			{"nonadmin", "logs", "backup", "--help"},
+		}
+
+		for i, cmd := range commands {
+			testutil.TestHelpCommand(t, binaryPath, cmd, []string{expectedExamples[i]})
+		}
+	})
+
+	t.Run("shorthand verb commands show proper examples", func(t *testing.T) {
+		// Test that shorthand verb commands show examples
+		expectedExamples := []string{
+			"kubectl oadp nonadmin get backup",
+			"kubectl oadp nonadmin create backup",
+			"kubectl oadp nonadmin delete backup",
+			"kubectl oadp nonadmin describe backup",
+			"kubectl oadp nonadmin logs backup",
+		}
+
+		commands := [][]string{
+			{"na", "get", "--help"},
+			{"na", "create", "--help"},
+			{"na", "delete", "--help"},
+			{"na", "describe", "--help"},
+			{"na", "logs", "--help"},
+		}
+
+		for i, cmd := range commands {
+			testutil.TestHelpCommand(t, binaryPath, cmd, []string{expectedExamples[i]})
 		}
 	})
 }

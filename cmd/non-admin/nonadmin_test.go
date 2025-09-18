@@ -56,6 +56,133 @@ func TestNonAdminCommands(t *testing.T) {
 				"Create a non-admin backup",
 			},
 		},
+		{
+			name: "nonadmin backup create help",
+			args: []string{"nonadmin", "create", "backup", "--help"},
+			expectContains: []string{
+				"Create a non-admin backup",
+			},
+		},
+		// Verb-noun order help command tests
+		{
+			name: "nonadmin get help",
+			args: []string{"nonadmin", "get", "--help"},
+			expectContains: []string{
+				"Get one or more non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin create help",
+			args: []string{"nonadmin", "create", "--help"},
+			expectContains: []string{
+				"Create non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin delete help",
+			args: []string{"nonadmin", "delete", "--help"},
+			expectContains: []string{
+				"Delete non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin describe help",
+			args: []string{"nonadmin", "describe", "--help"},
+			expectContains: []string{
+				"Describe non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin logs help",
+			args: []string{"nonadmin", "logs", "--help"},
+			expectContains: []string{
+				"Get logs for non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		// Verb-noun order with specific resources
+		{
+			name: "nonadmin get backup help",
+			args: []string{"nonadmin", "get", "backup", "--help"},
+			expectContains: []string{
+				"Get one or more non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin create backup help",
+			args: []string{"nonadmin", "create", "backup", "--help"},
+			expectContains: []string{
+				"Create non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin delete backup help",
+			args: []string{"nonadmin", "delete", "backup", "--help"},
+			expectContains: []string{
+				"Delete non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin describe backup help",
+			args: []string{"nonadmin", "describe", "backup", "--help"},
+			expectContains: []string{
+				"Describe non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin logs backup help",
+			args: []string{"nonadmin", "logs", "backup", "--help"},
+			expectContains: []string{
+				"Get logs for non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "nonadmin create bsl help",
+			args: []string{"nonadmin", "create", "bsl", "--help"},
+			expectContains: []string{
+				"Create non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		// Shorthand tests for verb-noun order
+		{
+			name: "na get help",
+			args: []string{"na", "get", "--help"},
+			expectContains: []string{
+				"Get one or more non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
+		{
+			name: "na create backup help",
+			args: []string{"na", "create", "backup", "--help"},
+			expectContains: []string{
+				"Create non-admin resources",
+				"backup",
+				"bsl",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -76,6 +203,28 @@ func TestNonAdminHelpFlags(t *testing.T) {
 		{"nonadmin", "backup", "-h"},
 		{"nonadmin", "bsl", "--help"},
 		{"nonadmin", "bsl", "-h"},
+		// Verb-noun order help flags
+		{"nonadmin", "get", "--help"},
+		{"nonadmin", "get", "-h"},
+		{"nonadmin", "create", "--help"},
+		{"nonadmin", "create", "-h"},
+		{"nonadmin", "delete", "--help"},
+		{"nonadmin", "delete", "-h"},
+		{"nonadmin", "describe", "--help"},
+		{"nonadmin", "describe", "-h"},
+		{"nonadmin", "logs", "--help"},
+		{"nonadmin", "logs", "-h"},
+		{"nonadmin", "get", "backup", "--help"},
+		{"nonadmin", "get", "backup", "-h"},
+		{"nonadmin", "create", "backup", "--help"},
+		{"nonadmin", "create", "backup", "-h"},
+		{"nonadmin", "create", "bsl", "--help"},
+		{"nonadmin", "create", "bsl", "-h"},
+		// Shorthand verb-noun order help flags
+		{"na", "get", "--help"},
+		{"na", "get", "-h"},
+		{"na", "create", "--help"},
+		{"na", "create", "-h"},
 	}
 
 	for _, cmd := range commands {

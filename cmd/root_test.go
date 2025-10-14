@@ -81,7 +81,6 @@ func TestRootCommand(t *testing.T) {
 				"Get one or more resources",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -91,7 +90,6 @@ func TestRootCommand(t *testing.T) {
 				"Create a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -101,7 +99,6 @@ func TestRootCommand(t *testing.T) {
 				"Delete a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -111,7 +108,6 @@ func TestRootCommand(t *testing.T) {
 				"Describe a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -121,7 +117,6 @@ func TestRootCommand(t *testing.T) {
 				"Get logs for a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		// Verb-noun order with specific resources
@@ -132,7 +127,6 @@ func TestRootCommand(t *testing.T) {
 				"Get one or more resources",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -142,7 +136,6 @@ func TestRootCommand(t *testing.T) {
 				"Create a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -152,7 +145,6 @@ func TestRootCommand(t *testing.T) {
 				"Delete a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{
@@ -162,7 +154,6 @@ func TestRootCommand(t *testing.T) {
 				"Describe a resource",
 				"backup",
 				"restore",
-				"schedule",
 			},
 		},
 		{

@@ -39,10 +39,7 @@ func NewGetCommand(veleroFactory, nonAdminFactory client.Factory) *cobra.Command
   kubectl oadp get backup my-backup
 
   # Get all restores
-  kubectl oadp get restore
-
-  # Get all schedules
-  kubectl oadp get schedule`,
+  kubectl oadp get restore`,
 	})
 }
 
@@ -61,10 +58,7 @@ func NewCreateCommand(veleroFactory, nonAdminFactory client.Factory) *cobra.Comm
   kubectl oadp create backup my-backup
 
   # Create a restore
-  kubectl oadp create restore my-restore
-
-  # Create a schedule
-  kubectl oadp create schedule my-schedule`,
+  kubectl oadp create restore my-restore`,
 	})
 }
 
@@ -83,10 +77,7 @@ func NewDeleteCommand(veleroFactory, nonAdminFactory client.Factory) *cobra.Comm
   kubectl oadp delete backup my-backup
 
   # Delete a restore
-  kubectl oadp delete restore my-restore
-
-  # Delete a schedule
-  kubectl oadp delete schedule my-schedule`,
+  kubectl oadp delete restore my-restore`,
 	})
 }
 
@@ -105,10 +96,7 @@ func NewDescribeCommand(veleroFactory, nonAdminFactory client.Factory) *cobra.Co
   kubectl oadp describe backup my-backup
 
   # Describe a restore
-  kubectl oadp describe restore my-restore
-
-  # Describe a schedule
-  kubectl oadp describe schedule my-schedule`,
+  kubectl oadp describe restore my-restore`,
 	})
 }
 

@@ -70,7 +70,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Get one or more non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -88,7 +87,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Delete non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -97,7 +95,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Describe non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -106,7 +103,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Get logs for non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		// Verb-noun order with specific resources
@@ -116,7 +112,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Get one or more non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -134,7 +129,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Delete non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -143,7 +137,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Describe non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -152,7 +145,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Get logs for non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -171,7 +163,6 @@ func TestNonAdminCommands(t *testing.T) {
 			expectContains: []string{
 				"Get one or more non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{

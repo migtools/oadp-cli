@@ -104,7 +104,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Get one or more non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{

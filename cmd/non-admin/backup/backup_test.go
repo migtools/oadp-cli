@@ -122,7 +122,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Delete non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -131,7 +130,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Describe non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -140,7 +138,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Get logs for non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		// Shorthand verb-noun order tests
@@ -150,7 +147,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Get one or more non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -168,7 +164,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Delete non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -177,7 +172,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Describe non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 		{
@@ -186,7 +180,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Get logs for non-admin resources",
 				"backup",
-				"bsl",
 			},
 		},
 	}

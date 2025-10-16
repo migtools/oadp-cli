@@ -162,31 +162,31 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 	if [[ "$(ASSUME_DEFAULT)" != "true" && "$(VELERO_NAMESPACE)" == "openshift-adp" ]]; then \
 		echo ""; \
 		echo "🔍 Detecting OADP deployment in cluster..."; \
-		DETECTED_NS=$$(kubectl get deployment openshift-adp-controller-manager --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
+		DETECTED_NS=$$(kubectl get deployments --all-namespaces -o jsonpath='{.items[?(@.metadata.name=="openshift-adp-controller-manager")].metadata.namespace}' 2>/dev/null | head -1); \
 		if [[ -n "$$DETECTED_NS" ]]; then \
 			echo "✅ Found OADP controller in namespace: $$DETECTED_NS"; \
 			NAMESPACE=$$DETECTED_NS; \
 			DETECTED=true; \
 		else \
 			echo "   Could not find openshift-adp-controller-manager deployment"; \
-			echo "🔍 Looking for DataProtectionApplication (DPA) resources..."; \
-			DETECTED_NS=$$(kubectl get dataprotectionapplication --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
-			if [[ -n "$$DETECTED_NS" ]]; then \
-				echo "✅ Found DPA resource in namespace: $$DETECTED_NS"; \
-				NAMESPACE=$$DETECTED_NS; \
-				DETECTED=true; \
-			else \
-				echo "   Could not find DataProtectionApplication resources"; \
-				echo "🔍 Looking for Velero deployment as fallback..."; \
-				DETECTED_NS=$$(kubectl get deployment velero --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
-				if [[ -n "$$DETECTED_NS" ]]; then \
-					echo "✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
-					NAMESPACE=$$DETECTED_NS; \
-					DETECTED=true; \
-				else \
-					echo "⚠️  Could not detect OADP or Velero deployment in cluster"; \
-				fi; \
-			fi; \
+		fi; \
+		echo "🔍 Looking for DataProtectionApplication (DPA) resources..."; \
+		DETECTED_NS=$$(kubectl get dataprotectionapplication --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
+		if [[ -n "$$DETECTED_NS" ]]; then \
+			echo "✅ Found DPA resource in namespace: $$DETECTED_NS"; \
+			NAMESPACE=$$DETECTED_NS; \
+			DETECTED=true; \
+		else \
+			echo "   Could not find DataProtectionApplication resources"; \
+		fi; \
+		echo "🔍 Looking for Velero deployment as fallback..."; \
+		DETECTED_NS=$$(kubectl get deployments --all-namespaces -o jsonpath='{.items[?(@.metadata.name=="velero")].metadata.namespace}' 2>/dev/null | head -1); \
+		if [[ -n "$$DETECTED_NS" ]]; then \
+			echo "✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
+			NAMESPACE=$$DETECTED_NS; \
+			DETECTED=true; \
+		else \
+			echo "⚠️  Could not detect OADP or Velero deployment in cluster"; \
 		fi; \
 		if [[ "$$DETECTED" == "false" ]]; then \
 			echo "🤔 Which namespace should admin commands use for Velero resources?"; \

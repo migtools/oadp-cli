@@ -1,0 +1,36 @@
+# This Dockerfile is used to cross-build the kubectl-oadp binaries for all platforms
+# It also builds a Go server that serves the binaries for download
+
+FROM golang:1.24 AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . .
+
+# Build everything, create tarballs, and clean up in one layer to reduce size
+RUN make release-build && \
+    CGO_ENABLED=0 go build -o download-server ./cmd/downloads/server.go && \
+    mkdir -p /archives && \
+    for binary in kubectl-oadp-*; do \
+        archive_name=$(echo "$binary" | sed 's/\.exe$//' ).tar.gz; \
+        tar -czf "/archives/$archive_name" "$binary"; \
+        echo "Created /archives/$archive_name"; \
+    done && \
+    go clean -cache -modcache -testcache && \
+    rm -rf /root/.cache/go-build && \
+    rm -rf /go/pkg
+
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+
+# Only copy compressed tarballs (much smaller than raw binaries)
+COPY --from=builder /archives /archives
+
+# Copy the download server
+COPY --from=builder /app/download-server /usr/local/bin/download-server
+
+EXPOSE 8080
+
+CMD ["/usr/local/bin/download-server"]

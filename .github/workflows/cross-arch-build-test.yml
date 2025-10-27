@@ -43,37 +43,37 @@ jobs:
       run: |
         set -e
         echo "Generated binaries:"
-        ls -la kubectl-oadp-* || {
+        ls -la kubectl-oadp_* || {
           echo "❌ No binaries found"
           exit 1
         }
         echo ""
         echo "File details:"
-        file kubectl-oadp-* || echo "⚠️  File command not available"
+        file kubectl-oadp_* || echo "⚠️  File command not available"
 
     - name: Upload Linux binaries
       uses: actions/upload-artifact@v4
       with:
         name: linux-binaries
         path: |
-          kubectl-oadp-linux-amd64
-          kubectl-oadp-linux-arm64
+          kubectl-oadp_${{ github.ref_name }}_linux-amd64
+          kubectl-oadp_${{ github.ref_name }}_linux-arm64
 
     - name: Upload macOS binaries  
       uses: actions/upload-artifact@v4
       with:
         name: macos-binaries
         path: |
-          kubectl-oadp-darwin-amd64
-          kubectl-oadp-darwin-arm64
+          kubectl-oadp_${{ github.ref_name }}_darwin-amd64
+          kubectl-oadp_${{ github.ref_name }}_darwin-arm64
 
     - name: Upload Windows binaries
       uses: actions/upload-artifact@v4
       with:
         name: windows-binaries
         path: |
-          kubectl-oadp-windows-amd64.exe
-          kubectl-oadp-windows-arm64.exe
+          kubectl-oadp_${{ github.ref_name }}_windows-amd64.exe
+          kubectl-oadp_${{ github.ref_name }}_windows-arm64.exe
 
     - name: Run host tests
       run: |
@@ -95,10 +95,10 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: amd64
-            binary: kubectl-oadp-linux-amd64
+            binary: kubectl-oadp_${{ github.ref_name }}_linux-amd64
           - os: ubuntu-24.04-arm
             arch: arm64  
-            binary: kubectl-oadp-linux-arm64
+            binary: kubectl-oadp_${{ github.ref_name }}_linux-arm64
     
     runs-on: ${{ matrix.os }}
     
@@ -202,10 +202,10 @@ jobs:
         include:
           - os: macos-13  # Intel
             arch: amd64
-            binary: kubectl-oadp-darwin-amd64
+            binary: kubectl-oadp_${{ github.ref_name }}_darwin-amd64
           - os: macos-latest  # Apple Silicon
             arch: arm64
-            binary: kubectl-oadp-darwin-arm64
+            binary: kubectl-oadp_${{ github.ref_name }}_darwin-arm64
     
     runs-on: ${{ matrix.os }}
     
@@ -309,10 +309,10 @@ jobs:
         include:
           - os: windows-latest  # amd64
             arch: amd64
-            binary: kubectl-oadp-windows-amd64.exe
+            binary: kubectl-oadp_${{ github.ref_name }}_windows-amd64.exe
           - os: windows-11-arm  # arm64
             arch: arm64
-            binary: kubectl-oadp-windows-arm64.exe
+            binary: kubectl-oadp_${{ github.ref_name }}_windows-arm64.exe
     
     runs-on: ${{ matrix.os }}
     

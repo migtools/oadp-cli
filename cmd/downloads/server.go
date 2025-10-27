@@ -57,10 +57,9 @@ func listBinaries(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "</ul>")
 	fmt.Fprintf(w, "<h3>Installation:</h3>")
-	fmt.Fprintf(w, "<pre>tar -xzf kubectl-oadp-&lt;platform&gt;.tar.gz\n")
+	fmt.Fprintf(w, "<pre>tar -xzf kubectl-oadp_*.tar.gz\n")
 	fmt.Fprintf(w, "chmod +x kubectl-oadp\n")
 	fmt.Fprintf(w, "sudo mv kubectl-oadp /usr/local/bin/</pre>")
-	fmt.Fprintf(w, "</body></html>")
 }
 
 func downloadBinary(w http.ResponseWriter, r *http.Request) {

@@ -464,7 +464,7 @@ print(f'✅ Krew manifest generated: oadp-{version}.yaml'); \
 		for platform in $(PLATFORMS); do \
 			GOOS=$$(echo $$platform | cut -d'/' -f1); \
 			GOARCH=$$(echo $$platform | cut -d'/' -f2); \
-			sha_file="kubectl-oadp-$$GOOS-$$GOARCH.tar.gz.sha256"; \
+			sha_file="kubectl-oadp_${VERSION}_$$GOOS_$$GOARCH.tar.gz.sha256"; \
 			if [ -f "$$sha_file" ]; then \
 				sha256=$$(cat $$sha_file | cut -d' ' -f1); \
 				echo "  ✅ $$GOOS/$$GOARCH: $$sha256"; \

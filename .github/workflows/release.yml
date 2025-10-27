@@ -64,7 +64,7 @@ jobs:
         for platform in "${platforms[@]}"; do
           if [[ "$platform" == *"windows"* ]]; then
             # Windows binaries have .exe extension
-            binary="kubectl-oadp-${platform}.exe"
+            binary="kubectl-oadp_${{ github.ref_name }}_${platform}.exe"
             if [[ -f "$binary" ]]; then
               echo "Creating archive for $platform..."
               cp "$binary" kubectl-oadp.exe
@@ -77,7 +77,7 @@ jobs:
             fi
           else
             # Unix binaries (no extension)
-            binary="kubectl-oadp-${platform}"
+            binary="kubectl-oadp_${{ github.ref_name }}_${platform}"
             if [[ -f "$binary" ]]; then
               echo "Creating archive for $platform..."
               cp "$binary" kubectl-oadp

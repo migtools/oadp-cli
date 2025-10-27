@@ -30,7 +30,7 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-linux-amd64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_linux_amd64.tar.gz
     sha256: "${LINUX_AMD64_SHA}"
     files:
     - from: kubectl-oadp
@@ -42,7 +42,7 @@ spec:
       matchLabels:
         os: linux
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-linux-arm64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_linux_arm64.tar.gz
     sha256: "${LINUX_ARM64_SHA}"
     files:
     - from: kubectl-oadp
@@ -54,7 +54,7 @@ spec:
       matchLabels:
         os: linux
         arch: ppc64le
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-linux-ppc64le.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_linux_ppc64le.tar.gz
     sha256: "${LINUX_PPC64LE_SHA}"
     files:
     - from: kubectl-oadp
@@ -66,7 +66,7 @@ spec:
       matchLabels:
         os: linux
         arch: s390x
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-linux-s390x.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_linux_s390x.tar.gz
     sha256: "${LINUX_S390X_SHA}"
     files:
     - from: kubectl-oadp
@@ -78,7 +78,7 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-darwin-amd64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_darwin_amd64.tar.gz
     sha256: "${DARWIN_AMD64_SHA}"
     files:
     - from: kubectl-oadp
@@ -90,7 +90,7 @@ spec:
       matchLabels:
         os: darwin
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-darwin-arm64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_darwin_arm64.tar.gz
     sha256: "${DARWIN_ARM64_SHA}"
     files:
     - from: kubectl-oadp
@@ -102,7 +102,7 @@ spec:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-windows-amd64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_windows_amd64.tar.gz
     sha256: "${WINDOWS_AMD64_SHA}"
     files:
     - from: kubectl-oadp.exe
@@ -114,7 +114,7 @@ spec:
       matchLabels:
         os: windows
         arch: arm64
-    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp-windows-arm64.tar.gz
+    uri: https://github.com/migtools/oadp-cli/releases/download/${VERSION}/kubectl-oadp_${VERSION}_windows_arm64.tar.gz
     sha256: "${WINDOWS_ARM64_SHA}"
     files:
     - from: kubectl-oadp.exe

@@ -443,7 +443,7 @@ content = re.sub(r'download/v1\.0\.0/', f'download/{version}/', content); \
 \
 for goos, goarch in platforms: \
     binary_suffix = '.exe' if goos == 'windows' else ''; \
-    sha_file = f'kubectl-oadp-{goos}-{goarch}.tar.gz.sha256'; \
+    sha_file = f'kubectl-oadp_${VERSION}_{goos}_{goarch}.tar.gz.sha256'; \
     if os.path.exists(sha_file): \
         with open(sha_file, 'r') as sf: \
             sha256 = sf.read().split()[0]; \

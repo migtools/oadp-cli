@@ -50,14 +50,14 @@ jobs:
         
         # Define the platforms we want for krew (must match oadp.yaml)
         declare -a platforms=(
-          "linux-amd64"
-          "linux-arm64"
-          "linux-ppc64le"
-          "linux-s390x"
-          "darwin-amd64"
-          "darwin-arm64"
-          "windows-amd64"
-          "windows-arm64"
+          "linux_amd64"
+          "linux_arm64"
+          "linux_ppc64le"
+          "linux_s390x"
+          "darwin_amd64"
+          "darwin_arm64"
+          "windows_amd64"
+          "windows_arm64"
         )
         
         # Create archives only for krew platforms
@@ -68,9 +68,9 @@ jobs:
             if [[ -f "$binary" ]]; then
               echo "Creating archive for $platform..."
               cp "$binary" kubectl-oadp.exe
-              tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp.exe LICENSE
+              tar -czf "kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz" kubectl-oadp.exe LICENSE
               rm kubectl-oadp.exe
-              echo "✅ Created kubectl-oadp-${platform}.tar.gz"
+              echo "✅ Created kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz"
             else
               echo "❌ Binary not found: $binary"
               exit 1
@@ -81,9 +81,9 @@ jobs:
             if [[ -f "$binary" ]]; then
               echo "Creating archive for $platform..."
               cp "$binary" kubectl-oadp
-              tar -czf "kubectl-oadp-${platform}.tar.gz" kubectl-oadp LICENSE
+              tar -czf "kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz" kubectl-oadp LICENSE
               rm kubectl-oadp
-              echo "✅ Created kubectl-oadp-${platform}.tar.gz"
+              echo "✅ Created kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz"
             else
               echo "❌ Binary not found: $binary"
               exit 1
@@ -111,12 +111,12 @@ jobs:
         
         # Set environment variables for template substitution
         export VERSION="${{ github.ref_name }}"
-        export LINUX_AMD64_SHA=$(grep "kubectl-oadp-linux-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export LINUX_ARM64_SHA=$(grep "kubectl-oadp-linux-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export DARWIN_AMD64_SHA=$(grep "kubectl-oadp-darwin-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export DARWIN_ARM64_SHA=$(grep "kubectl-oadp-darwin-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp-windows-amd64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp-windows-arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_AMD64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_linux_amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export LINUX_ARM64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_linux_arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export DARWIN_AMD64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_darwin_amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export DARWIN_ARM64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_darwin_arm64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_windows_amd64.tar.gz" checksums.txt | cut -d' ' -f1)
+        export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_windows_arm64.tar.gz" checksums.txt | cut -d' ' -f1)
         
         # Validate all checksums were found
         if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then

@@ -23,7 +23,7 @@ RUN make release-build && \
     rm -rf /root/.cache/go-build && \
     rm -rf /go/pkg
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 # Only copy compressed tarballs (much smaller than raw binaries)
 COPY --from=builder /archives /archives

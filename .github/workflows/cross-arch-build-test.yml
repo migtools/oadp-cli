@@ -12,6 +12,8 @@ jobs:
   build-all:
     name: Build All Architectures
     runs-on: ubuntu-latest
+    outputs:
+      suffix: ${{ steps.version.outputs.suffix }}
     
     steps:
     - name: Checkout code
@@ -29,11 +31,24 @@ jobs:
         go clean -cache -modcache -i -r || true
         echo "Go environment cleaned"
 
+    - name: Determine version
+      id: version
+      run: |
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "suffix=${{ github.ref_name }}_" >> $GITHUB_OUTPUT
+          echo "Building with version: ${{ github.ref_name }}"
+        else
+          echo "version=" >> $GITHUB_OUTPUT
+          echo "suffix=" >> $GITHUB_OUTPUT
+          echo "Building without version (non-tag build)"
+        fi
+
     - name: Build all architectures using make
       run: |
         set -e
         echo "Building all architectures..."
-        if ! make release-build; then
+        if ! make release-build VERSION="${{ steps.version.outputs.version }}"; then
           echo "❌ Build failed"
           exit 1
         fi
@@ -56,24 +71,24 @@ jobs:
       with:
         name: linux-binaries
         path: |
-          kubectl-oadp_${{ github.ref_name }}_linux_amd64
-          kubectl-oadp_${{ github.ref_name }}_linux_arm64
+          kubectl-oadp_${{ steps.version.outputs.suffix }}linux_amd64
+          kubectl-oadp_${{ steps.version.outputs.suffix }}linux_arm64
 
     - name: Upload macOS binaries  
       uses: actions/upload-artifact@v4
       with:
         name: macos-binaries
         path: |
-          kubectl-oadp_${{ github.ref_name }}_darwin_amd64
-          kubectl-oadp_${{ github.ref_name }}_darwin_arm64
+          kubectl-oadp_${{ steps.version.outputs.suffix }}darwin_amd64
+          kubectl-oadp_${{ steps.version.outputs.suffix }}darwin_arm64
 
     - name: Upload Windows binaries
       uses: actions/upload-artifact@v4
       with:
         name: windows-binaries
         path: |
-          kubectl-oadp_${{ github.ref_name }}_windows_amd64.exe
-          kubectl-oadp_${{ github.ref_name }}_windows_arm64.exe
+          kubectl-oadp_${{ steps.version.outputs.suffix }}windows_amd64.exe
+          kubectl-oadp_${{ steps.version.outputs.suffix }}windows_arm64.exe
 
     - name: Run host tests
       run: |
@@ -95,10 +110,10 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: amd64
-            binary: kubectl-oadp_${{ github.ref_name }}_linux_amd64
+            binary: kubectl-oadp_${{ needs.build-all.outputs.suffix }}linux_amd64
           - os: ubuntu-24.04-arm
             arch: arm64  
-            binary: kubectl-oadp_${{ github.ref_name }}_linux_arm64
+            binary: kubectl-oadp_${{ needs.build-all.outputs.suffix }}linux_arm64
     
     runs-on: ${{ matrix.os }}
     
@@ -202,10 +217,10 @@ jobs:
         include:
           - os: macos-13  # Intel
             arch: amd64
-            binary: kubectl-oadp_${{ github.ref_name }}_darwin_amd64
+            binary: kubectl-oadp_${{ needs.build-all.outputs.suffix }}darwin_amd64
           - os: macos-latest  # Apple Silicon
             arch: arm64
-            binary: kubectl-oadp_${{ github.ref_name }}_darwin_arm64
+            binary: kubectl-oadp_${{ needs.build-all.outputs.suffix }}darwin_arm64
     
     runs-on: ${{ matrix.os }}
     
@@ -309,10 +324,10 @@ jobs:
         include:
           - os: windows-latest  # amd64
             arch: amd64
-            binary: kubectl-oadp_${{ github.ref_name }}_windows_amd64.exe
+            binary: kubectl-oadp_${{ needs.build-all.outputs.suffix }}windows_amd64.exe
           - os: windows-11-arm  # arm64
             arch: arm64
-            binary: kubectl-oadp_${{ github.ref_name }}_windows_arm64.exe
+            binary: kubectl-oadp_${{ needs.build-all.outputs.suffix }}windows_arm64.exe
     
     runs-on: ${{ matrix.os }}
     

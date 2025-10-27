@@ -386,8 +386,13 @@ release-build: ## Build binaries for all platforms
 		fi; \
 		echo "Building for $$GOOS/$$GOARCH..."; \
 		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$binary_name .; \
-		echo "✅ Built $$binary_name for $$GOOS/$$GOARCH"; \
-		mv $$binary_name $(BINARY_NAME)_${VERSION}_$$GOOS_$$GOARCH$${binary_name#$(BINARY_NAME)}; \
+		if [ -n "$(VERSION)" ]; then \
+			final_name="$(BINARY_NAME)_$(VERSION)_$${GOOS}_$${GOARCH}$${binary_name#$(BINARY_NAME)}"; \
+		else \
+			final_name="$(BINARY_NAME)_$${GOOS}_$${GOARCH}$${binary_name#$(BINARY_NAME)}"; \
+		fi; \
+		mv $$binary_name $$final_name; \
+		echo "✅ Built $$final_name for $$GOOS/$$GOARCH"; \
 	done
 	@echo "✅ All release binaries built successfully!"
 
@@ -408,7 +413,7 @@ release-archives: release-build ## Create tar.gz archives for all platforms (inc
 		fi; \
 		archive_name="$(BINARY_NAME)_${VERSION}_$$GOOS_$$GOARCH.tar.gz"; \
 		echo "Creating $$archive_name..."; \
-		tar czf $$archive_name LICENSE $(BINARY_NAME)_${VERSION}_$$GOOS_$$GOARCH$${binary_name#$(BINARY_NAME)}; \
+		tar czf $$archive_name LICENSE $(BINARY_NAME)_${VERSION}_$${GOOS}_$${GOARCH}$${binary_name#$(BINARY_NAME)}; \
 		sha256sum $$archive_name > $$archive_name.sha256; \
 		echo "✅ Created $$archive_name with LICENSE"; \
 	done

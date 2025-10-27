@@ -95,10 +95,10 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: amd64
-            binary: kubectl-oadp_${{ github.ref_name }}_linux-amd64
+            binary: kubectl-oadp_${{ github.ref_name }}_linux_amd64
           - os: ubuntu-24.04-arm
             arch: arm64  
-            binary: kubectl-oadp_${{ github.ref_name }}_linux-arm64
+            binary: kubectl-oadp_${{ github.ref_name }}_linux_arm64
     
     runs-on: ${{ matrix.os }}
     
@@ -202,10 +202,10 @@ jobs:
         include:
           - os: macos-13  # Intel
             arch: amd64
-            binary: kubectl-oadp_${{ github.ref_name }}_darwin-amd64
+            binary: kubectl-oadp_${{ github.ref_name }}_darwin_amd64
           - os: macos-latest  # Apple Silicon
             arch: arm64
-            binary: kubectl-oadp_${{ github.ref_name }}_darwin-arm64
+            binary: kubectl-oadp_${{ github.ref_name }}_darwin_arm64
     
     runs-on: ${{ matrix.os }}
     
@@ -309,10 +309,10 @@ jobs:
         include:
           - os: windows-latest  # amd64
             arch: amd64
-            binary: kubectl-oadp_${{ github.ref_name }}_windows-amd64.exe
+            binary: kubectl-oadp_${{ github.ref_name }}_windows_amd64.exe
           - os: windows-11-arm  # arm64
             arch: arm64
-            binary: kubectl-oadp_${{ github.ref_name }}_windows-arm64.exe
+            binary: kubectl-oadp_${{ github.ref_name }}_windows_arm64.exe
     
     runs-on: ${{ matrix.os }}
     

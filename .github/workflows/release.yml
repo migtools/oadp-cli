@@ -36,8 +36,8 @@ jobs:
     - name: Build all architectures
       run: |
         set -e
-        echo "Building all architectures for release..."
-        if ! make release-build; then
+        echo "Building all architectures for release ${{ github.ref_name }}..."
+        if ! make release-build VERSION="${{ github.ref_name }}"; then
           echo "❌ Build failed"
           exit 1
         fi

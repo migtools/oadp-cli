@@ -14,7 +14,7 @@ COPY . .
 RUN make release-build && \
     CGO_ENABLED=0 go build -o download-server ./cmd/downloads/server.go && \
     mkdir -p /archives && \
-    for binary in kubectl-oadp-*; do \
+    for binary in kubectl-oadp_*; do \
         archive_name=$(echo "$binary" | sed 's/\.exe$//' ).tar.gz; \
         tar -czf "/archives/$archive_name" "$binary"; \
         echo "Created /archives/$archive_name"; \

@@ -35,13 +35,13 @@ spec:
         os: windows
         arch: amd64
     {{addURIAndSha "https://github.com/migtools/oadp-cli/releases/download/{{ .TagName }}/kubectl-oadp_{{ .TagName }}_windows_amd64.tar.gz" .TagName }}
-    bin: kubectl-oadp
+    bin: kubectl-oadp.exe
   - selector:
       matchLabels:
         os: windows
         arch: arm64
     {{addURIAndSha "https://github.com/migtools/oadp-cli/releases/download/{{ .TagName }}/kubectl-oadp_{{ .TagName }}_windows_arm64.tar.gz" .TagName }}
-    bin: kubectl-oadp
+    bin: kubectl-oadp.exe
   shortDescription: CLI for OpenShift APIs for Data Protection (OADP) operator
   description: |
     kubectl-oadp is a kubectl plugin for managing OpenShift API for Data Protection (OADP) backup and restore operations.

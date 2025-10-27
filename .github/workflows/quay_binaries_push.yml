@@ -1,0 +1,30 @@
+# Push binaries to Quay.io, when a new release is created
+name: oadp-cli binaries image push
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Check out code, podman login, run podman build, push to 
+jobs:
+  push-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Podman login
+        run: podman login -u ${{ secrets.QUAY_USER }} -p ${{ secrets.QUAY_TOKEN }} quay.io
+
+      - name: Podman build and tag
+        run: |
+          podman build -f Dockerfile.download \
+            -t quay.io/konveyor/oadp-cli-binaries:${{ github.ref_name }} \
+            -t quay.io/konveyor/oadp-cli-binaries:latest .
+      
+      - name: Podman push version tag
+        run: podman push quay.io/konveyor/oadp-cli-binaries:${{ github.ref_name }}
+      
+      - name: Podman push latest tag
+        run: podman push quay.io/konveyor/oadp-cli-binaries:latest

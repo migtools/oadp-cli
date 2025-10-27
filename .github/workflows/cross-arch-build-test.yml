@@ -56,24 +56,24 @@ jobs:
       with:
         name: linux-binaries
         path: |
-          kubectl-oadp_${{ github.ref_name }}_linux-amd64
-          kubectl-oadp_${{ github.ref_name }}_linux-arm64
+          kubectl-oadp_${{ github.ref_name }}_linux_amd64
+          kubectl-oadp_${{ github.ref_name }}_linux_arm64
 
     - name: Upload macOS binaries  
       uses: actions/upload-artifact@v4
       with:
         name: macos-binaries
         path: |
-          kubectl-oadp_${{ github.ref_name }}_darwin-amd64
-          kubectl-oadp_${{ github.ref_name }}_darwin-arm64
+          kubectl-oadp_${{ github.ref_name }}_darwin_amd64
+          kubectl-oadp_${{ github.ref_name }}_darwin_arm64
 
     - name: Upload Windows binaries
       uses: actions/upload-artifact@v4
       with:
         name: windows-binaries
         path: |
-          kubectl-oadp_${{ github.ref_name }}_windows-amd64.exe
-          kubectl-oadp_${{ github.ref_name }}_windows-arm64.exe
+          kubectl-oadp_${{ github.ref_name }}_windows_amd64.exe
+          kubectl-oadp_${{ github.ref_name }}_windows_arm64.exe
 
     - name: Run host tests
       run: |

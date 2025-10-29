@@ -1,6 +1,8 @@
 # OADP CLI
 
 [![Cross-Architecture Build Test](https://github.com/migtools/oadp-cli/actions/workflows/cross-arch-build-test.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/cross-arch-build-test.yml)
+[![Release](https://github.com/migtools/oadp-cli/actions/workflows/release.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/release.yml)
+[![Multi-Arch Binary Push to Quay.io](https://github.com/migtools/oadp-cli/actions/workflows/quay_binaries_push.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/quay_binaries_push.yml)
 
 A kubectl plugin for OpenShift API for Data Protection (OADP) that provides both administrative and non-administrative backup operations.
 

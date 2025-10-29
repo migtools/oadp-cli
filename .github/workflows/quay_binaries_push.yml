@@ -37,6 +37,9 @@ jobs:
           image: oadp-cli-binaries-local
           tags: ${{ matrix.arch }}
           archs: ${{ matrix.arch }}
+          build-args: |
+            TARGETOS=linux
+            TARGETARCH=${{ matrix.arch }}
           containerfiles: |
             ./Containerfile.download
 

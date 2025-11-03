@@ -26,7 +26,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/tools/cache"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/migtools/oadp-cli/cmd/shared"
@@ -37,7 +36,6 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	"github.com/vmware-tanzu/velero/pkg/util/kube"
 )
 
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
@@ -68,14 +66,10 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
   kubectl oadp nonadmin backup create backup5 --force --assume-yes
 
   # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  kubectl oadp nonadmin backup create backup6 --snapshot-volumes=false --storage-location my-nabsl -o yaml
-
-  # Wait for a non-admin backup to complete before returning from the command.
-  kubectl oadp nonadmin backup create backup7 --wait --storage-location my-nabsl`,
+  kubectl oadp nonadmin backup create backup6 --snapshot-volumes=false --storage-location my-nabsl -o yaml`,
 	}
 
 	o.BindFlags(c.Flags())
-	o.BindWait(c.Flags())
 	o.BindFromSchedule(c.Flags())
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
@@ -101,7 +95,6 @@ type CreateOptions struct {
 	Selector                        flag.LabelSelector
 	OrSelector                      flag.OrLabelSelector
 	IncludeClusterResources         flag.OptionalBool
-	Wait                            bool
 	StorageLocation                 string
 	SnapshotLocations               []string
 	FromSchedule                    string
@@ -162,12 +155,6 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.IntVar(&o.ParallelFilesUpload, "parallel-files-upload", 0, "Number of files uploads simultaneously when running a backup. This is only applicable for the kopia uploader")
 	flags.BoolVarP(&o.Force, "force", "f", o.Force, "Force creation without specifying a storage location (uses admin defaults).")
 	flags.BoolVarP(&o.AssumeYes, "assume-yes", "y", o.AssumeYes, "Assume yes to all prompts and run non-interactively.")
-}
-
-// BindWait binds the wait flag separately so it is not called by other create
-// commands that reuse CreateOptions's BindFlags method.
-func (o *CreateOptions) BindWait(flags *pflag.FlagSet) {
-	flags.BoolVarP(&o.Wait, "wait", "w", o.Wait, "Wait for the operation to complete.")
 }
 
 // BindFromSchedule binds the from-schedule flag separately so it is not called
@@ -261,121 +248,18 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 		fmt.Println("Creating non-admin backup from schedule, all other filters are ignored.")
 	}
 
-	// Warning prompt when using force flag without storage location
-	if o.Force && o.StorageLocation == "" {
-		fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
-		fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
-
-		if !o.AssumeYes {
-			fmt.Print("Do you want to continue? (y/N): ")
-
-			reader := bufio.NewReader(os.Stdin)
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				return fmt.Errorf("failed to read user input: %w", err)
-			}
-
-			response = strings.TrimSpace(strings.ToLower(response))
-			if response != "y" && response != "yes" {
-				fmt.Println("Operation cancelled.")
-				return nil
-			}
-		} else {
-			fmt.Println("Proceeding with --assume-yes flag.")
-		}
-		fmt.Println() // Add blank line for better formatting
-	}
-
-	var updates chan *nacv1alpha1.NonAdminBackup
-	if o.Wait {
-		stop := make(chan struct{})
-		defer close(stop)
-
-		updates = make(chan *nacv1alpha1.NonAdminBackup)
-
-		lw := kube.InternalLW{
-			Client:     o.client,
-			Namespace:  o.currentNamespace,
-			ObjectList: new(nacv1alpha1.NonAdminBackupList),
-		}
-		backupInformer := cache.NewSharedInformer(&lw, &nacv1alpha1.NonAdminBackup{}, time.Second)
-		_, _ = backupInformer.AddEventHandler(
-			cache.FilteringResourceEventHandler{
-				FilterFunc: func(obj any) bool {
-					backup, ok := obj.(*nacv1alpha1.NonAdminBackup)
-
-					if !ok {
-						return false
-					}
-					return backup.Name == o.Name
-				},
-				Handler: cache.ResourceEventHandlerFuncs{
-					UpdateFunc: func(_, obj any) {
-						backup, ok := obj.(*nacv1alpha1.NonAdminBackup)
-						if !ok {
-							return
-						}
-						updates <- backup
-					},
-					DeleteFunc: func(obj any) {
-						backup, ok := obj.(*nacv1alpha1.NonAdminBackup)
-						if !ok {
-							return
-						}
-						updates <- backup
-					},
-				},
-			},
-		)
-
-		go backupInformer.Run(stop)
-	}
-
-	err = o.client.Create(context.TODO(), nonAdminBackup, &kbclient.CreateOptions{})
-	if err != nil {
+	// Prompt for confirmation if using force without storage location
+	if err := o.promptForceConfirmation(); err != nil {
 		return err
 	}
 
-	if o.Force && o.StorageLocation == "" {
-		fmt.Printf("NonAdminBackup request %q submitted successfully (using admin defaults).\n", nonAdminBackup.Name)
-	} else {
-		fmt.Printf("NonAdminBackup request %q submitted successfully.\n", nonAdminBackup.Name)
-	}
-	if o.Wait {
-		fmt.Println("Waiting for non-admin backup to complete. You may safely press ctrl-c to stop waiting - your backup will continue in the background.")
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Print(".")
-			case backup, ok := <-updates:
-				if !ok {
-					fmt.Println("\nError waiting: unable to watch non-admin backups.")
-					return nil
-				}
-
-				// Check NonAdminBackup status phase for completion states
-				if backup.Status.Phase == "BackupDone" || backup.Status.Phase == "BackupFailed" {
-					if o.Force && o.StorageLocation == "" {
-						fmt.Printf("\nNonAdminBackup completed with status: %s (using admin defaults). You may check for more information using the commands `oadp nonadmin backup describe %s` and `oadp nonadmin backup logs %s`.\n", backup.Status.Phase, backup.Name, backup.Name)
-					} else {
-						fmt.Printf("\nNonAdminBackup completed with status: %s. You may check for more information using the commands `oadp nonadmin backup describe %s` and `oadp nonadmin backup logs %s`.\n", backup.Status.Phase, backup.Name, backup.Name)
-					}
-					return nil
-				}
-			}
-		}
+	// Create the backup
+	if err := o.client.Create(context.TODO(), nonAdminBackup, &kbclient.CreateOptions{}); err != nil {
+		return err
 	}
 
-	// Not waiting
-	if o.Force && o.StorageLocation == "" {
-		fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details. (Created using admin defaults)\n", nonAdminBackup.Name, nonAdminBackup.Name)
-	} else {
-		fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.\n", nonAdminBackup.Name, nonAdminBackup.Name)
-	}
-
+	fmt.Println(o.formatSuccessMessage(nonAdminBackup.Name))
+	fmt.Print(o.formatCommandSuggestion(nonAdminBackup.Name))
 	return nil
 }
 
@@ -402,76 +286,102 @@ func ParseOrderedResources(orderMapStr string) (map[string]string, error) {
 }
 
 func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonAdminBackup, error) {
-	// Create the underlying Velero BackupSpec
 	var backupSpec *velerov1api.BackupSpec
+	var err error
 
 	if o.FromSchedule != "" {
-		schedule := new(velerov1api.Schedule)
-		err := o.client.Get(context.TODO(), kbclient.ObjectKey{Namespace: namespace, Name: o.FromSchedule}, schedule)
-		if err != nil {
-			return nil, err
-		}
-		if o.Name == "" {
-			o.Name = schedule.TimestampedName(time.Now().UTC())
-		}
-		backupSpec = &schedule.Spec.Template
+		backupSpec, err = o.buildBackupSpecFromSchedule(namespace)
 	} else {
-		// Build the BackupSpec manually
-		// For NonAdminBackup, automatically include the current namespace
-
-		storageLocation := o.StorageLocation
-
-		backupBuilder := builder.ForBackup(namespace, o.Name).
-			IncludedNamespaces(namespace). // Automatically include the current namespace
-			IncludedResources(o.IncludeResources...).
-			ExcludedResources(o.ExcludeResources...).
-			IncludedClusterScopedResources(o.IncludeClusterScopedResources...).
-			ExcludedClusterScopedResources(o.ExcludeClusterScopedResources...).
-			IncludedNamespaceScopedResources(o.IncludeNamespaceScopedResources...).
-			ExcludedNamespaceScopedResources(o.ExcludeNamespaceScopedResources...).
-			LabelSelector(o.Selector.LabelSelector).
-			OrLabelSelector(o.OrSelector.OrLabelSelectors).
-			TTL(o.TTL).
-			StorageLocation(storageLocation).
-			VolumeSnapshotLocations(o.SnapshotLocations...).
-			CSISnapshotTimeout(o.CSISnapshotTimeout).
-			ItemOperationTimeout(o.ItemOperationTimeout).
-			DataMover(o.DataMover)
-
-		if len(o.OrderedResources) > 0 {
-			orders, err := ParseOrderedResources(o.OrderedResources)
-			if err != nil {
-				return nil, err
-			}
-			backupBuilder.OrderedResources(orders)
-		}
-
-		if o.SnapshotVolumes.Value != nil {
-			backupBuilder.SnapshotVolumes(*o.SnapshotVolumes.Value)
-		}
-		if o.SnapshotMoveData.Value != nil {
-			backupBuilder.SnapshotMoveData(*o.SnapshotMoveData.Value)
-		}
-		if o.IncludeClusterResources.Value != nil {
-			backupBuilder.IncludeClusterResources(*o.IncludeClusterResources.Value)
-		}
-		if o.DefaultVolumesToFsBackup.Value != nil {
-			backupBuilder.DefaultVolumesToFsBackup(*o.DefaultVolumesToFsBackup.Value)
-		}
-		if o.ResPoliciesConfigmap != "" {
-			backupBuilder.ResourcePolicies(o.ResPoliciesConfigmap)
-		}
-		if o.ParallelFilesUpload > 0 {
-			backupBuilder.ParallelFilesUpload(o.ParallelFilesUpload)
-		}
-
-		// Get the built backup spec
-		tempBackup := backupBuilder.ObjectMeta(builder.WithLabelsMap(o.Labels.Data()), builder.WithAnnotationsMap(o.Annotations.Data())).Result()
-		backupSpec = &tempBackup.Spec
+		backupSpec, err = o.buildBackupSpecFromOptions(namespace)
 	}
 
-	// Create NonAdminBackup using the builder
-	nonAdminBackup := ForNonAdminBackup(namespace, o.Name).
+	if err != nil {
+		return nil, err
+	}
+
+	return o.createNonAdminBackup(namespace, backupSpec), nil
+}
+
+// buildBackupSpecFromSchedule creates a BackupSpec from an existing schedule
+func (o *CreateOptions) buildBackupSpecFromSchedule(namespace string) (*velerov1api.BackupSpec, error) {
+	schedule := new(velerov1api.Schedule)
+	err := o.client.Get(context.TODO(), kbclient.ObjectKey{Namespace: namespace, Name: o.FromSchedule}, schedule)
+	if err != nil {
+		return nil, err
+	}
+
+	if o.Name == "" {
+		o.Name = schedule.TimestampedName(time.Now().UTC())
+	}
+
+	return &schedule.Spec.Template, nil
+}
+
+// buildBackupSpecFromOptions creates a BackupSpec from command line options
+func (o *CreateOptions) buildBackupSpecFromOptions(namespace string) (*velerov1api.BackupSpec, error) {
+	backupBuilder := builder.ForBackup(namespace, o.Name).
+		IncludedNamespaces(namespace). // Automatically include the current namespace
+		IncludedResources(o.IncludeResources...).
+		ExcludedResources(o.ExcludeResources...).
+		IncludedClusterScopedResources(o.IncludeClusterScopedResources...).
+		ExcludedClusterScopedResources(o.ExcludeClusterScopedResources...).
+		IncludedNamespaceScopedResources(o.IncludeNamespaceScopedResources...).
+		ExcludedNamespaceScopedResources(o.ExcludeNamespaceScopedResources...).
+		LabelSelector(o.Selector.LabelSelector).
+		OrLabelSelector(o.OrSelector.OrLabelSelectors).
+		TTL(o.TTL).
+		StorageLocation(o.StorageLocation).
+		VolumeSnapshotLocations(o.SnapshotLocations...).
+		CSISnapshotTimeout(o.CSISnapshotTimeout).
+		ItemOperationTimeout(o.ItemOperationTimeout).
+		DataMover(o.DataMover)
+
+	if err := o.applyOptionalBackupOptions(backupBuilder); err != nil {
+		return nil, err
+	}
+
+	tempBackup := backupBuilder.
+		ObjectMeta(builder.WithLabelsMap(o.Labels.Data()), builder.WithAnnotationsMap(o.Annotations.Data())).
+		Result()
+
+	return &tempBackup.Spec, nil
+}
+
+// applyOptionalBackupOptions applies optional flags to the backup builder
+func (o *CreateOptions) applyOptionalBackupOptions(backupBuilder *builder.BackupBuilder) error {
+	if len(o.OrderedResources) > 0 {
+		orders, err := ParseOrderedResources(o.OrderedResources)
+		if err != nil {
+			return err
+		}
+		backupBuilder.OrderedResources(orders)
+	}
+
+	if o.SnapshotVolumes.Value != nil {
+		backupBuilder.SnapshotVolumes(*o.SnapshotVolumes.Value)
+	}
+	if o.SnapshotMoveData.Value != nil {
+		backupBuilder.SnapshotMoveData(*o.SnapshotMoveData.Value)
+	}
+	if o.IncludeClusterResources.Value != nil {
+		backupBuilder.IncludeClusterResources(*o.IncludeClusterResources.Value)
+	}
+	if o.DefaultVolumesToFsBackup.Value != nil {
+		backupBuilder.DefaultVolumesToFsBackup(*o.DefaultVolumesToFsBackup.Value)
+	}
+	if o.ResPoliciesConfigmap != "" {
+		backupBuilder.ResourcePolicies(o.ResPoliciesConfigmap)
+	}
+	if o.ParallelFilesUpload > 0 {
+		backupBuilder.ParallelFilesUpload(o.ParallelFilesUpload)
+	}
+
+	return nil
+}
+
+// createNonAdminBackup creates the NonAdminBackup CR from a BackupSpec
+func (o *CreateOptions) createNonAdminBackup(namespace string, backupSpec *velerov1api.BackupSpec) *nacv1alpha1.NonAdminBackup {
+	return ForNonAdminBackup(namespace, o.Name).
 		ObjectMeta(
 			WithLabelsMap(o.Labels.Data()),
 			WithAnnotationsMap(o.Annotations.Data()),
@@ -480,8 +390,6 @@ func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonA
 			BackupSpec: backupSpec,
 		}).
 		Result()
-
-	return nonAdminBackup, nil
 }
 
 func (o *CreateOptions) oldAndNewFilterParametersUsedTogether() bool {
@@ -495,3 +403,58 @@ func (o *CreateOptions) oldAndNewFilterParametersUsedTogether() bool {
 
 	return haveOldResourceFilterParameters && haveNewResourceFilterParameters
 }
+
+// promptForceConfirmation prompts the user to confirm when using --force without storage location
+func (o *CreateOptions) promptForceConfirmation() error {
+	if !o.Force || o.StorageLocation != "" {
+		return nil
+	}
+
+	fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
+	fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
+
+	if o.AssumeYes {
+		fmt.Println("Proceeding with --assume-yes flag.")
+		fmt.Println()
+		return nil
+	}
+
+	fmt.Print("Do you want to continue? (y/N): ")
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read user input: %w", err)
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	if response != "y" && response != "yes" {
+		fmt.Println("Operation cancelled.")
+		return fmt.Errorf("operation cancelled by user")
+	}
+
+	fmt.Println()
+	return nil
+}
+
+// usingAdminDefaults returns true if force flag is used without storage location
+func (o *CreateOptions) usingAdminDefaults() bool {
+	return o.Force && o.StorageLocation == ""
+}
+
+// formatSuccessMessage returns the success message with optional admin defaults note
+func (o *CreateOptions) formatSuccessMessage(name string) string {
+	if o.usingAdminDefaults() {
+		return fmt.Sprintf("NonAdminBackup request %q submitted successfully (using admin defaults).", name)
+	}
+	return fmt.Sprintf("NonAdminBackup request %q submitted successfully.", name)
+}
+
+// formatCommandSuggestion returns the command suggestion with optional admin defaults note
+func (o *CreateOptions) formatCommandSuggestion(name string) string {
+	baseMsg := fmt.Sprintf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.", name, name)
+	if o.usingAdminDefaults() {
+		return fmt.Sprintf("%s (Created using admin defaults)\n", baseMsg)
+	}
+	return baseMsg + "\n"
+}
+

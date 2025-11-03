@@ -33,118 +33,21 @@ jobs:
         go mod verify
         echo "Dependencies ready"
 
-    - name: Build all architectures
+    - name: Build release archives with checksums
       run: |
         set -e
-        echo "Building all architectures for release ${{ github.ref_name }}..."
-        if ! make release-build VERSION="${{ github.ref_name }}"; then
-          echo "❌ Build failed"
+        echo "Building release binaries and archives for ${{ github.ref_name }}..."
+        if ! make release-archives VERSION="${{ github.ref_name }}"; then
+          echo "❌ Build or archive creation failed"
           exit 1
         fi
-        echo "✅ All builds completed"
+        echo "✅ All builds and archives completed"
 
-    - name: Create release archives
-      run: |
-        set -e
-        echo "Creating release archives..."
-        
-        # Define the platforms we want for krew (must match oadp.yaml)
-        declare -a platforms=(
-          "linux_amd64"
-          "linux_arm64"
-          "linux_ppc64le"
-          "linux_s390x"
-          "darwin_amd64"
-          "darwin_arm64"
-          "windows_amd64"
-          "windows_arm64"
-        )
-        
-        # Create archives only for krew platforms
-        for platform in "${platforms[@]}"; do
-          if [[ "$platform" == *"windows"* ]]; then
-            # Windows binaries have .exe extension
-            binary="kubectl-oadp_${{ github.ref_name }}_${platform}.exe"
-            if [[ -f "$binary" ]]; then
-              echo "Creating archive for $platform..."
-              cp "$binary" kubectl-oadp.exe
-              tar -czf "kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz" kubectl-oadp.exe LICENSE
-              rm kubectl-oadp.exe
-              echo "✅ Created kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz"
-            else
-              echo "❌ Binary not found: $binary"
-              exit 1
-            fi
-          else
-            # Unix binaries (no extension)
-            binary="kubectl-oadp_${{ github.ref_name }}_${platform}"
-            if [[ -f "$binary" ]]; then
-              echo "Creating archive for $platform..."
-              cp "$binary" kubectl-oadp
-              tar -czf "kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz" kubectl-oadp LICENSE
-              rm kubectl-oadp
-              echo "✅ Created kubectl-oadp_${{ github.ref_name }}_${platform}.tar.gz"
-            else
-              echo "❌ Binary not found: $binary"
-              exit 1
-            fi
-          fi
-        done
-        
-        echo ""
-        echo "Release archives created:"
-        ls -la *.tar.gz
-
-    - name: Generate SHA256 checksums
-      run: |
-        set -e
-        echo "Generating SHA256 checksums..."
-        sha256sum *.tar.gz > checksums.txt
+        # Create consolidated checksums file for release
+        cat *.tar.gz.sha256 > checksums.txt
         echo ""
         echo "Checksums:"
         cat checksums.txt
-
-    - name: Generate final krew manifest
-      run: |
-        set -e
-        echo "Generating final krew manifest with version ${{ github.ref_name }}..."
-        
-        # Set environment variables for template substitution
-        export VERSION="${{ github.ref_name }}"
-        export LINUX_AMD64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_linux_amd64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export LINUX_ARM64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_linux_arm64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export DARWIN_AMD64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_darwin_amd64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export DARWIN_ARM64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_darwin_arm64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export WINDOWS_AMD64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_windows_amd64.tar.gz" checksums.txt | cut -d' ' -f1)
-        export WINDOWS_ARM64_SHA=$(grep "kubectl-oadp_${{ github.ref_name }}_windows_arm64.tar.gz" checksums.txt | cut -d' ' -f1)
-        
-        # Validate all checksums were found
-        if [[ -z "$LINUX_AMD64_SHA" || -z "$LINUX_ARM64_SHA" || -z "$DARWIN_AMD64_SHA" || -z "$DARWIN_ARM64_SHA" || -z "$WINDOWS_AMD64_SHA" || -z "$WINDOWS_ARM64_SHA" ]]; then
-          echo "❌ Some checksums are missing!"
-          echo "Available checksums:"
-          cat checksums.txt
-          exit 1
-        fi
-        
-        # Use envsubst to substitute environment variables in template
-        # Save original template and generate final manifest
-        cp oadp.yaml oadp-template.yaml
-        envsubst < oadp-template.yaml > oadp.yaml
-        
-        echo "✅ Final krew manifest generated successfully!"
-        echo ""
-        echo "Summary:"
-        echo "Version: $VERSION"
-        echo "Linux amd64: ${LINUX_AMD64_SHA:0:16}..."
-        echo "Linux arm64: ${LINUX_ARM64_SHA:0:16}..."
-        echo "Darwin amd64: ${DARWIN_AMD64_SHA:0:16}..."
-        echo "Darwin arm64: ${DARWIN_ARM64_SHA:0:16}..."
-        echo "Windows amd64: ${WINDOWS_AMD64_SHA:0:16}..."
-        echo "Windows arm64: ${WINDOWS_ARM64_SHA:0:16}..."
-        
-        echo ""
-        echo "Final manifest preview:"
-        grep -E "(version:|sha256:)" oadp.yaml
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
@@ -152,7 +55,6 @@ jobs:
         files: |
           *.tar.gz
           checksums.txt
-          oadp.yaml
         body: |
           ## OADP CLI ${{ github.ref_name }}
           
@@ -185,10 +87,10 @@ jobs:
           ### Files Included
           - **Binary archives**: Platform-specific kubectl-oadp binaries with LICENSE
           - **checksums.txt**: SHA256 checksums for all binaries  
-          - **oadp.yaml**: Final krew plugin manifest with populated SHA256 values (ready for krew index)
           
           ### For Krew Index Maintainers
-          The `oadp.yaml` file contains the complete krew plugin manifest with all SHA256 checksums populated and can be used directly for krew index submissions.
+          - On creating new releases, krew-release-bot will automatically open a PR to the krew index with the new release
+          - Must be non-prerelease semver tag
         draft: false
         prerelease: false
       env:

@@ -374,8 +374,30 @@ status: ## Show build status and installation info
 
 # Optimized release targets with centralized platform logic
 .PHONY: release-build
-release-build: ## Build binaries and create tar.gz archives for all platforms
-	@echo "Building release binaries and creating archives..."
+release-build: ## Build binaries for all platforms
+	@echo "Building release binaries for all platforms..."
+	@for platform in $(PLATFORMS); do \
+		GOOS=$$(echo $$platform | cut -d'/' -f1); \
+		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+		if [ -n "$(VERSION)" ]; then \
+			version_suffix="_$(VERSION)"; \
+		else \
+			version_suffix=""; \
+		fi; \
+		if [ "$$GOOS" = "windows" ]; then \
+			output_name="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}.exe"; \
+		else \
+			output_name="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}"; \
+		fi; \
+		echo "Building $$output_name..."; \
+		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$output_name .; \
+		echo "✅ Built $$output_name"; \
+	done
+	@echo "✅ All release binaries created successfully!"
+
+.PHONY: release-archives
+release-archives: release-build ## Create tar.gz archives with SHA256 checksums for all platforms
+	@echo "Creating tar.gz archives with simple binary names..."
 	@if [ ! -f LICENSE ]; then \
 		echo "❌ LICENSE file not found! Please ensure LICENSE file exists."; \
 		exit 1; \
@@ -383,23 +405,26 @@ release-build: ## Build binaries and create tar.gz archives for all platforms
 	@for platform in $(PLATFORMS); do \
 		GOOS=$$(echo $$platform | cut -d'/' -f1); \
 		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
-		if [ "$$GOOS" = "windows" ]; then \
-			binary_name="$(BINARY_NAME).exe"; \
+		if [ -n "$(VERSION)" ]; then \
+			version_suffix="_$(VERSION)"; \
 		else \
-			binary_name="$(BINARY_NAME)"; \
+			version_suffix=""; \
+		fi; \
+		if [ "$$GOOS" = "windows" ]; then \
+			platform_binary="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}.exe"; \
+			simple_binary="$(BINARY_NAME).exe"; \
+		else \
+			platform_binary="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}"; \
+			simple_binary="$(BINARY_NAME)"; \
 		fi; \
 		archive_name="$(BINARY_NAME)_$(VERSION)_$${GOOS}_$${GOARCH}.tar.gz"; \
-		echo "Building for $$GOOS/$$GOARCH..."; \
-		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$binary_name .; \
 		echo "Creating $$archive_name..."; \
-		tar czf $$archive_name LICENSE $$binary_name; \
-		rm $$binary_name; \
-		echo "✅ Built and archived $$archive_name"; \
+		cp $$platform_binary $$simple_binary; \
+		tar czf $$archive_name LICENSE $$simple_binary; \
+		rm $$simple_binary; \
+		echo "✅ Created $$archive_name"; \
 	done
-	@echo "✅ All release binaries and archives created successfully!"
-
-.PHONY: release-archives
-release-archives: release-build ## Create tar.gz archives with SHA256 checksums for all platforms
+	@echo ""
 	@echo "Generating SHA256 checksums..."
 	@for platform in $(PLATFORMS); do \
 		GOOS=$$(echo $$platform | cut -d'/' -f1); \

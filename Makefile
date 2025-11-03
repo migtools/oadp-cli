@@ -374,31 +374,8 @@ status: ## Show build status and installation info
 
 # Optimized release targets with centralized platform logic
 .PHONY: release-build
-release-build: ## Build binaries for all platforms
-	@echo "Building release binaries..."
-	@for platform in $(PLATFORMS); do \
-		GOOS=$$(echo $$platform | cut -d'/' -f1); \
-		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
-		if [ "$$GOOS" = "windows" ]; then \
-			binary_name="$(BINARY_NAME).exe"; \
-		else \
-			binary_name="$(BINARY_NAME)"; \
-		fi; \
-		echo "Building for $$GOOS/$$GOARCH..."; \
-		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$binary_name .; \
-		if [ -n "$(VERSION)" ]; then \
-			final_name="$(BINARY_NAME)_$(VERSION)_$${GOOS}_$${GOARCH}$${binary_name#$(BINARY_NAME)}"; \
-		else \
-			final_name="$(BINARY_NAME)_$${GOOS}_$${GOARCH}$${binary_name#$(BINARY_NAME)}"; \
-		fi; \
-		mv $$binary_name $$final_name; \
-		echo "✅ Built $$final_name for $$GOOS/$$GOARCH"; \
-	done
-	@echo "✅ All release binaries built successfully!"
-
-.PHONY: release-archives
-release-archives: release-build ## Create tar.gz archives for all platforms (includes LICENSE)
-	@echo "Creating release archives..."
+release-build: ## Build binaries and create tar.gz archives for all platforms
+	@echo "Building release binaries and creating archives..."
 	@if [ ! -f LICENSE ]; then \
 		echo "❌ LICENSE file not found! Please ensure LICENSE file exists."; \
 		exit 1; \
@@ -411,13 +388,27 @@ release-archives: release-build ## Create tar.gz archives for all platforms (inc
 		else \
 			binary_name="$(BINARY_NAME)"; \
 		fi; \
-		archive_name="$(BINARY_NAME)_${VERSION}_$$GOOS_$$GOARCH.tar.gz"; \
+		archive_name="$(BINARY_NAME)_$(VERSION)_$${GOOS}_$${GOARCH}.tar.gz"; \
+		echo "Building for $$GOOS/$$GOARCH..."; \
+		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$binary_name .; \
 		echo "Creating $$archive_name..."; \
-		tar czf $$archive_name LICENSE $(BINARY_NAME)_${VERSION}_$${GOOS}_$${GOARCH}$${binary_name#$(BINARY_NAME)}; \
-		sha256sum $$archive_name > $$archive_name.sha256; \
-		echo "✅ Created $$archive_name with LICENSE"; \
+		tar czf $$archive_name LICENSE $$binary_name; \
+		rm $$binary_name; \
+		echo "✅ Built and archived $$archive_name"; \
 	done
-	@echo "✅ All release archives created successfully!"
+	@echo "✅ All release binaries and archives created successfully!"
+
+.PHONY: release-archives
+release-archives: release-build ## Create tar.gz archives with SHA256 checksums for all platforms
+	@echo "Generating SHA256 checksums..."
+	@for platform in $(PLATFORMS); do \
+		GOOS=$$(echo $$platform | cut -d'/' -f1); \
+		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+		archive_name="$(BINARY_NAME)_$(VERSION)_$${GOOS}_$${GOARCH}.tar.gz"; \
+		sha256sum $$archive_name > $$archive_name.sha256; \
+		echo "✅ Generated checksum for $$archive_name"; \
+	done
+	@echo "✅ All SHA256 checksums generated!"
 	@echo "📦 Archives created:"
 	@ls -la *.tar.gz
 	@echo "🔐 SHA256 checksums:"

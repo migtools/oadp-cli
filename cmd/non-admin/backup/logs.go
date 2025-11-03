@@ -17,12 +17,8 @@ limitations under the License.
 */
 
 import (
-	"bufio"
-	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/migtools/oadp-cli/cmd/shared"
@@ -94,17 +90,21 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("failed to create NonAdminDownloadRequest: %w", err)
 			}
 
+			// Clean up the download request when done
 			defer func() {
 				deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancelDelete()
 				_ = kbClient.Delete(deleteCtx, req)
 			}()
 
-			var signedURL string
-			timeout := time.After(120 * time.Second) // Increased timeout to 2 minutes
-			tick := time.Tick(2 * time.Second)       // Check every 2 seconds instead of 1
+			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed...\n")
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed...")
+			// Wait for the download request to be processed using shared utility
+			// Note: We create a custom waiting implementation here to provide user feedback
+			timeout := time.After(120 * time.Second)
+			tick := time.Tick(2 * time.Second)
+
+			var signedURL string
 		Loop:
 			for {
 				select {
@@ -140,29 +140,9 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				}
 			}
 
-			resp, err := http.Get(signedURL)
-			if err != nil {
-				return fmt.Errorf("failed to download logs from URL %q: %w", signedURL, err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				bodyBytes, _ := io.ReadAll(resp.Body)
-				return fmt.Errorf("failed to download logs: status %s, body: %s", resp.Status, string(bodyBytes))
-			}
-
-			gzr, err := gzip.NewReader(resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to create gzip reader: %w", err)
-			}
-			defer gzr.Close()
-
-			scanner := bufio.NewScanner(gzr)
-			for scanner.Scan() {
-				fmt.Fprintln(cmd.OutOrStdout(), scanner.Text())
-			}
-			if err := scanner.Err(); err != nil && err != io.EOF {
-				return fmt.Errorf("failed to read logs: %w", err)
+			// Use the shared StreamDownloadContent function to download and stream logs
+			if err := shared.StreamDownloadContent(signedURL, cmd.OutOrStdout()); err != nil {
+				return fmt.Errorf("failed to download and stream logs: %w", err)
 			}
 
 			return nil

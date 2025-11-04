@@ -112,15 +112,17 @@ func printNonAdminBackupTable(nabList *nacv1alpha1.NonAdminBackupList) error {
 	}
 
 	// Print header
-	fmt.Printf("%-30s %-15s %-20s %-10s\n", "NAME", "STATUS", "CREATED", "AGE")
+	fmt.Printf("%-30s %-15s %-15s %-20s %-10s %-10s\n", "NAME", "REQUEST PHASE", "VELERO PHASE", "CREATED", "AGE", "DURATION")
 
 	// Print each backup
 	for _, nab := range nabList.Items {
 		status := getBackupStatus(&nab)
+		veleroPhase := getVeleroPhase(&nab)
 		created := nab.CreationTimestamp.Format("2006-01-02 15:04:05")
 		age := formatAge(nab.CreationTimestamp.Time)
+		duration := getBackupDuration(&nab)
 
-		fmt.Printf("%-30s %-15s %-20s %-10s\n", nab.Name, status, created, age)
+		fmt.Printf("%-30s %-15s %-15s %-20s %-10s %-10s\n", nab.Name, status, veleroPhase, created, age, duration)
 	}
 
 	return nil
@@ -131,6 +133,39 @@ func getBackupStatus(nab *nacv1alpha1.NonAdminBackup) string {
 		return string(nab.Status.Phase)
 	}
 	return "Unknown"
+}
+
+func getVeleroPhase(nab *nacv1alpha1.NonAdminBackup) string {
+	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
+		if nab.Status.VeleroBackup.Status.Phase != "" {
+			return string(nab.Status.VeleroBackup.Status.Phase)
+		}
+	}
+	return "N/A"
+}
+
+func getBackupDuration(nab *nacv1alpha1.NonAdminBackup) string {
+	// Check if we have completion timestamp
+	if nab.Status.VeleroBackup != nil && nab.Status.VeleroBackup.Status != nil {
+		if !nab.Status.VeleroBackup.Status.CompletionTimestamp.IsZero() {
+			// Calculate duration from request creation to completion
+			duration := nab.Status.VeleroBackup.Status.CompletionTimestamp.Time.Sub(nab.CreationTimestamp.Time)
+			return formatDuration(duration)
+		}
+	}
+	return "N/A"
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	} else if d < time.Hour {
+		return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
+	} else {
+		hours := int(d.Hours())
+		minutes := int(d.Minutes()) % 60
+		return fmt.Sprintf("%dh%dm", hours, minutes)
+	}
 }
 
 func formatAge(t time.Time) string {

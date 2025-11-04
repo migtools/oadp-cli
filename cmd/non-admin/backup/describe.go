@@ -1,11 +1,8 @@
 package backup
 
 import (
-	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -13,12 +10,10 @@ import (
 	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -46,116 +41,17 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 				return err
 			}
 
-			// Shows NonAdminBackup resources
-			var nabList nacv1alpha1.NonAdminBackupList
-			if err := kbClient.List(context.Background(), &nabList, &kbclient.ListOptions{
+			// Get the specific backup
+			var nab nacv1alpha1.NonAdminBackup
+			if err := kbClient.Get(context.Background(), kbclient.ObjectKey{
 				Namespace: userNamespace,
-			}); err != nil {
-				return fmt.Errorf("failed to list NonAdminBackup: %w", err)
+				Name:      backupName,
+			}, &nab); err != nil {
+				return fmt.Errorf("NonAdminBackup %q not found in namespace %q: %w", backupName, userNamespace, err)
 			}
 
-			// Find the specific backup
-			var targetBackup *nacv1alpha1.NonAdminBackup
-			for i := range nabList.Items {
-				if nabList.Items[i].Name == backupName {
-					targetBackup = &nabList.Items[i]
-					break
-				}
-			}
-
-			if targetBackup == nil {
-				return fmt.Errorf("NonAdminBackup %q not found in namespace %q", backupName, userNamespace)
-			}
-
-			// Print basic info
-			fmt.Printf("Name:\t%s\n", targetBackup.Name)
-			fmt.Printf("Namespace:\t%s\n", targetBackup.Namespace)
-
-			// Print labels if any
-			if len(targetBackup.Labels) > 0 {
-				fmt.Printf("Labels:\t")
-				var labelPairs []string
-				for k, v := range targetBackup.Labels {
-					labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
-				}
-				sort.Strings(labelPairs)
-				fmt.Printf("%s\n", strings.Join(labelPairs, ","))
-			} else {
-				fmt.Printf("Labels:\t<none>\n")
-			}
-
-			// Print annotations if any
-			if len(targetBackup.Annotations) > 0 {
-				fmt.Printf("Annotations:\t")
-				var annotationPairs []string
-				for k, v := range targetBackup.Annotations {
-					annotationPairs = append(annotationPairs, fmt.Sprintf("%s=%s", k, v))
-				}
-				sort.Strings(annotationPairs)
-				fmt.Printf("%s\n", strings.Join(annotationPairs, ","))
-			} else {
-				fmt.Printf("Annotations:\t<none>\n")
-			}
-
-			// Print phase/status
-			fmt.Printf("Phase:\t%s\n", targetBackup.Status.Phase)
-
-			// Print conditions
-			if len(targetBackup.Status.Conditions) > 0 {
-				fmt.Printf("Conditions:\n")
-				for _, condition := range targetBackup.Status.Conditions {
-					fmt.Printf("  Type:\t%s\n", condition.Type)
-					fmt.Printf("  Status:\t%s\n", condition.Status)
-					if condition.Reason != "" {
-						fmt.Printf("  Reason:\t%s\n", condition.Reason)
-					}
-					if condition.Message != "" {
-						fmt.Printf("  Message:\t%s\n", condition.Message)
-					}
-					fmt.Printf("  Last Transition Time:\t%s\n", condition.LastTransitionTime.Format(time.RFC3339))
-					fmt.Printf("\n")
-				}
-			}
-
-			// Print related Velero backup info if available
-			if targetBackup.Status.VeleroBackup != nil {
-				fmt.Printf("Velero Backup:\n")
-				fmt.Printf("  Name:\t%s\n", targetBackup.Status.VeleroBackup.Name)
-				fmt.Printf("  Namespace:\t%s\n", targetBackup.Status.VeleroBackup.Namespace)
-				if targetBackup.Status.VeleroBackup.Status != nil {
-					fmt.Printf("  Status:\n")
-					// Print some key status fields
-					if targetBackup.Status.VeleroBackup.Status.Phase != "" {
-						fmt.Printf("    Phase:\t%s\n", targetBackup.Status.VeleroBackup.Status.Phase)
-					}
-					if !targetBackup.Status.VeleroBackup.Status.StartTimestamp.IsZero() {
-						fmt.Printf("    Start Time:\t%s\n", targetBackup.Status.VeleroBackup.Status.StartTimestamp.Format(time.RFC3339))
-					}
-					if !targetBackup.Status.VeleroBackup.Status.CompletionTimestamp.IsZero() {
-						fmt.Printf("    Completion Time:\t%s\n", targetBackup.Status.VeleroBackup.Status.CompletionTimestamp.Format(time.RFC3339))
-					}
-					if targetBackup.Status.VeleroBackup.Status.Expiration != nil {
-						fmt.Printf("    Expiration:\t%s\n", targetBackup.Status.VeleroBackup.Status.Expiration.Format(time.RFC3339))
-					}
-				}
-			}
-
-			// Print the spec (what was requested)
-			if targetBackup.Spec.BackupSpec != nil {
-				fmt.Printf("\nBackup Spec:\n")
-				specBytes, err := yaml.Marshal(targetBackup.Spec.BackupSpec)
-				if err != nil {
-					fmt.Printf("  Error marshaling spec: %v\n", err)
-				} else {
-					// Indent the YAML output
-					specLines := strings.Split(string(specBytes), "\n")
-					for _, line := range specLines {
-						if line != "" {
-							fmt.Printf("  %s\n", line)
-						}
-					}
-				}
-			}
+			// Print in Velero-style format
+			printNonAdminBackupDetails(cmd, &nab)
 
 			return nil
 		},
@@ -166,6 +62,290 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 	output.ClearOutputFlagDefault(c)
 
 	return c
+}
+
+// printNonAdminBackupDetails prints backup details in Velero admin describe format
+func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup) {
+	out := cmd.OutOrStdout()
+
+	// Get Velero backup reference if available
+	var vb *nacv1alpha1.VeleroBackup
+	if nab.Status.VeleroBackup != nil {
+		vb = nab.Status.VeleroBackup
+	}
+
+	// Name and Namespace
+	fmt.Fprintf(out, "Name:         %s\n", nab.Name)
+	fmt.Fprintf(out, "Namespace:    %s\n", nab.Namespace)
+
+	// Labels
+	fmt.Fprintf(out, "Labels:       ")
+	if len(nab.Labels) == 0 {
+		fmt.Fprintf(out, "<none>\n")
+	} else {
+		labelKeys := make([]string, 0, len(nab.Labels))
+		for k := range nab.Labels {
+			labelKeys = append(labelKeys, k)
+		}
+		sort.Strings(labelKeys)
+		for i, k := range labelKeys {
+			if i == 0 {
+				fmt.Fprintf(out, "%s=%s\n", k, nab.Labels[k])
+			} else {
+				fmt.Fprintf(out, "              %s=%s\n", k, nab.Labels[k])
+			}
+		}
+	}
+
+	// Annotations
+	fmt.Fprintf(out, "Annotations:  ")
+	if len(nab.Annotations) == 0 {
+		fmt.Fprintf(out, "<none>\n")
+	} else {
+		annotationKeys := make([]string, 0, len(nab.Annotations))
+		for k := range nab.Annotations {
+			annotationKeys = append(annotationKeys, k)
+		}
+		sort.Strings(annotationKeys)
+		for i, k := range annotationKeys {
+			if i == 0 {
+				fmt.Fprintf(out, "%s=%s\n", k, nab.Annotations[k])
+			} else {
+				fmt.Fprintf(out, "              %s=%s\n", k, nab.Annotations[k])
+			}
+		}
+	}
+
+	fmt.Fprintf(out, "\n")
+
+	// Phase (with color)
+	phase := string(nab.Status.Phase)
+	if vb != nil && vb.Status != nil && vb.Status.Phase != "" {
+		phase = string(vb.Status.Phase)
+	}
+	fmt.Fprintf(out, "Phase:  %s\n", colorizePhase(phase))
+
+	fmt.Fprintf(out, "\n")
+
+	// Backup Spec details
+	if nab.Spec.BackupSpec != nil {
+		spec := nab.Spec.BackupSpec
+
+		// Namespaces
+		fmt.Fprintf(out, "Namespaces:\n")
+		if len(spec.IncludedNamespaces) == 0 {
+			fmt.Fprintf(out, "  Included:  *\n")
+		} else {
+			fmt.Fprintf(out, "  Included:  %s\n", strings.Join(spec.IncludedNamespaces, ", "))
+		}
+		if len(spec.ExcludedNamespaces) == 0 {
+			fmt.Fprintf(out, "  Excluded:  <none>\n")
+		} else {
+			fmt.Fprintf(out, "  Excluded:  %s\n", strings.Join(spec.ExcludedNamespaces, ", "))
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Resources
+		fmt.Fprintf(out, "Resources:\n")
+		if len(spec.IncludedResources) == 0 {
+			fmt.Fprintf(out, "  Included:        *\n")
+		} else {
+			fmt.Fprintf(out, "  Included:        %s\n", strings.Join(spec.IncludedResources, ", "))
+		}
+		if len(spec.ExcludedResources) == 0 {
+			fmt.Fprintf(out, "  Excluded:        <none>\n")
+		} else {
+			fmt.Fprintf(out, "  Excluded:        %s\n", strings.Join(spec.ExcludedResources, ", "))
+		}
+		if spec.IncludeClusterResources != nil {
+			if *spec.IncludeClusterResources {
+				fmt.Fprintf(out, "  Cluster-scoped:  included\n")
+			} else {
+				fmt.Fprintf(out, "  Cluster-scoped:  excluded\n")
+			}
+		} else {
+			fmt.Fprintf(out, "  Cluster-scoped:  auto\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Label selector
+		if spec.LabelSelector != nil && len(spec.LabelSelector.MatchLabels) > 0 {
+			var selectorParts []string
+			for k, v := range spec.LabelSelector.MatchLabels {
+				selectorParts = append(selectorParts, fmt.Sprintf("%s=%s", k, v))
+			}
+			fmt.Fprintf(out, "Label selector:  %s\n", strings.Join(selectorParts, ","))
+		} else {
+			fmt.Fprintf(out, "Label selector:  <none>\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+		fmt.Fprintf(out, "Or label selector:  <none>\n")
+		fmt.Fprintf(out, "\n")
+
+		// Storage Location
+		if spec.StorageLocation != "" {
+			fmt.Fprintf(out, "Storage Location:  %s\n", spec.StorageLocation)
+		} else {
+			fmt.Fprintf(out, "Storage Location:  <none>\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Snapshot settings
+		if spec.SnapshotVolumes != nil {
+			if *spec.SnapshotVolumes {
+				fmt.Fprintf(out, "Velero-Native Snapshot PVs:  true\n")
+			} else {
+				fmt.Fprintf(out, "Velero-Native Snapshot PVs:  false\n")
+			}
+		} else {
+			fmt.Fprintf(out, "Velero-Native Snapshot PVs:  auto\n")
+		}
+
+		if spec.SnapshotMoveData != nil && *spec.SnapshotMoveData {
+			fmt.Fprintf(out, "Snapshot Move Data:          true\n")
+		} else {
+			fmt.Fprintf(out, "Snapshot Move Data:          false\n")
+		}
+
+		if spec.DataMover != "" {
+			fmt.Fprintf(out, "Data Mover:                  %s\n", spec.DataMover)
+		} else {
+			fmt.Fprintf(out, "Data Mover:                  velero\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// TTL
+		if spec.TTL.Duration > 0 {
+			fmt.Fprintf(out, "TTL:  %s\n", spec.TTL.Duration)
+		} else {
+			fmt.Fprintf(out, "TTL:  720h0m0s\n") // default
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Timeouts
+		if spec.CSISnapshotTimeout.Duration > 0 {
+			fmt.Fprintf(out, "CSISnapshotTimeout:    %s\n", spec.CSISnapshotTimeout.Duration)
+		} else {
+			fmt.Fprintf(out, "CSISnapshotTimeout:    10m0s\n")
+		}
+
+		if spec.ItemOperationTimeout.Duration > 0 {
+			fmt.Fprintf(out, "ItemOperationTimeout:  %s\n", spec.ItemOperationTimeout.Duration)
+		} else {
+			fmt.Fprintf(out, "ItemOperationTimeout:  4h0m0s\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Hooks
+		if len(spec.Hooks.Resources) > 0 {
+			fmt.Fprintf(out, "Hooks:  %d resources with hooks\n", len(spec.Hooks.Resources))
+		} else {
+			fmt.Fprintf(out, "Hooks:  <none>\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+	}
+
+	// Velero backup status information
+	if vb != nil && vb.Status != nil {
+		status := vb.Status
+
+		// Backup Format Version
+		if status.FormatVersion != "" {
+			fmt.Fprintf(out, "Backup Format Version:  %s\n", status.FormatVersion)
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Started and Completed times
+		if !status.StartTimestamp.IsZero() {
+			fmt.Fprintf(out, "Started:    %s\n", status.StartTimestamp.Time.Format("2006-01-02 15:04:05 -0700 MST"))
+		}
+		if !status.CompletionTimestamp.IsZero() {
+			fmt.Fprintf(out, "Completed:  %s\n", status.CompletionTimestamp.Time.Format("2006-01-02 15:04:05 -0700 MST"))
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Expiration
+		if status.Expiration != nil {
+			fmt.Fprintf(out, "Expiration:  %s\n", status.Expiration.Format("2006-01-02 15:04:05 -0700 MST"))
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Progress
+		if status.Progress != nil {
+			fmt.Fprintf(out, "Total items to be backed up:  %d\n", status.Progress.TotalItems)
+			fmt.Fprintf(out, "Items backed up:              %d\n", status.Progress.ItemsBackedUp)
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Backup Volumes
+		fmt.Fprintf(out, "Backup Volumes:\n")
+
+		hasVeleroSnapshots := status.VolumeSnapshotsAttempted > 0
+		if hasVeleroSnapshots {
+			fmt.Fprintf(out, "  Velero-Native Snapshots:  %d of %d snapshots completed successfully (specify --details for more information)\n",
+				status.VolumeSnapshotsCompleted, status.VolumeSnapshotsAttempted)
+		} else {
+			fmt.Fprintf(out, "  Velero-Native Snapshots: <none included>\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		hasCSISnapshots := status.CSIVolumeSnapshotsAttempted > 0
+		if hasCSISnapshots {
+			fmt.Fprintf(out, "  CSI Snapshots:  %d of %d snapshots completed successfully\n",
+				status.CSIVolumeSnapshotsCompleted, status.CSIVolumeSnapshotsAttempted)
+		} else {
+			fmt.Fprintf(out, "  CSI Snapshots: <none included>\n")
+		}
+
+		fmt.Fprintf(out, "\n")
+
+		// Pod Volume Backups
+		fmt.Fprintf(out, "  Pod Volume Backups: <none included>\n")
+
+		fmt.Fprintf(out, "\n")
+
+		// Hooks
+		fmt.Fprintf(out, "HooksAttempted:  %d\n", status.HookStatus.HooksAttempted)
+		fmt.Fprintf(out, "HooksFailed:     %d\n", status.HookStatus.HooksFailed)
+	} else {
+		// Velero backup not available yet
+		fmt.Fprintf(out, "Velero backup information not yet available.\n")
+		fmt.Fprintf(out, "Request Phase: %s\n", nab.Status.Phase)
+	}
+}
+
+// colorizePhase returns the phase string with ANSI color codes
+func colorizePhase(phase string) string {
+	const (
+		colorGreen  = "\033[32m"
+		colorYellow = "\033[33m"
+		colorRed    = "\033[31m"
+		colorReset  = "\033[0m"
+	)
+
+	switch phase {
+	case "Completed":
+		return colorGreen + phase + colorReset
+	case "InProgress", "New":
+		return colorYellow + phase + colorReset
+	case "Failed", "FailedValidation", "PartiallyFailed":
+		return colorRed + phase + colorReset
+	default:
+		return phase
+	}
 }
 
 // NonAdminDescribeBackup mirrors Velero's output.DescribeBackup functionality
@@ -220,25 +400,41 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 		fmt.Fprintf(cmd.OutOrStdout(), "\nFetching additional backup details...")
 
 		// Get backup results using NonAdminDownloadRequest (most important data)
-		if results, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResults"); err == nil {
+		if results, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+			BackupName: veleroBackupName,
+			DataType:   "BackupResults",
+			Namespace:  userNamespace,
+		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Results:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(results, "  "))
 		}
 
 		// Get backup details using NonAdminDownloadRequest for BackupResourceList
-		if resourceList, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupResourceList"); err == nil {
+		if resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+			BackupName: veleroBackupName,
+			DataType:   "BackupResourceList",
+			Namespace:  userNamespace,
+		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Resource List:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(resourceList, "  "))
 		}
 
 		// Get backup volume info using NonAdminDownloadRequest
-		if volumeInfo, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupVolumeInfos"); err == nil {
+		if volumeInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+			BackupName: veleroBackupName,
+			DataType:   "BackupVolumeInfos",
+			Namespace:  userNamespace,
+		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Volume Info:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(volumeInfo, "  "))
 		}
 
 		// Get backup item operations using NonAdminDownloadRequest
-		if itemOps, err := downloadBackupData(ctx, kbClient, userNamespace, veleroBackupName, "BackupItemOperations"); err == nil {
+		if itemOps, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+			BackupName: veleroBackupName,
+			DataType:   "BackupItemOperations",
+			Namespace:  userNamespace,
+		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Item Operations:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(itemOps, "  "))
 		}
@@ -291,104 +487,6 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 	}
 
 	return nil
-}
-
-// downloadBackupData uses NonAdminDownloadRequest to fetch detailed backup information
-// This replaces direct access to Velero backups with RBAC-compliant requests
-func downloadBackupData(ctx context.Context, kbClient kbclient.Client, userNamespace, backupName, dataType string) (string, error) {
-	// Create NonAdminDownloadRequest for the specified data type
-	req := &nacv1alpha1.NonAdminDownloadRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: backupName + "-" + strings.ToLower(dataType) + "-",
-			Namespace:    userNamespace,
-		},
-		Spec: nacv1alpha1.NonAdminDownloadRequestSpec{
-			Target: velerov1.DownloadTarget{
-				Kind: velerov1.DownloadTargetKind(dataType),
-				Name: backupName,
-			},
-		},
-	}
-
-	if err := kbClient.Create(ctx, req); err != nil {
-		return "", fmt.Errorf("failed to create NonAdminDownloadRequest for %s: %w", dataType, err)
-	}
-
-	// Clean up the download request when done
-	defer func() {
-		deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancelDelete()
-		_ = kbClient.Delete(deleteCtx, req)
-	}()
-
-	// Wait for the download request to be processed
-	timeout := time.After(10 * time.Second) // Reduced timeout since most failures are quick
-	tick := time.Tick(1 * time.Second)
-
-	for {
-		select {
-		case <-timeout:
-			return "", fmt.Errorf("timed out waiting for %s download request to be processed", dataType)
-		case <-tick:
-			var updated nacv1alpha1.NonAdminDownloadRequest
-			if err := kbClient.Get(ctx, kbclient.ObjectKey{
-				Namespace: req.Namespace,
-				Name:      req.Name,
-			}, &updated); err != nil {
-				return "", fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
-			}
-
-			// Check if the download request was processed successfully
-			for _, condition := range updated.Status.Conditions {
-				if condition.Type == "Processed" && condition.Status == "True" {
-					if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
-						// Download and return the content
-						return downloadContent(updated.Status.VeleroDownloadRequest.Status.DownloadURL)
-					}
-				}
-			}
-
-			// Check for failure conditions
-			for _, condition := range updated.Status.Conditions {
-				if condition.Status == "True" && condition.Reason == "Error" {
-					return "", fmt.Errorf("NonAdminDownloadRequest failed for %s: %s - %s", dataType, condition.Type, condition.Message)
-				}
-			}
-		}
-	}
-}
-
-// downloadContent fetches content from a signed URL and returns it as a string
-func downloadContent(url string) (string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to download content from URL %q: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to download content: status %s, body: %s", resp.Status, string(bodyBytes))
-	}
-
-	// Try to decompress if it's gzipped
-	var reader io.Reader = resp.Body
-	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
-		gzr, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return "", fmt.Errorf("failed to create gzip reader: %w", err)
-		}
-		defer gzr.Close()
-		reader = gzr
-	}
-
-	// Read all content
-	content, err := io.ReadAll(reader)
-	if err != nil {
-		return "", fmt.Errorf("failed to read content: %w", err)
-	}
-
-	return string(content), nil
 }
 
 // Helper to filter out includednamespaces from YAML output

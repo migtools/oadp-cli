@@ -51,7 +51,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 				"--storage-location",
 				"--include-resources",
 				"--exclude-resources",
-				"--wait",
 				"--force",
 				"--assume-yes",
 			},
@@ -251,7 +250,6 @@ func TestNonAdminBackupCreateFlags(t *testing.T) {
 			"--exclude-resources",
 			"--labels",
 			"--annotations",
-			"--wait",
 			"--force",
 			"--assume-yes",
 			"--snapshot-volumes",
@@ -276,7 +274,6 @@ func TestNonAdminBackupExamples(t *testing.T) {
 			"--storage-location",
 			"--include-resources",
 			"--exclude-resources",
-			"--wait",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

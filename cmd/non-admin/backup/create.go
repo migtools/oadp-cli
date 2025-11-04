@@ -457,4 +457,3 @@ func (o *CreateOptions) formatCommandSuggestion(name string) string {
 	}
 	return baseMsg + "\n"
 }
-

@@ -75,13 +75,16 @@ Create the wrapper script in the same directory as your `kubectl-oadp` binary:
 #### For kubectl plugin completion:
 
 ```bash
-# If kubectl-oadp is in ~/.local/bin (most common)
-cat > ~/.local/bin/kubectl_complete-oadp << 'EOF'
+# Auto-detect kubectl-oadp location and create wrapper
+OADP_PATH=$(which kubectl-oadp)
+OADP_DIR=$(dirname "$OADP_PATH")
+
+cat > "${OADP_DIR}/kubectl_complete-oadp" << EOF
 #!/bin/bash
 # Wrapper script for kubectl plugin completion
-exec ~/.local/bin/kubectl-oadp __complete "$@"
+exec ${OADP_PATH} __complete "\$@"
 EOF
-chmod +x ~/.local/bin/kubectl_complete-oadp
+chmod +x "${OADP_DIR}/kubectl_complete-oadp"
 ```
 
 #### For oc plugin completion:
@@ -89,18 +92,17 @@ chmod +x ~/.local/bin/kubectl_complete-oadp
 If you also want `oc oadp` completion (using the same binary as an oc plugin):
 
 ```bash
-# Create oc completion wrapper
-cat > ~/.local/bin/oc_complete-oadp << 'EOF'
+# Create oc completion wrapper (uses same auto-detected path)
+OADP_PATH=$(which kubectl-oadp)
+OADP_DIR=$(dirname "$OADP_PATH")
+
+cat > "${OADP_DIR}/oc_complete-oadp" << EOF
 #!/bin/bash
 # Wrapper script for oc plugin completion
-exec ~/.local/bin/kubectl-oadp __complete "$@"
+exec ${OADP_PATH} __complete "\$@"
 EOF
-chmod +x ~/.local/bin/oc_complete-oadp
+chmod +x "${OADP_DIR}/oc_complete-oadp"
 ```
-
-**For other locations:**
-- If using `~/bin`: Replace `~/.local/bin` with `~/bin`
-- If using `/usr/local/bin`: Replace `~/.local/bin` with `/usr/local/bin`
 
 ### 2. Configure Your Shell
 
@@ -109,8 +111,8 @@ Add completion configuration to your shell's rc file:
 **For zsh** (add to `~/.zshrc`):
 ```bash
 # kubectl-oadp completion
-if [ -f "$HOME/.local/bin/kubectl-oadp" ]; then
-  source <($HOME/.local/bin/kubectl-oadp completion zsh)
+if command -v kubectl-oadp >/dev/null 2>&1; then
+  source <(kubectl-oadp completion zsh)
   compdef _oadp kubectl-oadp
 fi
 ```
@@ -118,8 +120,16 @@ fi
 **For bash** (add to `~/.bashrc`):
 ```bash
 # kubectl-oadp completion
-if [ -f "$HOME/.local/bin/kubectl-oadp" ]; then
-  source <($HOME/.local/bin/kubectl-oadp completion bash)
+if command -v kubectl-oadp >/dev/null 2>&1; then
+  source <(kubectl-oadp completion bash)
+fi
+```
+
+**Note for minimal environments (containers, etc.):** If you get `_get_comp_words_by_ref: command not found` errors, the bash-completion framework needs to be loaded first. Add this before the kubectl-oadp completion:
+```bash
+# Load bash-completion framework (if not auto-loaded)
+if [ -f /usr/share/bash-completion/bash_completion ] && ! type _get_comp_words_by_ref >/dev/null 2>&1; then
+  source /usr/share/bash-completion/bash_completion
 fi
 ```
 
@@ -157,12 +167,14 @@ You should see available commands like `backup`, `nonadmin`, `nabsl`, etc.
 
 **Check if wrapper exists:**
 ```bash
-ls -la ~/.local/bin/kubectl_complete-oadp
+# Find where kubectl-oadp is installed
+OADP_DIR=$(dirname $(which kubectl-oadp))
+ls -la "${OADP_DIR}/kubectl_complete-oadp"
 ```
 
 **Check if it's executable:**
 ```bash
-chmod +x ~/.local/bin/kubectl_complete-oadp
+chmod +x "${OADP_DIR}/kubectl_complete-oadp"
 ```
 
 **Test wrapper directly:**
@@ -176,28 +188,30 @@ kubectl_complete-oadp __complete kubectl oadp
 grep -A5 "kubectl-oadp completion" ~/.zshrc
 
 # For bash
-grep -A3 "kubectl-oadp completion" ~/.bashrc
+grep -A5 "kubectl-oadp completion" ~/.bashrc
 ```
 
 ### Path Issues?
 
 Make sure both files are in the same directory and that directory is in your PATH:
 ```bash
-echo $PATH | grep -o '[^:]*\.local/bin[^:]*'
 which kubectl-oadp
 which kubectl_complete-oadp
 which oc_complete-oadp  # if using oc completion
+
+# Check if the directory is in PATH
+OADP_DIR=$(dirname $(which kubectl-oadp))
+echo $PATH | grep -q "$OADP_DIR" && echo "✓ In PATH" || echo "✗ Not in PATH"
 ```
 
 ## Uninstalling Completion
 
 ### Remove the Wrapper Scripts
 ```bash
-# Remove kubectl completion wrapper
-rm ~/.local/bin/kubectl_complete-oadp
-
-# Remove oc completion wrapper (if created)
-rm ~/.local/bin/oc_complete-oadp
+# Find and remove the wrapper scripts
+OADP_DIR=$(dirname $(which kubectl-oadp))
+rm "${OADP_DIR}/kubectl_complete-oadp"
+rm "${OADP_DIR}/oc_complete-oadp"  # if you created this
 ```
 
 ### Remove Shell Configuration
@@ -214,19 +228,26 @@ rm ~/.local/bin/oc_complete-oadp
 
 ## Advanced: Custom Locations
 
-If your `kubectl-oadp` binary is in a non-standard location, update the wrapper script paths:
+If your `kubectl-oadp` binary is in a non-standard location, the dynamic detection will automatically handle it as long as the binary is in your `$PATH`. If it's not in your PATH, you can either:
 
+1. **Add it to PATH** (recommended):
+```bash
+export PATH="/opt/oadp/bin:$PATH"
+# Then use the standard setup commands above
+```
+
+2. **Use explicit paths**:
 ```bash
 # Example for custom location /opt/oadp/bin
 cat > /opt/oadp/bin/kubectl_complete-oadp << 'EOF'
 #!/bin/bash
 exec /opt/oadp/bin/kubectl-oadp __complete "$@"
 EOF
+chmod +x /opt/oadp/bin/kubectl_complete-oadp
 
 # Update shell config accordingly
 if [ -f "/opt/oadp/bin/kubectl-oadp" ]; then
-  source <(/opt/oadp/bin/kubectl-oadp completion zsh)
-  compdef _oadp kubectl-oadp
+  source </(/opt/oadp/bin/kubectl-oadp completion bash)
 fi
 ```
 

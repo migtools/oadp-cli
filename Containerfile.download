@@ -13,18 +13,11 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-# Build ALL kubectl-oadp binaries using native Go cross-compilation (no QEMU emulation)
-# The download server needs to serve binaries for all platforms, not just one arch
-RUN make release-build && \
+RUN make release-archives && \
     mkdir -p /archives && \
-    for binary in kubectl-oadp_*; do \
-        archive_name=$(echo "$binary" | sed 's/\.exe$//' ).tar.gz; \
-        tar -czf "/archives/$archive_name" "$binary"; \
-        echo "Created /archives/$archive_name"; \
-    done
+    mv *.tar.gz /archives/
 
 # Build the download server for the TARGET platform (the arch this container will run on)
-# This uses cross-compilation so the builder can run natively on amd64
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o download-server ./cmd/downloads/server.go
 
 # Clean up to reduce layer size

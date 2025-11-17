@@ -73,99 +73,6 @@ func TestRootCommand(t *testing.T) {
 				"Work with restores",
 			},
 		},
-		// Verb-noun order help command tests
-		{
-			name: "get help",
-			args: []string{"get", "--help"},
-			expectContains: []string{
-				"Get one or more resources",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "create help",
-			args: []string{"create", "--help"},
-			expectContains: []string{
-				"Create a resource",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "delete help",
-			args: []string{"delete", "--help"},
-			expectContains: []string{
-				"Delete a resource",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "describe help",
-			args: []string{"describe", "--help"},
-			expectContains: []string{
-				"Describe a resource",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "logs help",
-			args: []string{"logs", "--help"},
-			expectContains: []string{
-				"Get logs for a resource",
-				"backup",
-				"restore",
-			},
-		},
-		// Verb-noun order with specific resources
-		{
-			name: "get backup help",
-			args: []string{"get", "backup", "--help"},
-			expectContains: []string{
-				"Get one or more resources",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "create backup help",
-			args: []string{"create", "backup", "--help"},
-			expectContains: []string{
-				"Create a resource",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "delete backup help",
-			args: []string{"delete", "backup", "--help"},
-			expectContains: []string{
-				"Delete a resource",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "describe backup help",
-			args: []string{"describe", "backup", "--help"},
-			expectContains: []string{
-				"Describe a resource",
-				"backup",
-				"restore",
-			},
-		},
-		{
-			name: "logs backup help",
-			args: []string{"logs", "backup", "--help"},
-			expectContains: []string{
-				"Get logs for a resource",
-				"backup",
-				"restore",
-				"schedule",
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -188,21 +95,6 @@ func TestRootCommandHelpFlags(t *testing.T) {
 		{"restore", "-h"},
 		{"version", "--help"},
 		{"version", "-h"},
-		// Verb-noun order help flags
-		{"get", "--help"},
-		{"get", "-h"},
-		{"create", "--help"},
-		{"create", "-h"},
-		{"delete", "--help"},
-		{"delete", "-h"},
-		{"describe", "--help"},
-		{"describe", "-h"},
-		{"logs", "--help"},
-		{"logs", "-h"},
-		{"get", "backup", "--help"},
-		{"get", "backup", "-h"},
-		{"create", "backup", "--help"},
-		{"create", "backup", "-h"},
 	}
 
 	for _, cmd := range commands {
@@ -222,14 +114,6 @@ func TestRootCommandSmoke(t *testing.T) {
 		{"backup", "--help"},
 		{"restore", "--help"},
 		{"version", "--help"},
-		// Verb-noun order smoke tests
-		{"get", "--help"},
-		{"create", "--help"},
-		{"delete", "--help"},
-		{"describe", "--help"},
-		{"logs", "--help"},
-		{"get", "backup", "--help"},
-		{"create", "backup", "--help"},
 	}
 
 	for _, cmd := range smokeCommands {

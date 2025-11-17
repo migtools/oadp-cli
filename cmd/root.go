@@ -67,7 +67,6 @@ func getUsagePrefix() string {
 
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand(baseName string) *cobra.Command {
-	usagePrefix := getUsagePrefix()
 
 	config, err := clientcmd.LoadConfig()
 	if err != nil {
@@ -84,11 +83,7 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 		Short: "OADP CLI commands",
 		Run: func(cmd *cobra.Command, args []string) {
 			// Default action when no subcommand is provided
-			if isRunningAsPlugin() {
-				fmt.Printf("Welcome to the OADP CLI! \nUse '%s --help' to see available commands.\n", usagePrefix)
-			} else {
-				fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
-			}
+			fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
 		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			features.Enable(config.Features()...)

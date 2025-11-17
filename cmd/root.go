@@ -17,19 +17,39 @@ limitations under the License.
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/migtools/oadp-cli/cmd/nabsl-request"
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
-	"github.com/migtools/oadp-cli/cmd/verbs"
 	"github.com/spf13/cobra"
+	clientcmd "github.com/vmware-tanzu/velero/pkg/client"
+
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
-	"github.com/vmware-tanzu/velero/pkg/cmd/cli/client"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backuplocation"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/bug"
+	cliclient "github.com/vmware-tanzu/velero/pkg/cmd/cli/client"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/create"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/datamover"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/debug"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/delete"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/describe"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/get"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/repo"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/repomantenance"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/restore"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/schedule"
+	"github.com/vmware-tanzu/velero/pkg/cmd/cli/snapshotlocation"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/version"
+
+	veleroflag "github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
+	"github.com/vmware-tanzu/velero/pkg/features"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/kustomize/cmd/config/completion"
 )
 
 // isRunningAsPlugin detects if the executable is running as a kubectl plugin
@@ -46,64 +66,74 @@ func getUsagePrefix() string {
 }
 
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
-func NewVeleroRootCommand() *cobra.Command {
+func NewVeleroRootCommand(baseName string) *cobra.Command {
 	usagePrefix := getUsagePrefix()
 
-	rootCmd := &cobra.Command{
-		Use:   "oadp",
+	config, err := clientcmd.LoadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: Error reading config file: %v\n", err)
+	}
+
+	// Declare cmdFeatures and cmdColorzied here so we can access them in the PreRun hooks
+	// without doing a chain of calls into the command's FlagSet
+	var cmdFeatures veleroflag.StringArray
+	var cmdColorzied veleroflag.OptionalBool
+
+	c := &cobra.Command{
+		Use:   baseName,
 		Short: "OADP CLI commands",
 		Run: func(cmd *cobra.Command, args []string) {
 			// Default action when no subcommand is provided
 			if isRunningAsPlugin() {
-				fmt.Printf("Welcome to the OADP CLI! Use '%s --help' to see available commands.\n", usagePrefix)
+				fmt.Printf("Welcome to the OADP CLI! \nUse '%s --help' to see available commands.\n", usagePrefix)
 			} else {
 				fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
+			}
+		},
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			features.Enable(config.Features()...)
+			features.Enable(cmdFeatures...)
+
+			switch {
+			case cmdColorzied.Value != nil:
+				color.NoColor = !*cmdColorzied.Value
+			default:
+				color.NoColor = !config.Colorized()
 			}
 		},
 	}
 
 	// Create Velero client factory for regular Velero commands
 	// This factory is used to create clients for interacting with Velero resources.
-	veleroFactory := newVeleroFactory()
+	f := clientcmd.NewFactory(baseName, config)
 
-	// Create NonAdmin client factory for NonAdminBackup commands
-	// This factory uses the current kubeconfig context namespace instead of hardcoded openshift-adp
-	nonAdminFactory := NewNonAdminFactory()
-
-	// Create the commands and modify their help text before adding them
-	backupCmd := backup.NewCommand(veleroFactory)
-	restoreCmd := restore.NewCommand(veleroFactory)
-	clientCmd := client.NewCommand()
-
-	// Modify help text to replace "velero" with "oadp"
-	updateCommandHelpText(backupCmd, usagePrefix)
-	updateCommandHelpText(restoreCmd, usagePrefix)
-
-	// Add subcommands to the root command
-	rootCmd.AddCommand(version.NewCommand(veleroFactory))
-	rootCmd.AddCommand(backupCmd)
-	rootCmd.AddCommand(restoreCmd)
-	rootCmd.AddCommand(clientCmd)
-
-	// Add verb-based commands for compatibility with Velero CLI pattern
-	rootCmd.AddCommand(verbs.NewGetCommand(veleroFactory, nonAdminFactory))
-	rootCmd.AddCommand(verbs.NewCreateCommand(veleroFactory, nonAdminFactory))
-	rootCmd.AddCommand(verbs.NewDeleteCommand(veleroFactory, nonAdminFactory))
-	rootCmd.AddCommand(verbs.NewDescribeCommand(veleroFactory, nonAdminFactory))
-	rootCmd.AddCommand(verbs.NewLogsCommand(veleroFactory, nonAdminFactory))
+	c.AddCommand(
+		backup.NewCommand(f),
+		schedule.NewCommand(f),
+		restore.NewCommand(f),
+		version.NewCommand(f),
+		get.NewCommand(f),
+		describe.NewCommand(f),
+		create.NewCommand(f),
+		delete.NewCommand(f),
+		cliclient.NewCommand(),
+		completion.NewCommand(),
+		repo.NewCommand(f),
+		bug.NewCommand(),
+		backuplocation.NewCommand(f),
+		snapshotlocation.NewCommand(f),
+		debug.NewCommand(f),
+		repomantenance.NewCommand(f),
+		datamover.NewCommand(f),
+	)
 
 	// Admin NABSL request commands - use Velero factory (admin namespace)
-	rootCmd.AddCommand(nabsl.NewNABSLRequestCommand(veleroFactory))
+	c.AddCommand(nabsl.NewNABSLRequestCommand(f))
 
 	// Custom subcommands - use NonAdmin factory
-	rootCmd.AddCommand(nonadmin.NewNonAdminCommand(nonAdminFactory))
+	c.AddCommand(nonadmin.NewNonAdminCommand(f))
 
-	return rootCmd
-}
-
-func Execute() {
-	if err := NewVeleroRootCommand().Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+	klog.InitFlags(flag.CommandLine)
+	c.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	return c
 }

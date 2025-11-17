@@ -57,32 +57,12 @@ func readVeleroClientConfig() (*ClientConfig, error) {
 	return &config, nil
 }
 
-// newVeleroFactory creates a Velero client factory that respects client configuration.
-// This allows admin commands to follow the same namespace precedence as standard Velero:
-// 1. Client config (oadp client config set namespace=...)
-// 2. Kubeconfig context namespace
-// 3. Velero default (usually "velero")
-func newVeleroFactory() client.Factory {
-	cfg := client.VeleroConfig{}
-
-	// Read client configuration to respect namespace settings
-	clientConfig, err := readVeleroClientConfig()
-	if err == nil && clientConfig.Namespace != "" {
-		// Use namespace from client config if set
-		cfg[client.ConfigKeyNamespace] = clientConfig.Namespace
-	}
-	// If no client config namespace, let Velero use its default resolution:
-	// kubeconfig context > velero default
-
-	return client.NewFactory("oadp-velero-cli", cfg)
-}
-
 // NewNonAdminFactory creates a client factory for NonAdminBackup operations
 // that uses the current kubeconfig context namespace instead of hardcoded openshift-adp
-func NewNonAdminFactory() client.Factory {
+func NewNonAdminFactory(baseName string) client.Factory {
 	// Don't set a default namespace, let it use the kubeconfig context
 	cfg := client.VeleroConfig{}
-	return client.NewFactory("oadp-nonadmin-cli", cfg)
+	return client.NewFactory(baseName, cfg)
 }
 
 // updateCommandHelpText recursively updates help text in commands and subcommands

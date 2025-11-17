@@ -20,8 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/fatih/color"
 	"github.com/migtools/oadp-cli/cmd/nabsl-request"
@@ -51,19 +49,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/cmd/config/completion"
 )
-
-// isRunningAsPlugin detects if the executable is running as a kubectl plugin
-func isRunningAsPlugin() bool {
-	return strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-")
-}
-
-// getUsagePrefix returns the appropriate command prefix for help messages
-func getUsagePrefix() string {
-	if isRunningAsPlugin() {
-		return "kubectl oadp"
-	}
-	return "oadp"
-}
 
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand(baseName string) *cobra.Command {

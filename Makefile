@@ -9,6 +9,13 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 VELERO_NAMESPACE ?= openshift-adp
 ASSUME_DEFAULT ?= false
 
+# Build information for version command
+GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+GIT_TREE_STATE := $(shell if [ -z "`git status --porcelain 2>/dev/null`" ]; then echo "clean"; else echo "dirty"; fi)
+LDFLAGS := -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=$(VERSION) \
+           -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=$(GIT_SHA) \
+           -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitTreeState=$(GIT_TREE_STATE)
+
 # Centralized platform definitions to avoid duplication
 # Matches architectures supported by Kubernetes: https://kubernetes.io/releases/download/#binaries
 PLATFORMS = linux/amd64 linux/arm64 linux/ppc64le linux/s390x darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
@@ -74,7 +81,7 @@ build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compil
 			binary_suffix=""; \
 		fi; \
 		echo "Building $(BINARY_NAME) for $(PLATFORM)..."; \
-		GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BINARY_NAME)-$(GOOS)-$(GOARCH)$$binary_suffix .; \
+		GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "$(LDFLAGS)" -o $(BINARY_NAME)-$(GOOS)-$(GOARCH)$$binary_suffix .; \
 		echo "✅ Built $(BINARY_NAME)-$(GOOS)-$(GOARCH)$$binary_suffix successfully!"; \
 	else \
 		GOOS=$$(go env GOOS); \
@@ -84,7 +91,7 @@ build: ## Build the kubectl plugin binary (use PLATFORM=os/arch for cross-compil
 			binary_name="$(BINARY_NAME)"; \
 		fi; \
 		echo "Building $$binary_name for current platform ($$GOOS/$$(go env GOARCH))..."; \
-		go build -o $$binary_name .; \
+		go build -ldflags "$(LDFLAGS)" -o $$binary_name .; \
 		echo "✅ Built $$binary_name successfully!"; \
 	fi
 
@@ -111,48 +118,48 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 	if [[ ":$$PATH:" != *":$(INSTALL_PATH):"* ]]; then \
 		PATH_NEEDS_UPDATE=true; \
 		CURRENT_SESSION_NEEDS_UPDATE=true; \
-		echo "⚠️  $(INSTALL_PATH) is not in your current PATH"; \
+		echo "   ├─ ⚠️  $(INSTALL_PATH) is not in your current PATH"; \
 		\
 		if [[ "$$SHELL" == */zsh* ]] && [[ -f "$$HOME/.zshrc" ]]; then \
 			if ! grep -q '^[[:space:]]*export[[:space:]]*PATH.*\.local/bin' "$$HOME/.zshrc" 2>/dev/null; then \
 				echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> "$$HOME/.zshrc"; \
-				echo "✅ Added PATH export to ~/.zshrc"; \
+				echo "   ├─ ✅ Added PATH export to ~/.zshrc"; \
 				PATH_UPDATED=true; \
 			else \
-				echo "ℹ️  PATH export already exists in ~/.zshrc"; \
+				echo "   ├─ ℹ️  PATH export already exists in ~/.zshrc"; \
 				PATH_IN_CONFIG=true; \
 			fi; \
 		elif [[ "$$SHELL" == */bash* ]] && [[ -f "$$HOME/.bashrc" ]]; then \
 			if ! grep -q '^[[:space:]]*export[[:space:]]*PATH.*\.local/bin' "$$HOME/.bashrc" 2>/dev/null; then \
 				echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> "$$HOME/.bashrc"; \
-				echo "✅ Added PATH export to ~/.bashrc"; \
+				echo "   ├─ ✅ Added PATH export to ~/.bashrc"; \
 				PATH_UPDATED=true; \
 			else \
-				echo "ℹ️  PATH export already exists in ~/.bashrc"; \
+				echo "   ├─ ℹ️  PATH export already exists in ~/.bashrc"; \
 				PATH_IN_CONFIG=true; \
 			fi; \
 		else \
-			echo "⚠️  Unsupported shell or config file not found"; \
-			echo "    Manually add to your shell config: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+			echo "   ├─ ⚠️  Unsupported shell or config file not found"; \
+			echo "   │  └─ Manually add to your shell config: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
 			PATH_UPDATED=true; \
 		fi; \
 	else \
-		echo "✅ $(INSTALL_PATH) is already in PATH"; \
+		echo "   └─ ✅ $(INSTALL_PATH) is already in PATH"; \
 	fi; \
 	\
 	echo ""; \
 	if [[ "$$CURRENT_SESSION_NEEDS_UPDATE" == "true" ]]; then \
 		echo "🔧 To use kubectl oadp in this terminal session:"; \
-		echo "   export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+		echo "   └─ export PATH=\"$(INSTALL_PATH):$$PATH\""; \
 		echo ""; \
 		echo "🔄 For future sessions:"; \
 		if [[ "$$PATH_UPDATED" == "true" ]]; then \
-			echo "   Restart your terminal or run: source ~/.zshrc"; \
+			echo "   └─ Restart your terminal or run: source ~/.zshrc"; \
 		elif [[ "$$PATH_IN_CONFIG" == "true" ]]; then \
-			echo "   Restart your terminal or run: source ~/.zshrc"; \
-			echo "   (PATH export exists but may need shell restart)"; \
+			echo "   ├─ Restart your terminal or run: source ~/.zshrc"; \
+			echo "   └─ (PATH export exists but may need shell restart)"; \
 		else \
-			echo "   Add the PATH export to your shell configuration file"; \
+			echo "   └─ Add the PATH export to your shell configuration file"; \
 		fi; \
 	fi; \
 	echo ""; \
@@ -161,38 +168,46 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 	DETECTED=false; \
 	if [[ "$(ASSUME_DEFAULT)" != "true" && "$(VELERO_NAMESPACE)" == "openshift-adp" ]]; then \
 		echo ""; \
-		echo "🔍 Detecting OADP deployment in cluster..."; \
+		echo "   🔍 Detecting OADP deployment in cluster..."; \
 		DETECTED_NS=$$(kubectl get deployments --all-namespaces -o jsonpath='{.items[?(@.metadata.name=="openshift-adp-controller-manager")].metadata.namespace}' 2>/dev/null | head -1); \
 		if [[ -n "$$DETECTED_NS" ]]; then \
-			echo "✅ Found OADP controller in namespace: $$DETECTED_NS"; \
+			echo "   ├─ ✅ Found OADP controller in namespace: $$DETECTED_NS"; \
 			NAMESPACE=$$DETECTED_NS; \
 			DETECTED=true; \
 		else \
-			echo "   Could not find openshift-adp-controller-manager deployment"; \
+			echo "   ├─ ⚠️  Could not find openshift-adp-controller-manager deployment"; \
 		fi; \
-		echo "🔍 Looking for DataProtectionApplication (DPA) resources..."; \
+		echo ""; \
+		echo "   🔍 Looking for DataProtectionApplication (DPA) resources..."; \
 		DETECTED_NS=$$(kubectl get dataprotectionapplication --all-namespaces -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null | head -1); \
 		if [[ -n "$$DETECTED_NS" ]]; then \
-			echo "✅ Found DPA resource in namespace: $$DETECTED_NS"; \
+			echo "   ├─ ✅ Found DPA resource in namespace: $$DETECTED_NS"; \
 			NAMESPACE=$$DETECTED_NS; \
 			DETECTED=true; \
 		else \
-			echo "   Could not find DataProtectionApplication resources"; \
+			echo "   ├─ ⚠️  Could not find DataProtectionApplication resources"; \
 		fi; \
-		echo "🔍 Looking for Velero deployment as fallback..."; \
+		echo ""; \
+		echo "   ⚠️  ⚠️  ⚠️"; \
+		echo "   ├─ ❌ OADP Operator is not detected in the cluster"; \
+		echo "   ├─ Fallback will check for Velero deployment as fallback"; \
+		echo "   ├─ Consider using the velero cli instead"; \
+		echo "   ⚠️  ⚠️  ⚠️"; \
+		echo ""; \
+		echo "   🔍 Looking for Velero deployment as fallback..."; \
 		DETECTED_NS=$$(kubectl get deployments --all-namespaces -o jsonpath='{.items[?(@.metadata.name=="velero")].metadata.namespace}' 2>/dev/null | head -1); \
 		if [[ -n "$$DETECTED_NS" ]]; then \
-			echo "✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
+			echo "   ├─ ✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
 			NAMESPACE=$$DETECTED_NS; \
 			DETECTED=true; \
 		else \
-			echo "⚠️  Could not detect OADP or Velero deployment in cluster"; \
+			echo "   └─ ⚠️  Could not detect OADP or Velero deployment in cluster"; \
 		fi; \
 		if [[ "$$DETECTED" == "false" ]]; then \
-			echo "🤔 Which namespace should admin commands use for Velero resources?"; \
-			echo "   (Common options: openshift-adp, velero, oadp)"; \
+			echo "   🤔 Which namespace should admin commands use for Velero resources?"; \
+			echo "   │  └─ (Common options: openshift-adp, velero, oadp)"; \
 			echo ""; \
-			printf "Enter namespace [default: $(VELERO_NAMESPACE)]: "; \
+			printf "   Enter namespace [default: $(VELERO_NAMESPACE)]: "; \
 			read -r user_input; \
 			if [[ -n "$$user_input" ]]; then \
 				NAMESPACE=$$user_input; \
@@ -200,7 +215,7 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		fi; \
 		echo ""; \
 	fi; \
-		echo "Setting Velero namespace to: $$NAMESPACE"; \
+		echo "   ├─ Setting Velero namespace to: $$NAMESPACE"; \
 		GOOS=$$(go env GOOS); \
 		if [ "$$GOOS" = "windows" ]; then \
 			binary_name="$(BINARY_NAME).exe"; \
@@ -208,42 +223,38 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 			binary_name="$(BINARY_NAME)"; \
 		fi; \
 		$(INSTALL_PATH)/$$binary_name client config set namespace=$$NAMESPACE 2>/dev/null || true; \
-		echo "✅ Client config initialized"; \
+		echo "   └─ ✅ Client config initialized"; \
 	echo ""; \
 	echo "🧪 Verifying installation..."; \
 	if [[ "$$CURRENT_SESSION_NEEDS_UPDATE" == "true" ]]; then \
-		echo "   Temporarily updating PATH for verification"; \
+		echo "   ├─ Temporarily updating PATH for verification"; \
 		if PATH="$(INSTALL_PATH):$$PATH" command -v kubectl >/dev/null 2>&1; then \
 			if PATH="$(INSTALL_PATH):$$PATH" kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
-				echo "✅ Installation verified: kubectl oadp plugin is accessible"; \
-				PATH="$(INSTALL_PATH):$$PATH" kubectl oadp version 2>/dev/null || echo "   (Note: version command requires cluster access)"; \
+				echo "   ├─ ✅ Installation verified: kubectl oadp plugin is accessible"; \
+				PATH="$(INSTALL_PATH):$$PATH" kubectl oadp version 2>/dev/null || echo "   │  └─ (Note: version command requires cluster access)"; \
 			else \
-				echo "❌ Installation verification failed: kubectl oadp plugin not found"; \
-				echo "   Try running: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+				echo "   ├─ ❌ Installation verification failed: kubectl oadp plugin not found"; \
+				echo "   │  └─ Try running: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
 			fi; \
 		else \
-			echo "⚠️  kubectl not found - cannot verify plugin accessibility"; \
-			echo "   Plugin installed to: $(INSTALL_PATH)/$$binary_name"; \
+			echo "   ├─ ⚠️  kubectl not found - cannot verify plugin accessibility"; \
+			echo "   └─ Plugin installed to: $(INSTALL_PATH)/$$binary_name"; \
 		fi; \
 	else \
 		if command -v kubectl >/dev/null 2>&1; then \
 			if kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
-				echo "✅ Installation verified: kubectl oadp plugin is accessible"; \
-				kubectl oadp version 2>/dev/null || echo "   (Note: version command requires cluster access)"; \
+				echo "   ├─ ✅ Installation verified: kubectl oadp plugin is accessible"; \
+				echo "   ├─ Running version command..."; \
+				echo ""; \
+				kubectl oadp version 2>/dev/null || echo "   │  └─ (Note: version command requires cluster access)"; \
 			else \
-				echo "❌ Installation verification failed: kubectl oadp plugin not found"; \
+				echo "   └─ ❌ Installation verification failed: kubectl oadp plugin not found"; \
 			fi; \
 		else \
-			echo "⚠️  kubectl not found - cannot verify plugin accessibility"; \
-			echo "   Plugin installed to: $(INSTALL_PATH)/$$binary_name"; \
+			echo "   ├─ ⚠️  kubectl not found - cannot verify plugin accessibility"; \
+			echo "   └─ Plugin installed to: $(INSTALL_PATH)/$$binary_name"; \
 		fi; \
 	fi; \
-	echo ""; \
-	echo "📋 Next steps:"; \
-	echo "  1. Test admin commands: kubectl oadp backup get"; \
-	echo "  2. Test non-admin commands: kubectl oadp nonadmin backup get"; \
-	echo "  3. Manage NABSL requests: kubectl oadp nabsl get"; \
-	echo "  4. Change namespace: kubectl oadp client config set namespace=<namespace>"
 
 .PHONY: install-user
 install-user: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo required)
@@ -390,7 +401,7 @@ release-build: ## Build binaries for all platforms
 			output_name="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}"; \
 		fi; \
 		echo "Building $$output_name..."; \
-		GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$output_name .; \
+		GOOS=$$GOOS GOARCH=$$GOARCH go build -ldflags "$(LDFLAGS)" -o $$output_name .; \
 		echo "✅ Built $$output_name"; \
 	done
 	@echo "✅ All release binaries created successfully!"

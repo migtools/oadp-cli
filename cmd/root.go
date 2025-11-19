@@ -19,7 +19,9 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/migtools/oadp-cli/cmd/nabsl-request"
@@ -49,6 +51,45 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/cmd/config/completion"
 )
+
+// replaceVeleroWithOADP recursively replaces all mentions of "velero" with "oadp" in the
+// Example field of the given command and all its children. It also wraps the Run function
+// to replace "velero" with "oadp" in runtime output.
+func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
+	// Replace in multiple command fields
+	cmd.Example = strings.ReplaceAll(cmd.Example, "velero", "oadp")
+
+	// Wrap the Run function to replace velero in output
+	if cmd.Run != nil {
+		originalRun := cmd.Run
+		cmd.Run = func(c *cobra.Command, args []string) {
+			// Capture stdout temporarily
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Run the original command
+			originalRun(c, args)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read captured output and replace velero with oadp
+			var buf strings.Builder
+			io.Copy(&buf, r)
+			output := strings.ReplaceAll(buf.String(), "velero", "oadp")
+			fmt.Print(output)
+		}
+	}
+
+	// Recursively process all child commands
+	for _, child := range cmd.Commands() {
+		replaceVeleroWithOADP(child)
+	}
+
+	return cmd
+}
 
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand(baseName string) *cobra.Command {
@@ -88,23 +129,23 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	f := clientcmd.NewFactory(baseName, config)
 
 	c.AddCommand(
-		backup.NewCommand(f),
-		schedule.NewCommand(f),
-		restore.NewCommand(f),
-		version.NewCommand(f),
-		get.NewCommand(f),
-		describe.NewCommand(f),
-		create.NewCommand(f),
-		delete.NewCommand(f),
-		cliclient.NewCommand(),
-		completion.NewCommand(),
-		repo.NewCommand(f),
-		bug.NewCommand(),
-		backuplocation.NewCommand(f),
-		snapshotlocation.NewCommand(f),
-		debug.NewCommand(f),
-		repomantenance.NewCommand(f),
-		datamover.NewCommand(f),
+		replaceVeleroWithOADP(backup.NewCommand(f)),
+		replaceVeleroWithOADP(schedule.NewCommand(f)),
+		replaceVeleroWithOADP(restore.NewCommand(f)),
+		replaceVeleroWithOADP(version.NewCommand(f)),
+		replaceVeleroWithOADP(get.NewCommand(f)),
+		replaceVeleroWithOADP(describe.NewCommand(f)),
+		replaceVeleroWithOADP(create.NewCommand(f)),
+		replaceVeleroWithOADP(delete.NewCommand(f)),
+		replaceVeleroWithOADP(cliclient.NewCommand()),
+		replaceVeleroWithOADP(completion.NewCommand()),
+		replaceVeleroWithOADP(repo.NewCommand(f)),
+		replaceVeleroWithOADP(bug.NewCommand()),
+		replaceVeleroWithOADP(backuplocation.NewCommand(f)),
+		replaceVeleroWithOADP(snapshotlocation.NewCommand(f)),
+		replaceVeleroWithOADP(debug.NewCommand(f)),
+		replaceVeleroWithOADP(repomantenance.NewCommand(f)),
+		replaceVeleroWithOADP(datamover.NewCommand(f)),
 	)
 
 	// Admin NABSL request commands - use Velero factory (admin namespace)

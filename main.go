@@ -17,9 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/migtools/oadp-cli/cmd"
 	velerocmd "github.com/vmware-tanzu/velero/pkg/cmd"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -28,8 +25,7 @@ import (
 
 func main() {
 	defer klog.Flush()
-	baseName := filepath.Base(os.Args[0])
 
-	err := cmd.NewVeleroRootCommand(baseName).Execute()
+	err := cmd.NewVeleroRootCommand("oadp").Execute()
 	velerocmd.CheckError(err)
 }

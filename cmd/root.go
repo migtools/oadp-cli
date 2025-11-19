@@ -106,7 +106,10 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 
 			// Read captured output and replace velero with oadp (context-aware)
 			var buf strings.Builder
-			io.Copy(&buf, r)
+			_, err := io.Copy(&buf, r)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: Error copying output: %v\n", err)
+			}
 			output := replaceVeleroCommandWithOADP(buf.String())
 			fmt.Print(output)
 		}

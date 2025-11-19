@@ -244,7 +244,10 @@ func TestReplaceVeleroWithOADP_RunFunctionWrapper(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	if err != nil {
+		t.Errorf("Error copying output: %v", err)
+	}
 	output := buf.String()
 
 	if !outputCaptured {
@@ -412,9 +415,9 @@ func TestReplaceVeleroWithOADP_PreservesProperNouns(t *testing.T) {
 // TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns tests Run wrapper preserves "velero" references
 func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 	tests := []struct {
-		name           string
-		outputFunc     func()
-		shouldContain  []string
+		name             string
+		outputFunc       func()
+		shouldContain    []string
 		shouldNotContain []string
 	}{
 		{
@@ -468,7 +471,10 @@ func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 
 			// Read captured output
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, err := io.Copy(&buf, r)
+			if err != nil {
+				t.Errorf("Error copying output: %v", err)
+			}
 			output := buf.String()
 
 			for _, should := range tt.shouldContain {
@@ -485,4 +491,3 @@ func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 		})
 	}
 }
-

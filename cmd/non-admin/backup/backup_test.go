@@ -82,6 +82,8 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			args: []string{"nonadmin", "backup", "logs", "--help"},
 			expectContains: []string{
 				"Show logs for a non-admin backup",
+				"--timeout",
+				"Maximum time to wait for logs to be available",
 			},
 		},
 		{
@@ -136,6 +138,7 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Get logs for non-admin resources",
 				"backup",
+				"--timeout",
 			},
 		},
 		// Shorthand verb-noun order tests

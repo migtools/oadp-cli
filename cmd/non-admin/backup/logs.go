@@ -113,7 +113,7 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			for {
 				select {
 				case <-ctx.Done():
-					return shared.FormatDownloadRequestTimeoutError(ctx, kbClient, req, timeout)
+					return shared.FormatDownloadRequestTimeoutError(kbClient, req, timeout)
 				case <-ticker.C:
 					fmt.Fprintf(cmd.OutOrStdout(), ".")
 					var updated nacv1alpha1.NonAdminDownloadRequest

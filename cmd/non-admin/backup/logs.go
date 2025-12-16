@@ -19,6 +19,7 @@ limitations under the License.
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/migtools/oadp-cli/cmd/shared"
@@ -31,12 +32,17 @@ import (
 )
 
 func NewLogsCommand(f client.Factory, use string) *cobra.Command {
-	return &cobra.Command{
+	c := &cobra.Command{
 		Use:   use + " NAME",
 		Short: "Show logs for a non-admin backup",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			timeout, err := cmd.Flags().GetDuration("timeout")
+			if err != nil {
+				return fmt.Errorf("failed to get timeout flag: %w", err)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
 			// Get the current namespace from kubectl context
@@ -97,19 +103,38 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				_ = kbClient.Delete(deleteCtx, req)
 			}()
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed...\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed (timeout: %v)...\n", timeout)
 
 			// Wait for the download request to be processed using shared utility
 			// Note: We create a custom waiting implementation here to provide user feedback
-			timeout := time.After(120 * time.Second)
+			timeoutChan := time.After(timeout)
 			tick := time.Tick(2 * time.Second)
 
 			var signedURL string
 		Loop:
 			for {
 				select {
-				case <-timeout:
-					return fmt.Errorf("timed out waiting for NonAdminDownloadRequest to be processed")
+				case <-timeoutChan:
+					// Get the latest status to provide helpful error message
+					var updated nacv1alpha1.NonAdminDownloadRequest
+					if err := kbClient.Get(context.Background(), kbclient.ObjectKey{
+						Namespace: req.Namespace,
+						Name:      req.Name,
+					}, &updated); err == nil {
+						// Show what state the request is in
+						var statusInfo string
+						if len(updated.Status.Conditions) > 0 {
+							var conditions []string
+							for _, cond := range updated.Status.Conditions {
+								conditions = append(conditions, fmt.Sprintf("%s=%s", cond.Type, cond.Status))
+							}
+							statusInfo = fmt.Sprintf("NonAdminDownloadRequest conditions: %s", strings.Join(conditions, ", "))
+						} else {
+							statusInfo = "NonAdminDownloadRequest has no status conditions yet"
+						}
+						return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed. %s", timeout, req.Name, statusInfo)
+					}
+					return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed", timeout, req.Name)
 				case <-tick:
 					fmt.Fprintf(cmd.OutOrStdout(), ".")
 					var updated nacv1alpha1.NonAdminDownloadRequest
@@ -149,4 +174,8 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 		},
 		Example: `  kubectl oadp nonadmin backup logs my-backup`,
 	}
+
+	c.Flags().Duration("timeout", 5*time.Minute, "Maximum time to wait for logs to be available")
+
+	return c
 }

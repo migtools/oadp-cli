@@ -113,7 +113,12 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			for {
 				select {
 				case <-ctx.Done():
-					return shared.FormatDownloadRequestTimeoutError(kbClient, req, timeout)
+					// Check if context was cancelled due to timeout or other reason
+					if ctx.Err() == context.DeadlineExceeded {
+						return shared.FormatDownloadRequestTimeoutError(kbClient, req, timeout)
+					}
+					// Context cancelled for other reason (e.g., user interruption)
+					return fmt.Errorf("operation cancelled: %w", ctx.Err())
 				case <-ticker.C:
 					fmt.Fprintf(cmd.OutOrStdout(), ".")
 					var updated nacv1alpha1.NonAdminDownloadRequest

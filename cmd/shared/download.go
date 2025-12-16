@@ -31,6 +31,12 @@ import (
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// defaultStatusCheckTimeout is the timeout for retrieving status information
+	// when formatting timeout error messages
+	defaultStatusCheckTimeout = 5 * time.Second
+)
+
 // DownloadRequestOptions holds configuration for creating and processing NonAdminDownloadRequests
 type DownloadRequestOptions struct {
 	// BackupName is the name of the backup to download data for
@@ -103,7 +109,12 @@ func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv
 	for {
 		select {
 		case <-timeoutCtx.Done():
-			return "", FormatDownloadRequestTimeoutError(kbClient, req, timeout)
+			// Check if context was cancelled due to timeout or other reason
+			if timeoutCtx.Err() == context.DeadlineExceeded {
+				return "", FormatDownloadRequestTimeoutError(kbClient, req, timeout)
+			}
+			// Context cancelled for other reason (e.g., user interruption)
+			return "", fmt.Errorf("operation cancelled: %w", timeoutCtx.Err())
 		case <-ticker.C:
 			var updated nacv1alpha1.NonAdminDownloadRequest
 			if err := kbClient.Get(ctx, kbclient.ObjectKey{
@@ -207,7 +218,7 @@ func StreamDownloadContent(url string, writer io.Writer) error {
 func FormatDownloadRequestTimeoutError(kbClient kbclient.Client, req *nacv1alpha1.NonAdminDownloadRequest, timeout time.Duration) error {
 	// Get the latest status to provide helpful error message
 	// Use a fresh context since the caller's context may already be cancelled
-	statusCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	statusCtx, cancel := context.WithTimeout(context.Background(), defaultStatusCheckTimeout)
 	defer cancel()
 
 	var updated nacv1alpha1.NonAdminDownloadRequest

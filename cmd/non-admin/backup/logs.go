@@ -19,7 +19,6 @@ limitations under the License.
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/migtools/oadp-cli/cmd/shared"
@@ -115,26 +114,7 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			for {
 				select {
 				case <-timeoutChan:
-					// Get the latest status to provide helpful error message
-					var updated nacv1alpha1.NonAdminDownloadRequest
-					if err := kbClient.Get(context.Background(), kbclient.ObjectKey{
-						Namespace: req.Namespace,
-						Name:      req.Name,
-					}, &updated); err == nil {
-						// Show what state the request is in
-						var statusInfo string
-						if len(updated.Status.Conditions) > 0 {
-							var conditions []string
-							for _, cond := range updated.Status.Conditions {
-								conditions = append(conditions, fmt.Sprintf("%s=%s", cond.Type, cond.Status))
-							}
-							statusInfo = fmt.Sprintf("NonAdminDownloadRequest conditions: %s", strings.Join(conditions, ", "))
-						} else {
-							statusInfo = "NonAdminDownloadRequest has no status conditions yet"
-						}
-						return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed. %s", timeout, req.Name, statusInfo)
-					}
-					return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed", timeout, req.Name)
+					return shared.FormatDownloadRequestTimeoutError(kbClient, req, timeout)
 				case <-tick:
 					fmt.Fprintf(cmd.OutOrStdout(), ".")
 					var updated nacv1alpha1.NonAdminDownloadRequest

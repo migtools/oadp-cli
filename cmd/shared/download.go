@@ -103,7 +103,7 @@ func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv
 	for {
 		select {
 		case <-timeoutCtx.Done():
-			return "", FormatDownloadRequestTimeoutError(kbClient, req, timeout)
+			return "", FormatDownloadRequestTimeoutError(ctx, kbClient, req, timeout)
 		case <-ticker.C:
 			var updated nacv1alpha1.NonAdminDownloadRequest
 			if err := kbClient.Get(ctx, kbclient.ObjectKey{
@@ -201,10 +201,14 @@ func StreamDownloadContent(url string, writer io.Writer) error {
 
 // FormatDownloadRequestTimeoutError creates an informative timeout error message
 // by retrieving the current status of the NonAdminDownloadRequest.
-func FormatDownloadRequestTimeoutError(kbClient kbclient.Client, req *nacv1alpha1.NonAdminDownloadRequest, timeout time.Duration) error {
+func FormatDownloadRequestTimeoutError(ctx context.Context, kbClient kbclient.Client, req *nacv1alpha1.NonAdminDownloadRequest, timeout time.Duration) error {
 	// Get the latest status to provide helpful error message
+	// Use a short-lived context to avoid blocking on this final status check
+	statusCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	var updated nacv1alpha1.NonAdminDownloadRequest
-	if err := kbClient.Get(context.Background(), kbclient.ObjectKey{
+	if err := kbClient.Get(statusCtx, kbclient.ObjectKey{
 		Namespace: req.Namespace,
 		Name:      req.Name,
 	}, &updated); err == nil {

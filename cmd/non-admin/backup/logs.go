@@ -104,18 +104,17 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed (timeout: %v)...\n", timeout)
 
-			// Wait for the download request to be processed using shared utility
-			// Note: We create a custom waiting implementation here to provide user feedback
-			timeoutChan := time.After(timeout)
-			tick := time.Tick(2 * time.Second)
+			// Wait for the download request to be processed
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
 
 			var signedURL string
 		Loop:
 			for {
 				select {
-				case <-timeoutChan:
-					return shared.FormatDownloadRequestTimeoutError(kbClient, req, timeout)
-				case <-tick:
+				case <-ctx.Done():
+					return shared.FormatDownloadRequestTimeoutError(ctx, kbClient, req, timeout)
+				case <-ticker.C:
 					fmt.Fprintf(cmd.OutOrStdout(), ".")
 					var updated nacv1alpha1.NonAdminDownloadRequest
 					if err := kbClient.Get(ctx, kbclient.ObjectKey{

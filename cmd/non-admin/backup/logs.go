@@ -30,6 +30,11 @@ import (
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// defaultLogsTimeout is the default timeout for waiting for backup logs to be available
+	defaultLogsTimeout = 5 * time.Minute
+)
+
 func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 	c := &cobra.Command{
 		Use:   use + " NAME",
@@ -105,6 +110,8 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed (timeout: %v)...\n", timeout)
 
 			// Wait for the download request to be processed
+			// Note: We implement custom polling here instead of using shared.ProcessDownloadRequest
+			// because we want to show progress feedback (dots) to the user
 			ticker := time.NewTicker(2 * time.Second)
 			defer ticker.Stop()
 
@@ -159,7 +166,7 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 		Example: `  kubectl oadp nonadmin backup logs my-backup`,
 	}
 
-	c.Flags().Duration("timeout", 5*time.Minute, "Maximum time to wait for logs to be available")
+	c.Flags().Duration("timeout", defaultLogsTimeout, "Maximum time to wait for logs to be available")
 
 	return c
 }

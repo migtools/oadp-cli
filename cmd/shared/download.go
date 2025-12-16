@@ -117,7 +117,7 @@ func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv
 			return "", fmt.Errorf("operation cancelled: %w", timeoutCtx.Err())
 		case <-ticker.C:
 			var updated nacv1alpha1.NonAdminDownloadRequest
-			if err := kbClient.Get(ctx, kbclient.ObjectKey{
+			if err := kbClient.Get(timeoutCtx, kbclient.ObjectKey{
 				Namespace: req.Namespace,
 				Name:      req.Name,
 			}, &updated); err != nil {

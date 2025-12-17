@@ -60,6 +60,8 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			args: []string{"nonadmin", "backup", "describe", "--help"},
 			expectContains: []string{
 				"Describe a non-admin backup",
+				"--timeout",
+				"Maximum time to wait for backup details to be available",
 			},
 		},
 		{
@@ -130,6 +132,7 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			expectContains: []string{
 				"Describe non-admin resources",
 				"backup",
+				"--timeout",
 			},
 		},
 		{

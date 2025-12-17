@@ -17,12 +17,22 @@ import (
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// defaultDescribeTimeout is the default timeout for fetching backup details
+	defaultDescribeTimeout = 5 * time.Minute
+)
+
 func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 	c := &cobra.Command{
 		Use:   use + " NAME",
 		Short: "Describe a non-admin backup",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			timeout, err := cmd.Flags().GetDuration("timeout")
+			if err != nil {
+				return fmt.Errorf("failed to get timeout flag: %w", err)
+			}
+
 			backupName := args[0]
 
 			// Get the current namespace from kubectl context
@@ -51,12 +61,14 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			}
 
 			// Print in Velero-style format
-			printNonAdminBackupDetails(cmd, &nab)
+			printNonAdminBackupDetails(cmd, &nab, kbClient, userNamespace, timeout)
 
 			return nil
 		},
 		Example: `  kubectl oadp nonadmin backup describe my-backup`,
 	}
+
+	c.Flags().Duration("timeout", defaultDescribeTimeout, "Maximum time to wait for backup details to be available")
 
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
@@ -65,7 +77,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 }
 
 // printNonAdminBackupDetails prints backup details in Velero admin describe format
-func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup) {
+func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, userNamespace string, timeout time.Duration) {
 	out := cmd.OutOrStdout()
 
 	// Get Velero backup reference if available
@@ -350,8 +362,8 @@ func colorizePhase(phase string) string {
 
 // NonAdminDescribeBackup mirrors Velero's output.DescribeBackup functionality
 // but works within non-admin RBAC boundaries using NonAdminDownloadRequest
-func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// Print basic backup information

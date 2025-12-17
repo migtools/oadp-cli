@@ -21,7 +21,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -30,6 +32,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// DefaultHTTPTimeout is the default timeout for HTTP requests when downloading content from object storage.
+// This prevents the CLI from hanging indefinitely if the connection stalls.
+const DefaultHTTPTimeout = 10 * time.Minute
+
+// HTTPTimeoutEnvVar is the environment variable name that can be used to override the default HTTP timeout.
+// Example: OADP_CLI_HTTP_TIMEOUT=30m kubectl oadp nonadmin backup logs my-backup
+const HTTPTimeoutEnvVar = "OADP_CLI_HTTP_TIMEOUT"
+
+// getHTTPTimeout returns the HTTP timeout to use for download operations.
+// It checks for an environment variable override first, then falls back to the default.
+func getHTTPTimeout() time.Duration {
+	if envTimeout := os.Getenv(HTTPTimeoutEnvVar); envTimeout != "" {
+		if parsed, err := time.ParseDuration(envTimeout); err == nil {
+			log.Printf("Using custom HTTP timeout from %s: %v", HTTPTimeoutEnvVar, parsed)
+			return parsed
+		}
+		log.Printf("Warning: Invalid duration in %s=%q, using default %v", HTTPTimeoutEnvVar, envTimeout, DefaultHTTPTimeout)
+	}
+	return DefaultHTTPTimeout
+}
+
+// httpClientWithTimeout returns an HTTP client with a configured timeout.
+// Using a custom client instead of http.DefaultClient ensures downloads don't hang indefinitely.
+func httpClientWithTimeout(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+	}
+}
 
 // DownloadRequestOptions holds configuration for creating and processing NonAdminDownloadRequests
 type DownloadRequestOptions struct {
@@ -134,8 +165,16 @@ func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv
 
 // DownloadContent fetches content from a signed URL and returns it as a string.
 // It handles both gzipped and non-gzipped content automatically.
+// Uses DefaultHTTPTimeout (or OADP_CLI_HTTP_TIMEOUT env var) to prevent hanging indefinitely.
 func DownloadContent(url string) (string, error) {
-	resp, err := http.Get(url)
+	return DownloadContentWithTimeout(url, getHTTPTimeout())
+}
+
+// DownloadContentWithTimeout fetches content from a signed URL with a specified timeout.
+// It handles both gzipped and non-gzipped content automatically.
+func DownloadContentWithTimeout(url string, timeout time.Duration) (string, error) {
+	client := httpClientWithTimeout(timeout)
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("failed to download content from URL %q: %w", url, err)
 	}
@@ -168,8 +207,16 @@ func DownloadContent(url string) (string, error) {
 
 // StreamDownloadContent fetches content from a signed URL and streams it to the provided writer.
 // This is useful for large files like logs that should be streamed rather than loaded into memory.
+// Uses DefaultHTTPTimeout (or OADP_CLI_HTTP_TIMEOUT env var) to prevent hanging indefinitely.
 func StreamDownloadContent(url string, writer io.Writer) error {
-	resp, err := http.Get(url)
+	return StreamDownloadContentWithTimeout(url, writer, getHTTPTimeout())
+}
+
+// StreamDownloadContentWithTimeout fetches content from a signed URL with a specified timeout
+// and streams it to the provided writer.
+func StreamDownloadContentWithTimeout(url string, writer io.Writer, timeout time.Duration) error {
+	client := httpClientWithTimeout(timeout)
+	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to download content from URL %q: %w", url, err)
 	}

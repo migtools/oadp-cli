@@ -41,10 +41,17 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 	o := NewDeleteOptions()
 
 	c := &cobra.Command{
-		Use:   use + " NAME [NAME...]",
+		Use:   use + " [NAME...] | --all",
 		Short: "Delete one or more non-admin backups",
-		Long:  "Delete one or more non-admin backups by setting the deletebackup field to true",
-		Args:  cobra.MinimumNArgs(1),
+		Long:  "Delete one or more non-admin backups by setting the deletebackup field to true. Use --all to delete all backups in the current namespace.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Check if --all flag is set
+			allFlag, _ := cmd.Flags().GetBool("all")
+			if allFlag {
+				return cobra.NoArgs(cmd, args)
+			}
+			return cobra.MinimumNArgs(1)(cmd, args)
+		},
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate())
@@ -64,6 +71,7 @@ type DeleteOptions struct {
 	Names     []string
 	Namespace string // Internal field - automatically determined from kubectl context
 	Confirm   bool   // Skip confirmation prompt
+	All       bool   // Delete all backups in namespace
 	client    kbclient.Client
 }
 
@@ -75,6 +83,7 @@ func NewDeleteOptions() *DeleteOptions {
 // BindFlags binds the command line flags to the options
 func (o *DeleteOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&o.Confirm, "confirm", false, "Skip confirmation prompt and delete immediately")
+	flags.BoolVar(&o.All, "all", false, "Delete all backups in the current namespace")
 }
 
 // Complete completes the options by setting up the client and determining the namespace
@@ -98,13 +107,34 @@ func (o *DeleteOptions) Complete(args []string, f client.Factory) error {
 	}
 	o.Namespace = currentNS
 
+	// If --all flag is used, list all backups in the namespace
+	if o.All {
+		var nabList nacv1alpha1.NonAdminBackupList
+		err := o.client.List(context.TODO(), &nabList, &kbclient.ListOptions{
+			Namespace: o.Namespace,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list backups: %w", err)
+		}
+
+		// Extract backup names
+		o.Names = make([]string, 0, len(nabList.Items))
+		for _, nab := range nabList.Items {
+			o.Names = append(o.Names, nab.Name)
+		}
+
+		if len(o.Names) == 0 {
+			return fmt.Errorf("no backups found in namespace '%s'", o.Namespace)
+		}
+	}
+
 	return nil
 }
 
 // Validate validates the options
 func (o *DeleteOptions) Validate() error {
-	if len(o.Names) == 0 {
-		return fmt.Errorf("at least one backup name is required")
+	if !o.All && len(o.Names) == 0 {
+		return fmt.Errorf("at least one backup name is required, or use --all to delete all backups")
 	}
 	if o.Namespace == "" {
 		return fmt.Errorf("namespace is required")
@@ -115,7 +145,11 @@ func (o *DeleteOptions) Validate() error {
 // Run executes the delete command
 func (o *DeleteOptions) Run() error {
 	// Show what will be deleted
-	fmt.Printf("The following NonAdminBackup(s) will be marked for deletion in namespace '%s':\n", o.Namespace)
+	if o.All {
+		fmt.Printf("All NonAdminBackup(s) in namespace '%s' will be marked for deletion:\n", o.Namespace)
+	} else {
+		fmt.Printf("The following NonAdminBackup(s) will be marked for deletion in namespace '%s':\n", o.Namespace)
+	}
 	for _, name := range o.Names {
 		fmt.Printf("  - %s\n", name)
 	}
@@ -177,7 +211,9 @@ func (o *DeleteOptions) Run() error {
 func (o *DeleteOptions) promptForConfirmation() (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
 
-	if len(o.Names) == 1 {
+	if o.All {
+		fmt.Printf("Are you sure you want to delete ALL %d backup(s) in namespace '%s'? (y/N): ", len(o.Names), o.Namespace)
+	} else if len(o.Names) == 1 {
 		fmt.Printf("Are you sure you want to delete backup '%s'? (y/N): ", o.Names[0])
 	} else {
 		fmt.Printf("Are you sure you want to delete these %d backups? (y/N): ", len(o.Names))

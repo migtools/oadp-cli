@@ -17,18 +17,29 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/migtools/oadp-cli/cmd/nabsl-request"
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/spf13/cobra"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	clientcmd "github.com/vmware-tanzu/velero/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/cli/backuplocation"
@@ -52,6 +63,111 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/cmd/config/completion"
 )
+
+// globalRequestTimeout holds the request timeout value set by --request-timeout flag.
+// This is used by the timeoutFactory wrapper to apply dial timeout to all clients.
+var (
+	globalRequestTimeout time.Duration
+	globalTimeoutMu      sync.RWMutex
+)
+
+// setGlobalRequestTimeout sets the global request timeout value.
+func setGlobalRequestTimeout(timeout time.Duration) {
+	globalTimeoutMu.Lock()
+	defer globalTimeoutMu.Unlock()
+	globalRequestTimeout = timeout
+}
+
+// getGlobalRequestTimeout gets the global request timeout value.
+func getGlobalRequestTimeout() time.Duration {
+	globalTimeoutMu.RLock()
+	defer globalTimeoutMu.RUnlock()
+	return globalRequestTimeout
+}
+
+// timeoutFactory wraps a Velero client.Factory to apply dial timeout to REST configs.
+type timeoutFactory struct {
+	clientcmd.Factory
+}
+
+// applyTimeoutToConfig applies the global request timeout to a REST config.
+func applyTimeoutToConfig(config *rest.Config) {
+	timeout := getGlobalRequestTimeout()
+	if timeout > 0 {
+		config.Timeout = timeout
+
+		// Set custom dial function with timeout for TCP connections
+		dialer := &net.Dialer{
+			Timeout: timeout,
+		}
+		config.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, address)
+		}
+	}
+}
+
+// ClientConfig returns a REST config with dial timeout applied.
+func (f *timeoutFactory) ClientConfig() (*rest.Config, error) {
+	config, err := f.Factory.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	applyTimeoutToConfig(config)
+	return config, nil
+}
+
+// KubeClient returns a Kubernetes client with dial timeout applied.
+func (f *timeoutFactory) KubeClient() (kubernetes.Interface, error) {
+	config, err := f.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(config)
+}
+
+// DynamicClient returns a Kubernetes dynamic client with dial timeout applied.
+func (f *timeoutFactory) DynamicClient() (dynamic.Interface, error) {
+	config, err := f.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return dynamic.NewForConfig(config)
+}
+
+// DiscoveryClient returns a Kubernetes discovery client with dial timeout applied.
+func (f *timeoutFactory) DiscoveryClient() (discovery.AggregatedDiscoveryInterface, error) {
+	config, err := f.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return discovery.NewDiscoveryClientForConfig(config)
+}
+
+// KubebuilderClient returns a controller-runtime client with dial timeout applied.
+func (f *timeoutFactory) KubebuilderClient() (kbclient.Client, error) {
+	config, err := f.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	scheme := runtime.NewScheme()
+	if err := velerov1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	return kbclient.New(config, kbclient.Options{Scheme: scheme})
+}
+
+// KubebuilderWatchClient returns a controller-runtime client with watch capability and dial timeout applied.
+func (f *timeoutFactory) KubebuilderWatchClient() (kbclient.WithWatch, error) {
+	config, err := f.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	scheme := runtime.NewScheme()
+	if err := velerov1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	return kbclient.NewWithWatch(config, kbclient.Options{Scheme: scheme})
+}
 
 // veleroCommandPattern matches "velero" when used as a CLI command.
 // It matches "velero" followed by common command patterns, including two-word commands
@@ -123,6 +239,76 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+// renameTimeoutFlag renames --timeout flag to --request-timeout for kubectl consistency.
+// This applies to all commands recursively to ensure a consistent CLI experience.
+func renameTimeoutFlag(cmd *cobra.Command) {
+	// Check if this command has a --timeout flag
+	timeoutFlag := cmd.Flags().Lookup("timeout")
+	if timeoutFlag != nil {
+		// Get the current value and usage
+		usage := timeoutFlag.Usage
+		defValue := timeoutFlag.DefValue
+
+		// Parse the default value as duration
+		var defaultDuration time.Duration
+		if defValue != "" && defValue != "0s" {
+			if parsed, err := time.ParseDuration(defValue); err == nil {
+				defaultDuration = parsed
+			}
+		}
+
+		// Create a variable to hold the value
+		var requestTimeout time.Duration
+
+		// If there's a shorthand, we need to handle it
+		shorthand := timeoutFlag.Shorthand
+
+		// Hide the old flag instead of removing it (to avoid breaking existing scripts)
+		timeoutFlag.Hidden = true
+
+		// Add the new --request-timeout flag
+		if shorthand != "" {
+			cmd.Flags().DurationVarP(&requestTimeout, "request-timeout", shorthand, defaultDuration, usage)
+		} else {
+			cmd.Flags().DurationVar(&requestTimeout, "request-timeout", defaultDuration, usage)
+		}
+
+		// Link the flags so setting one affects the other and set global timeout
+		cmd.PreRunE = wrapPreRunE(cmd.PreRunE, func(c *cobra.Command, args []string) error {
+			// If request-timeout was set, copy its value to the timeout flag and set global
+			if c.Flags().Changed("request-timeout") {
+				rtFlag := c.Flags().Lookup("request-timeout")
+				if rtFlag != nil {
+					// Set the global timeout for the timeoutFactory wrapper
+					if parsed, err := time.ParseDuration(rtFlag.Value.String()); err == nil {
+						setGlobalRequestTimeout(parsed)
+					}
+					return c.Flags().Set("timeout", rtFlag.Value.String())
+				}
+			}
+			return nil
+		})
+	}
+
+	// Recursively process all child commands
+	for _, child := range cmd.Commands() {
+		renameTimeoutFlag(child)
+	}
+}
+
+// wrapPreRunE wraps an existing PreRunE function with additional logic
+func wrapPreRunE(existing func(*cobra.Command, []string) error, additional func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		if err := additional(cmd, args); err != nil {
+			return err
+		}
+		if existing != nil {
+			return existing(cmd, args)
+		}
+		return nil
+	}
+}
+
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand(baseName string) *cobra.Command {
 
@@ -158,7 +344,9 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 
 	// Create Velero client factory for regular Velero commands
 	// This factory is used to create clients for interacting with Velero resources.
-	f := clientcmd.NewFactory(baseName, config)
+	// We wrap it with timeoutFactory to apply dial timeout from --request-timeout flag.
+	baseFactory := clientcmd.NewFactory(baseName, config)
+	f := &timeoutFactory{Factory: baseFactory}
 
 	c.AddCommand(
 		backup.NewCommand(f),
@@ -189,6 +377,11 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	// Apply velero->oadp replacement to all commands recursively
 	for _, cmd := range c.Commands() {
 		replaceVeleroWithOADP(cmd)
+	}
+
+	// Rename --timeout flags to --request-timeout for kubectl consistency
+	for _, cmd := range c.Commands() {
+		renameTimeoutFlag(cmd)
 	}
 
 	klog.InitFlags(flag.CommandLine)

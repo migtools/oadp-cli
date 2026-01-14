@@ -18,6 +18,8 @@ import (
 )
 
 func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
+	var requestTimeout time.Duration
+
 	c := &cobra.Command{
 		Use:   use + " NAME",
 		Short: "Describe a non-admin backup",
@@ -25,17 +27,25 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			backupName := args[0]
 
+			// Get effective timeout (flag takes precedence over env var)
+			effectiveTimeout := shared.GetHTTPTimeoutWithOverride(requestTimeout)
+
+			// Create context with the effective timeout
+			ctx, cancel := context.WithTimeout(context.Background(), effectiveTimeout)
+			defer cancel()
+
 			// Get the current namespace from kubectl context
 			userNamespace, err := shared.GetCurrentNamespace()
 			if err != nil {
 				return fmt.Errorf("failed to determine current namespace: %w", err)
 			}
 
-			// Create client with required scheme types
+			// Create client with required scheme types and timeout
 			kbClient, err := shared.NewClientWithScheme(f, shared.ClientOptions{
 				IncludeNonAdminTypes: true,
 				IncludeVeleroTypes:   true,
 				IncludeCoreTypes:     true,
+				Timeout:              effectiveTimeout,
 			})
 			if err != nil {
 				return err
@@ -43,10 +53,17 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 
 			// Get the specific backup
 			var nab nacv1alpha1.NonAdminBackup
-			if err := kbClient.Get(context.Background(), kbclient.ObjectKey{
+			if err := kbClient.Get(ctx, kbclient.ObjectKey{
 				Namespace: userNamespace,
 				Name:      backupName,
 			}, &nab); err != nil {
+				// Check for context cancellation
+				if ctx.Err() == context.DeadlineExceeded {
+					return fmt.Errorf("timed out after %v getting NonAdminBackup %q", effectiveTimeout, backupName)
+				}
+				if ctx.Err() == context.Canceled {
+					return fmt.Errorf("operation cancelled: %w", ctx.Err())
+				}
 				return fmt.Errorf("NonAdminBackup %q not found in namespace %q: %w", backupName, userNamespace, err)
 			}
 
@@ -55,8 +72,11 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 
 			return nil
 		},
-		Example: `  kubectl oadp nonadmin backup describe my-backup`,
+		Example: `  kubectl oadp nonadmin backup describe my-backup
+  kubectl oadp nonadmin backup describe my-backup --request-timeout=30m`,
 	}
+
+	c.Flags().DurationVar(&requestTimeout, "request-timeout", 0, fmt.Sprintf("The length of time to wait before giving up on a single server request (e.g., 30s, 5m, 1h). Overrides %s env var. Default: %v", shared.TimeoutEnvVar, shared.DefaultHTTPTimeout))
 
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
@@ -349,9 +369,16 @@ func colorizePhase(phase string) string {
 }
 
 // NonAdminDescribeBackup mirrors Velero's output.DescribeBackup functionality
-// but works within non-admin RBAC boundaries using NonAdminDownloadRequest
-func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+// but works within non-admin RBAC boundaries using NonAdminDownloadRequest.
+// The timeout parameter controls how long to wait for download requests to complete.
+// If timeout is 0, DefaultOperationTimeout is used.
+func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string, timeout time.Duration) error {
+	// Use provided timeout or fall back to default
+	if timeout == 0 {
+		timeout = shared.DefaultOperationTimeout
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// Print basic backup information
@@ -401,9 +428,10 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 
 		// Get backup results using NonAdminDownloadRequest (most important data)
 		if results, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-			BackupName: veleroBackupName,
-			DataType:   "BackupResults",
-			Namespace:  userNamespace,
+			BackupName:  veleroBackupName,
+			DataType:    "BackupResults",
+			Namespace:   userNamespace,
+			HTTPTimeout: timeout,
 		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Results:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(results, "  "))
@@ -411,9 +439,10 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 
 		// Get backup details using NonAdminDownloadRequest for BackupResourceList
 		if resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-			BackupName: veleroBackupName,
-			DataType:   "BackupResourceList",
-			Namespace:  userNamespace,
+			BackupName:  veleroBackupName,
+			DataType:    "BackupResourceList",
+			Namespace:   userNamespace,
+			HTTPTimeout: timeout,
 		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Resource List:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(resourceList, "  "))
@@ -421,9 +450,10 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 
 		// Get backup volume info using NonAdminDownloadRequest
 		if volumeInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-			BackupName: veleroBackupName,
-			DataType:   "BackupVolumeInfos",
-			Namespace:  userNamespace,
+			BackupName:  veleroBackupName,
+			DataType:    "BackupVolumeInfos",
+			Namespace:   userNamespace,
+			HTTPTimeout: timeout,
 		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Volume Info:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(volumeInfo, "  "))
@@ -431,9 +461,10 @@ func NonAdminDescribeBackup(cmd *cobra.Command, kbClient kbclient.Client, nab *n
 
 		// Get backup item operations using NonAdminDownloadRequest
 		if itemOps, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-			BackupName: veleroBackupName,
-			DataType:   "BackupItemOperations",
-			Namespace:  userNamespace,
+			BackupName:  veleroBackupName,
+			DataType:    "BackupItemOperations",
+			Namespace:   userNamespace,
+			HTTPTimeout: timeout,
 		}); err == nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "\nBackup Item Operations:\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "%s", indent(itemOps, "  "))

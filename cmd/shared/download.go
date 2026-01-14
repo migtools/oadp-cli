@@ -37,20 +37,35 @@ import (
 // This prevents the CLI from hanging indefinitely if the connection stalls.
 const DefaultHTTPTimeout = 10 * time.Minute
 
-// HTTPTimeoutEnvVar is the environment variable name that can be used to override the default HTTP timeout.
-// Example: OADP_CLI_HTTP_TIMEOUT=30m kubectl oadp nonadmin backup logs my-backup
-const HTTPTimeoutEnvVar = "OADP_CLI_HTTP_TIMEOUT"
+// TimeoutEnvVar is the environment variable name that can be used to override the default timeout.
+// Example: OADP_CLI_REQUEST_TIMEOUT=30m kubectl oadp nonadmin backup logs my-backup
+const TimeoutEnvVar = "OADP_CLI_REQUEST_TIMEOUT"
 
 // getHTTPTimeout returns the HTTP timeout to use for download operations.
 // It checks for an environment variable override first, then falls back to the default.
 func getHTTPTimeout() time.Duration {
-	if envTimeout := os.Getenv(HTTPTimeoutEnvVar); envTimeout != "" {
+	return GetHTTPTimeoutWithOverride(0)
+}
+
+// GetHTTPTimeoutWithOverride returns the HTTP timeout to use for download operations.
+// Priority order: override parameter (if > 0) > environment variable > default.
+// This allows CLI flags to take precedence over environment variables.
+func GetHTTPTimeoutWithOverride(override time.Duration) time.Duration {
+	// If an explicit override is provided (e.g., from --timeout flag), use it
+	if override > 0 {
+		log.Printf("Using HTTP timeout from command-line flag: %v", override)
+		return override
+	}
+
+	// Check for environment variable
+	if envTimeout := os.Getenv(TimeoutEnvVar); envTimeout != "" {
 		if parsed, err := time.ParseDuration(envTimeout); err == nil {
-			log.Printf("Using custom HTTP timeout from %s: %v", HTTPTimeoutEnvVar, parsed)
+			log.Printf("Using custom HTTP timeout from %s: %v", TimeoutEnvVar, parsed)
 			return parsed
 		}
-		log.Printf("Warning: Invalid duration in %s=%q, using default %v", HTTPTimeoutEnvVar, envTimeout, DefaultHTTPTimeout)
+		log.Printf("Warning: Invalid duration in %s=%q, using default %v", TimeoutEnvVar, envTimeout, DefaultHTTPTimeout)
 	}
+
 	return DefaultHTTPTimeout
 }
 
@@ -74,6 +89,9 @@ type DownloadRequestOptions struct {
 	Timeout time.Duration
 	// PollInterval is how often to check the status of the download request
 	PollInterval time.Duration
+	// HTTPTimeout is the timeout for downloading content from the signed URL.
+	// If zero, uses the default timeout (env var or DefaultHTTPTimeout).
+	HTTPTimeout time.Duration
 }
 
 // ProcessDownloadRequest creates a NonAdminDownloadRequest, waits for it to be processed,
@@ -119,8 +137,9 @@ func ProcessDownloadRequest(ctx context.Context, kbClient kbclient.Client, opts 
 		return "", err
 	}
 
-	// Download and return the content
-	return DownloadContent(signedURL)
+	// Download and return the content using the specified HTTP timeout
+	httpTimeout := GetHTTPTimeoutWithOverride(opts.HTTPTimeout)
+	return DownloadContentWithTimeout(signedURL, httpTimeout)
 }
 
 // waitForDownloadURL waits for a NonAdminDownloadRequest to be processed and returns the signed URL
@@ -165,7 +184,7 @@ func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv
 
 // DownloadContent fetches content from a signed URL and returns it as a string.
 // It handles both gzipped and non-gzipped content automatically.
-// Uses DefaultHTTPTimeout (or OADP_CLI_HTTP_TIMEOUT env var) to prevent hanging indefinitely.
+// Uses DefaultHTTPTimeout (or OADP_CLI_REQUEST_TIMEOUT env var) to prevent hanging indefinitely.
 func DownloadContent(url string) (string, error) {
 	return DownloadContentWithTimeout(url, getHTTPTimeout())
 }
@@ -207,7 +226,7 @@ func DownloadContentWithTimeout(url string, timeout time.Duration) (string, erro
 
 // StreamDownloadContent fetches content from a signed URL and streams it to the provided writer.
 // This is useful for large files like logs that should be streamed rather than loaded into memory.
-// Uses DefaultHTTPTimeout (or OADP_CLI_HTTP_TIMEOUT env var) to prevent hanging indefinitely.
+// Uses DefaultHTTPTimeout (or OADP_CLI_REQUEST_TIMEOUT env var) to prevent hanging indefinitely.
 func StreamDownloadContent(url string, writer io.Writer) error {
 	return StreamDownloadContentWithTimeout(url, writer, getHTTPTimeout())
 }
@@ -244,4 +263,40 @@ func StreamDownloadContentWithTimeout(url string, writer io.Writer, timeout time
 	}
 
 	return nil
+}
+
+// DefaultOperationTimeout is the default timeout for waiting for download requests to be processed.
+const DefaultOperationTimeout = 5 * time.Minute
+
+// defaultStatusCheckTimeout is the timeout for checking status when formatting timeout errors.
+const defaultStatusCheckTimeout = 5 * time.Second
+
+// FormatDownloadRequestTimeoutError creates a helpful error message when a download request times out.
+// It attempts to fetch the current status of the request to provide diagnostic information.
+func FormatDownloadRequestTimeoutError(kbClient kbclient.Client, req *nacv1alpha1.NonAdminDownloadRequest, timeout time.Duration) error {
+	// If client is available, try to get the current status for better diagnostics
+	if kbClient != nil {
+		// Use a fresh context to check final status since the original context is expired
+		statusCtx, cancel := context.WithTimeout(context.Background(), defaultStatusCheckTimeout)
+		defer cancel()
+
+		var updated nacv1alpha1.NonAdminDownloadRequest
+		if err := kbClient.Get(statusCtx, kbclient.ObjectKey{
+			Namespace: req.Namespace,
+			Name:      req.Name,
+		}, &updated); err == nil {
+			// Format status conditions for helpful error message
+			var statusInfo string
+			if len(updated.Status.Conditions) > 0 {
+				var conditions []string
+				for _, c := range updated.Status.Conditions {
+					conditions = append(conditions, fmt.Sprintf("%s=%s (reason: %s)", c.Type, c.Status, c.Reason))
+				}
+				statusInfo = fmt.Sprintf(" Current status: %s.", strings.Join(conditions, ", "))
+			}
+			return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed.%s", timeout, req.Name, statusInfo)
+		}
+	}
+
+	return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed", timeout, req.Name)
 }

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 )
 
 // TestDefaultHTTPTimeout verifies the default timeout constant
@@ -35,11 +37,11 @@ func TestDefaultHTTPTimeout(t *testing.T) {
 	}
 }
 
-// TestHTTPTimeoutEnvVar verifies the environment variable name constant
-func TestHTTPTimeoutEnvVar(t *testing.T) {
-	expected := "OADP_CLI_HTTP_TIMEOUT"
-	if HTTPTimeoutEnvVar != expected {
-		t.Errorf("HTTPTimeoutEnvVar = %q, want %q", HTTPTimeoutEnvVar, expected)
+// TestTimeoutEnvVar verifies the environment variable name constant
+func TestTimeoutEnvVar(t *testing.T) {
+	expected := "OADP_CLI_REQUEST_TIMEOUT"
+	if TimeoutEnvVar != expected {
+		t.Errorf("TimeoutEnvVar = %q, want %q", TimeoutEnvVar, expected)
 	}
 }
 
@@ -95,13 +97,13 @@ func TestGetHTTPTimeout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Save and restore original env var
-			originalValue := os.Getenv(HTTPTimeoutEnvVar)
-			defer os.Setenv(HTTPTimeoutEnvVar, originalValue)
+			originalValue := os.Getenv(TimeoutEnvVar)
+			defer os.Setenv(TimeoutEnvVar, originalValue)
 
 			if tt.envValue != "" {
-				os.Setenv(HTTPTimeoutEnvVar, tt.envValue)
+				os.Setenv(TimeoutEnvVar, tt.envValue)
 			} else {
-				os.Unsetenv(HTTPTimeoutEnvVar)
+				os.Unsetenv(TimeoutEnvVar)
 			}
 
 			got := getHTTPTimeout()
@@ -246,9 +248,9 @@ func TestDownloadContentWithTimeout(t *testing.T) {
 // TestDownloadContent tests that DownloadContent uses the default timeout mechanism
 func TestDownloadContent(t *testing.T) {
 	// Save and restore original env var
-	originalValue := os.Getenv(HTTPTimeoutEnvVar)
-	defer os.Setenv(HTTPTimeoutEnvVar, originalValue)
-	os.Unsetenv(HTTPTimeoutEnvVar)
+	originalValue := os.Getenv(TimeoutEnvVar)
+	defer os.Setenv(TimeoutEnvVar, originalValue)
+	os.Unsetenv(TimeoutEnvVar)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -369,9 +371,9 @@ func TestStreamDownloadContentWithTimeout(t *testing.T) {
 // TestStreamDownloadContent tests that StreamDownloadContent uses the default timeout mechanism
 func TestStreamDownloadContent(t *testing.T) {
 	// Save and restore original env var
-	originalValue := os.Getenv(HTTPTimeoutEnvVar)
-	defer os.Setenv(HTTPTimeoutEnvVar, originalValue)
-	os.Unsetenv(HTTPTimeoutEnvVar)
+	originalValue := os.Getenv(TimeoutEnvVar)
+	defer os.Setenv(TimeoutEnvVar, originalValue)
+	os.Unsetenv(TimeoutEnvVar)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -411,16 +413,140 @@ func TestStreamDownloadContentWithTimeout_InvalidURL(t *testing.T) {
 // TestGetHTTPTimeoutWithEnvVar tests that the env var override works correctly
 func TestGetHTTPTimeoutWithEnvVar(t *testing.T) {
 	// Save and restore original env var
-	originalValue := os.Getenv(HTTPTimeoutEnvVar)
-	defer os.Setenv(HTTPTimeoutEnvVar, originalValue)
+	originalValue := os.Getenv(TimeoutEnvVar)
+	defer os.Setenv(TimeoutEnvVar, originalValue)
 
 	// Set custom timeout
-	os.Setenv(HTTPTimeoutEnvVar, "5m")
+	os.Setenv(TimeoutEnvVar, "5m")
 
 	timeout := getHTTPTimeout()
 	expected := 5 * time.Minute
 
 	if timeout != expected {
 		t.Errorf("getHTTPTimeout() with env var = %v, want %v", timeout, expected)
+	}
+}
+
+// TestGetHTTPTimeoutWithOverride tests the priority order: override > env var > default
+func TestGetHTTPTimeoutWithOverride(t *testing.T) {
+	tests := []struct {
+		name     string
+		override time.Duration
+		envValue string
+		want     time.Duration
+	}{
+		{
+			name:     "override takes precedence over env var",
+			override: 15 * time.Minute,
+			envValue: "30m",
+			want:     15 * time.Minute,
+		},
+		{
+			name:     "override takes precedence over default when no env var",
+			override: 20 * time.Minute,
+			envValue: "",
+			want:     20 * time.Minute,
+		},
+		{
+			name:     "zero override falls back to env var",
+			override: 0,
+			envValue: "25m",
+			want:     25 * time.Minute,
+		},
+		{
+			name:     "zero override and no env var falls back to default",
+			override: 0,
+			envValue: "",
+			want:     DefaultHTTPTimeout,
+		},
+		{
+			name:     "zero override with invalid env var falls back to default",
+			override: 0,
+			envValue: "invalid",
+			want:     DefaultHTTPTimeout,
+		},
+		{
+			name:     "small override value is respected",
+			override: 30 * time.Second,
+			envValue: "10m",
+			want:     30 * time.Second,
+		},
+		{
+			name:     "large override value is respected",
+			override: 2 * time.Hour,
+			envValue: "5m",
+			want:     2 * time.Hour,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save and restore original env var
+			originalValue := os.Getenv(TimeoutEnvVar)
+			defer os.Setenv(TimeoutEnvVar, originalValue)
+
+			if tt.envValue != "" {
+				os.Setenv(TimeoutEnvVar, tt.envValue)
+			} else {
+				os.Unsetenv(TimeoutEnvVar)
+			}
+
+			got := GetHTTPTimeoutWithOverride(tt.override)
+			if got != tt.want {
+				t.Errorf("GetHTTPTimeoutWithOverride(%v) = %v, want %v", tt.override, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDefaultOperationTimeout verifies the default operation timeout constant
+func TestDefaultOperationTimeout(t *testing.T) {
+	expected := 5 * time.Minute
+	if DefaultOperationTimeout != expected {
+		t.Errorf("DefaultOperationTimeout = %v, want %v", DefaultOperationTimeout, expected)
+	}
+}
+
+// TestFormatDownloadRequestTimeoutError_NilClient tests error formatting when client is nil or request fails
+func TestFormatDownloadRequestTimeoutError_BasicMessage(t *testing.T) {
+	// Test that the function returns a properly formatted error message
+	// even when we can't fetch the status (simulated by passing nil client)
+	timeout := 5 * time.Minute
+
+	// Create a mock request
+	req := &nacv1alpha1.NonAdminDownloadRequest{}
+	req.Name = "test-backup-logs-abc123"
+	req.Namespace = "test-namespace"
+
+	// With a nil client, the Get will fail, so we'll get the basic error message
+	err := FormatDownloadRequestTimeoutError(nil, req, timeout)
+
+	// Should contain timeout duration and request name
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "5m0s") {
+		t.Errorf("error should contain timeout duration '5m0s', got: %s", errStr)
+	}
+	if !strings.Contains(errStr, "test-backup-logs-abc123") {
+		t.Errorf("error should contain request name, got: %s", errStr)
+	}
+	if !strings.Contains(errStr, "timed out") {
+		t.Errorf("error should contain 'timed out', got: %s", errStr)
+	}
+}
+
+// TestGetHTTPTimeoutWithOverride_ZeroReturnsDefault verifies that zero override with no env var returns default
+func TestGetHTTPTimeoutWithOverride_ZeroReturnsDefault(t *testing.T) {
+	// Save and restore original env var
+	originalValue := os.Getenv(TimeoutEnvVar)
+	defer os.Setenv(TimeoutEnvVar, originalValue)
+	os.Unsetenv(TimeoutEnvVar)
+
+	got := GetHTTPTimeoutWithOverride(0)
+	if got != DefaultHTTPTimeout {
+		t.Errorf("GetHTTPTimeoutWithOverride(0) without env var = %v, want %v", got, DefaultHTTPTimeout)
 	}
 }

@@ -17,7 +17,10 @@ limitations under the License.
 package shared
 
 import (
+	"context"
 	"fmt"
+	"net"
+	"time"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -36,10 +39,51 @@ type ClientOptions struct {
 	IncludeVeleroTypes bool
 	// IncludeCoreTypes adds Kubernetes core types to the scheme
 	IncludeCoreTypes bool
+	// Timeout sets a timeout on the REST client configuration.
+	// This prevents the client from hanging indefinitely when the cluster is unreachable.
+	// If zero, no timeout is set.
+	Timeout time.Duration
 }
 
 // NewClientWithScheme creates a controller-runtime client with the specified scheme types
 func NewClientWithScheme(f client.Factory, opts ClientOptions) (kbclient.WithWatch, error) {
+	// If a timeout is specified, we need to create the client manually with the timeout
+	// applied to the REST config. Otherwise, use the factory's default method.
+	if opts.Timeout > 0 {
+		// Get REST config from factory
+		restConfig, err := f.ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get rest config: %w", err)
+		}
+
+		// Set timeout on REST config to prevent hanging when cluster is unreachable
+		restConfig.Timeout = opts.Timeout
+
+		// Set a custom dial function with timeout to ensure TCP connection attempts
+		// also respect the timeout (the default TCP dial timeout is ~30s)
+		dialer := &net.Dialer{
+			Timeout: opts.Timeout,
+		}
+		restConfig.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, address)
+		}
+
+		// Create scheme with required types
+		scheme, err := NewSchemeWithTypes(opts)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create client with the timeout-configured REST config
+		kbClient, err := kbclient.NewWithWatch(restConfig, kbclient.Options{Scheme: scheme})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create controller-runtime client: %w", err)
+		}
+
+		return kbClient, nil
+	}
+
+	// No timeout specified, use factory's default method
 	kbClient, err := f.KubebuilderWatchClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create controller-runtime client: %w", err)

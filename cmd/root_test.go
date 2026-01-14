@@ -18,14 +18,18 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/migtools/oadp-cli/internal/testutil"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 )
 
 // TestRootCommand tests the root command functionality
@@ -489,5 +493,144 @@ func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestGlobalRequestTimeout tests the thread-safe global timeout get/set functions
+func TestGlobalRequestTimeout(t *testing.T) {
+	// Reset to zero at start
+	setGlobalRequestTimeout(0)
+
+	// Test initial value is zero
+	if got := getGlobalRequestTimeout(); got != 0 {
+		t.Errorf("Expected initial timeout to be 0, got %v", got)
+	}
+
+	// Test setting a value
+	expected := 5 * time.Second
+	setGlobalRequestTimeout(expected)
+	if got := getGlobalRequestTimeout(); got != expected {
+		t.Errorf("Expected timeout to be %v, got %v", expected, got)
+	}
+
+	// Test setting another value
+	expected = 30 * time.Second
+	setGlobalRequestTimeout(expected)
+	if got := getGlobalRequestTimeout(); got != expected {
+		t.Errorf("Expected timeout to be %v, got %v", expected, got)
+	}
+
+	// Reset after test
+	setGlobalRequestTimeout(0)
+}
+
+// TestApplyTimeoutToConfig tests that applyTimeoutToConfig correctly sets timeout on REST config
+func TestApplyTimeoutToConfig(t *testing.T) {
+	tests := []struct {
+		name          string
+		globalTimeout time.Duration
+		expectTimeout bool
+		expectDialer  bool
+	}{
+		{
+			name:          "zero timeout does not modify config",
+			globalTimeout: 0,
+			expectTimeout: false,
+			expectDialer:  false,
+		},
+		{
+			name:          "positive timeout sets config timeout and dialer",
+			globalTimeout: 10 * time.Second,
+			expectTimeout: true,
+			expectDialer:  true,
+		},
+		{
+			name:          "1 second timeout",
+			globalTimeout: 1 * time.Second,
+			expectTimeout: true,
+			expectDialer:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set global timeout
+			setGlobalRequestTimeout(tt.globalTimeout)
+			defer setGlobalRequestTimeout(0)
+
+			// Create a config
+			config := &rest.Config{
+				Host: "https://test-cluster:6443",
+			}
+
+			// Apply timeout
+			applyTimeoutToConfig(config)
+
+			// Check timeout
+			if tt.expectTimeout {
+				if config.Timeout != tt.globalTimeout {
+					t.Errorf("Expected config.Timeout to be %v, got %v", tt.globalTimeout, config.Timeout)
+				}
+			} else {
+				if config.Timeout != 0 {
+					t.Errorf("Expected config.Timeout to be 0, got %v", config.Timeout)
+				}
+			}
+
+			// Check dialer
+			if tt.expectDialer {
+				if config.Dial == nil {
+					t.Error("Expected config.Dial to be set, but it was nil")
+				}
+			} else {
+				if config.Dial != nil {
+					t.Error("Expected config.Dial to be nil, but it was set")
+				}
+			}
+		})
+	}
+}
+
+// TestApplyTimeoutToConfig_DialerTimeout tests that the custom dialer respects the timeout
+func TestApplyTimeoutToConfig_DialerTimeout(t *testing.T) {
+	// Set a very short timeout
+	timeout := 100 * time.Millisecond
+	setGlobalRequestTimeout(timeout)
+	defer setGlobalRequestTimeout(0)
+
+	config := &rest.Config{
+		Host: "https://test-cluster:6443",
+	}
+
+	applyTimeoutToConfig(config)
+
+	if config.Dial == nil {
+		t.Fatal("Expected config.Dial to be set")
+	}
+
+	// Test that the dialer times out quickly when connecting to a non-routable address
+	// 10.255.255.1 is a non-routable IP that should cause a timeout
+	ctx := context.Background()
+	start := time.Now()
+	_, err := config.Dial(ctx, "tcp", "10.255.255.1:6443")
+	elapsed := time.Since(start)
+
+	// Should get a timeout error
+	if err == nil {
+		t.Error("Expected dial to fail with timeout, but it succeeded")
+	}
+
+	// Check it's a timeout error
+	if netErr, ok := err.(net.Error); ok {
+		if !netErr.Timeout() {
+			t.Errorf("Expected timeout error, got: %v", err)
+		}
+	}
+
+	// Should complete within a reasonable time of the timeout
+	// Allow some margin for test execution overhead
+	maxExpected := timeout + 500*time.Millisecond
+	if elapsed > maxExpected {
+		t.Errorf("Dial took too long: %v (expected ~%v)", elapsed, timeout)
 	}
 }

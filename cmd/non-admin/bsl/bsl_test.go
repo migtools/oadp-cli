@@ -111,3 +111,65 @@ func TestBSLCreateUsesNewCredentialFlag(t *testing.T) {
 		}
 	})
 }
+
+// TestBSLVerbNounOrderFlagPassing tests that flags are properly passed through
+// when using verb-noun order (e.g., "create bsl" instead of "bsl create")
+func TestBSLVerbNounOrderFlagPassing(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	t.Run("create bsl recognizes credential flag", func(t *testing.T) {
+		// This test verifies that the credential flag is properly recognized
+		// in verb-noun order. The command should fail with validation errors
+		// if flags are missing, but should NOT fail with "--credential is required"
+		// when the credential flag is provided.
+		args := []string{"nonadmin", "create", "bsl", "test-bsl",
+			"--provider", "aws",
+			"--bucket", "test-bucket",
+			"--credential", "cloud-credentials=cloud",
+			"--region", "us-east-1",
+		}
+
+		output, err := testutil.RunCommand(t, binaryPath, args...)
+
+		// Should NOT fail with "--credential is required" error
+		// (it will fail for other reasons like missing cluster, but not validation)
+		if strings.Contains(output, "--credential is required") {
+			t.Errorf("Credential flag was not recognized in verb-noun order.\nOutput:\n%s", output)
+		}
+
+		// Should also NOT fail with other validation errors since all required flags are provided
+		validationErrors := []string{
+			"--provider is required",
+			"--bucket is required",
+		}
+		for _, validationError := range validationErrors {
+			if strings.Contains(output, validationError) {
+				t.Errorf("Flag validation failed, flag was not recognized: %s\nOutput:\n%s", validationError, output)
+			}
+		}
+
+		// Command will error (no cluster), but should not be a validation error
+		if err != nil {
+			t.Logf("Command errored as expected (no cluster): %s", output)
+		}
+	})
+
+	t.Run("create bsl with missing credential shows validation error", func(t *testing.T) {
+		// Verify that validation still works - if credential is missing, it should error
+		args := []string{"nonadmin", "create", "bsl", "test-bsl",
+			"--provider", "aws",
+			"--bucket", "test-bucket",
+			"--region", "us-east-1",
+		}
+
+		output, err := testutil.RunCommand(t, binaryPath, args...)
+
+		if err == nil {
+			t.Errorf("Expected command to error when credential is missing, but it succeeded.\nOutput:\n%s", output)
+		}
+
+		if !strings.Contains(output, "--credential is required") {
+			t.Errorf("Expected validation error for missing credential flag, but didn't get it.\nOutput:\n%s", output)
+		}
+	})
+}

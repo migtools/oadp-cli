@@ -187,21 +187,23 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		else \
 			echo "   ├─ ⚠️  Could not find DataProtectionApplication resources"; \
 		fi; \
-		echo ""; \
-		echo "   ⚠️  ⚠️  ⚠️"; \
-		echo "   ├─ ❌ OADP Operator is not detected in the cluster"; \
-		echo "   ├─ Fallback will check for Velero deployment as fallback"; \
-		echo "   ├─ Consider using the velero cli instead"; \
-		echo "   ⚠️  ⚠️  ⚠️"; \
-		echo ""; \
-		echo "   🔍 Looking for Velero deployment as fallback..."; \
-		DETECTED_NS=$$(kubectl get deployments --all-namespaces -o jsonpath='{.items[?(@.metadata.name=="velero")].metadata.namespace}' 2>/dev/null | head -1); \
-		if [[ -n "$$DETECTED_NS" ]]; then \
-			echo "   ├─ ✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
-			NAMESPACE=$$DETECTED_NS; \
-			DETECTED=true; \
-		else \
-			echo "   └─ ⚠️  Could not detect OADP or Velero deployment in cluster"; \
+		if [[ "$$DETECTED" == "false" ]]; then \
+			echo ""; \
+			echo "   ⚠️  ⚠️  ⚠️"; \
+			echo "   ├─ ❌ OADP Operator is not detected in the cluster"; \
+			echo "   ├─ Fallback will check for Velero deployment as fallback"; \
+			echo "   ├─ Consider using the velero cli instead"; \
+			echo "   ⚠️  ⚠️  ⚠️"; \
+			echo ""; \
+			echo "   🔍 Looking for Velero deployment as fallback..."; \
+			DETECTED_NS=$$(kubectl get deployments --all-namespaces -o jsonpath='{.items[?(@.metadata.name=="velero")].metadata.namespace}' 2>/dev/null | head -1); \
+			if [[ -n "$$DETECTED_NS" ]]; then \
+				echo "   ├─ ✅ Found Velero deployment in namespace: $$DETECTED_NS"; \
+				NAMESPACE=$$DETECTED_NS; \
+				DETECTED=true; \
+			else \
+				echo "   └─ ⚠️  Could not detect OADP or Velero deployment in cluster"; \
+			fi; \
 		fi; \
 		if [[ "$$DETECTED" == "false" ]]; then \
 			echo "   🤔 Which namespace should admin commands use for Velero resources?"; \

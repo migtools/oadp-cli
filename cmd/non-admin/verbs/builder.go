@@ -68,7 +68,7 @@ func (vb *NonAdminVerbBuilder) BuildVerbCommand(config NonAdminVerbConfig) *cobr
 		Example: config.Example,
 	}
 
-	vb.addFlagsFromResources(verbCmd)
+	vb.addFlagsFromResources(verbCmd, config.Use)
 
 	return verbCmd
 }
@@ -112,17 +112,26 @@ func (vb *NonAdminVerbBuilder) runEFunc(verb string) func(cmd *cobra.Command, ar
 
 // addFlagsToArgs adds flags from the verb command to the remaining args
 func (vb *NonAdminVerbBuilder) addFlagsToArgs(cmd *cobra.Command, remainingArgs []string) []string {
-	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		if flag.Changed {
-			if flag.Value.Type() == "string" {
-				remainingArgs = append(remainingArgs, "--"+flag.Name, flag.Value.String())
-			} else if flag.Value.Type() == "bool" {
-				if flag.Value.String() == "true" {
-					remainingArgs = append(remainingArgs, "--"+flag.Name)
-				}
-			} else if flag.Value.Type() == "stringArray" {
-				// Handle string array flags
-				remainingArgs = append(remainingArgs, "--"+flag.Name, flag.Value.String())
+	// Use Visit instead of VisitAll to only process flags that were actually set
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		flagValue := flag.Value.String()
+		flagType := flag.Value.Type()
+
+		switch flagType {
+		case "string", "map":
+			remainingArgs = append(remainingArgs, "--"+flag.Name, flagValue)
+		case "bool":
+			if flagValue == "true" {
+				remainingArgs = append(remainingArgs, "--"+flag.Name)
+			}
+		case "stringArray", "stringSlice":
+			// Handle string array/slice flags
+			remainingArgs = append(remainingArgs, "--"+flag.Name, flagValue)
+		default:
+			// For any other flag types, try to add them as string values
+			// This handles custom types that implement pflag.Value
+			if flagValue != "" {
+				remainingArgs = append(remainingArgs, "--"+flag.Name, flagValue)
 			}
 		}
 	})
@@ -151,7 +160,7 @@ func (vb *NonAdminVerbBuilder) createCommandInstance(originalCmd *cobra.Command)
 }
 
 // addFlagsFromResources adds flags from all registered resources to the verb command
-func (vb *NonAdminVerbBuilder) addFlagsFromResources(verbCmd *cobra.Command) {
+func (vb *NonAdminVerbBuilder) addFlagsFromResources(verbCmd *cobra.Command, verb string) {
 	addedFlags := make(map[string]bool)
 
 	for _, handler := range vb.resourceRegistry {
@@ -160,18 +169,16 @@ func (vb *NonAdminVerbBuilder) addFlagsFromResources(verbCmd *cobra.Command) {
 			continue
 		}
 
-		// Add flags from the specific verb subcommand (e.g., "backup get" flags to "get" command)
-		// This ensures flags like -o are recognized at the verb level
-		for range []string{"get", "create", "delete", "describe", "logs"} { // Iterate over all possible verbs
-			subCmd := handler.GetSubCommandFunc(resourceCmd)
-			if subCmd != nil {
-				subCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-					if !addedFlags[flag.Name] {
-						verbCmd.Flags().AddFlag(flag)
-						addedFlags[flag.Name] = true
-					}
-				})
-			}
+		// Add flags from the specific verb subcommand (e.g., "backup create" flags to "create" command)
+		// This ensures flags are recognized at the verb level
+		subCmd := handler.GetSubCommandFunc(resourceCmd)
+		if subCmd != nil {
+			subCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+				if !addedFlags[flag.Name] {
+					verbCmd.Flags().AddFlag(flag)
+					addedFlags[flag.Name] = true
+				}
+			})
 		}
 	}
 }

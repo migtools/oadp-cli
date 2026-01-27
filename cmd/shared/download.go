@@ -294,7 +294,7 @@ func FormatDownloadRequestTimeoutError(kbClient kbclient.Client, req *nacv1alpha
 				}
 				statusInfo = fmt.Sprintf(" Current status: %s.", strings.Join(conditions, ", "))
 			}
-			return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed.%s", timeout, req.Name, statusInfo)
+			return fmt.Errorf("timed out after %v waiting for NonAdminDownloadRequest %q to be processed. statusInfo: %s", timeout, req.Name, statusInfo)
 		}
 	}
 

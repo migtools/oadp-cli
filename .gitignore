@@ -26,6 +26,7 @@ oadp-v*.yaml
 go.work
 
 # IDE files
+.claude/
 .vscode/
 .idea/
 *.swp

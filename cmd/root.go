@@ -183,23 +183,27 @@ var veleroCommandPattern = regexp.MustCompile(`(?m)(?:^|[\s\x60])velero\s+(?:` +
 // replaceVeleroCommandWithOADP performs context-aware replacement of "velero" with "oadp".
 // It only replaces "velero" when it's being used as a CLI command, not when referring to
 // the Velero project, server, or components.
+// It also prepends "oc" or "kubectl" based on how the CLI was invoked.
 func replaceVeleroCommandWithOADP(text string) string {
-	// Replace "velero <command>" patterns with "oadp <command>"
+	// Use "oc" as the CLI prefix since OADP is primarily used on OpenShift
+	cliPrefix := "oc"
+
+	// Replace "velero <command>" patterns with "oc/kubectl oadp <command>"
 	result := veleroCommandPattern.ReplaceAllStringFunc(text, func(match string) string {
 		// Preserve leading whitespace or backtick
 		if strings.HasPrefix(match, " ") || strings.HasPrefix(match, "\t") || strings.HasPrefix(match, "`") {
 			prefix := match[0:1]
-			return prefix + strings.Replace(match[1:], "velero", "oadp", 1)
+			return prefix + cliPrefix + " " + strings.Replace(match[1:], "velero", "oadp", 1)
 		}
-		// Start of line - just replace velero
-		return strings.Replace(match, "velero", "oadp", 1)
+		// Start of line - prepend cli prefix
+		return cliPrefix + " " + strings.Replace(match, "velero", "oadp", 1)
 	})
 	return result
 }
 
 // replaceVeleroWithOADP recursively replaces all mentions of "velero" with "oadp" in the
-// Example field of the given command and all its children. It also wraps the Run function
-// to replace "velero" with "oadp" in runtime output.
+// Example field of the given command and all its children. It also wraps the Run and RunE
+// functions to replace "velero" with "oadp" in runtime output.
 func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 	// Replace in multiple command fields using context-aware replacement
 	cmd.Example = replaceVeleroCommandWithOADP(cmd.Example)
@@ -228,6 +232,35 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			}
 			output := replaceVeleroCommandWithOADP(buf.String())
 			fmt.Print(output)
+		}
+	}
+
+	// Wrap the RunE function to replace velero in output
+	if cmd.RunE != nil {
+		originalRunE := cmd.RunE
+		cmd.RunE = func(c *cobra.Command, args []string) error {
+			// Capture stdout temporarily
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Run the original command
+			err := originalRunE(c, args)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read captured output and replace velero with oadp (context-aware)
+			var buf strings.Builder
+			_, copyErr := io.Copy(&buf, r)
+			if copyErr != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: Error copying output: %v\n", copyErr)
+			}
+			output := replaceVeleroCommandWithOADP(buf.String())
+			fmt.Print(output)
+
+			return err
 		}
 	}
 
@@ -383,6 +416,12 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	for _, cmd := range c.Commands() {
 		renameTimeoutFlag(cmd)
 	}
+
+	// Set custom usage template to show "oc oadp" instead of just "oadp"
+	usageTemplate := c.UsageTemplate()
+	usageTemplate = strings.ReplaceAll(usageTemplate, "{{.CommandPath}}", "oc {{.CommandPath}}")
+	usageTemplate = strings.ReplaceAll(usageTemplate, "{{.UseLine}}", "oc {{.UseLine}}")
+	c.SetUsageTemplate(usageTemplate)
 
 	klog.InitFlags(flag.CommandLine)
 	c.PersistentFlags().AddGoFlagSet(flag.CommandLine)

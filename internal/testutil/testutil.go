@@ -32,6 +32,8 @@ import (
 const (
 	// TestTimeout is the default timeout for test operations
 	TestTimeout = 30 * time.Second
+	// BuildTimeout is the timeout for building the CLI binary (longer for CI)
+	BuildTimeout = 2 * time.Minute
 )
 
 // GetProjectRoot returns the root directory of the project
@@ -76,8 +78,8 @@ func BuildCLIBinary(t *testing.T) string {
 	t.Logf("Building CLI binary: %s", binaryPath)
 	t.Logf("Project root: %s", projectRoot)
 
-	// Build the binary
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	// Build the binary with a longer timeout for CI environments
+	ctx, cancel := context.WithTimeout(context.Background(), BuildTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "go", "build", "-o", binaryPath, ".")

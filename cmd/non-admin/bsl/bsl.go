@@ -31,6 +31,7 @@ func NewBSLCommand(f client.Factory) *cobra.Command {
 
 	c.AddCommand(
 		NewCreateCommand(f),
+		NewGetCommand(f, "get"),
 	)
 
 	return c

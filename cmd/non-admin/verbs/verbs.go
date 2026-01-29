@@ -35,7 +35,13 @@ func NewGetCommand(factory client.Factory) *cobra.Command {
   kubectl oadp nonadmin get backup
 
   # Get a specific non-admin backup
-  kubectl oadp nonadmin get backup my-backup`,
+  kubectl oadp nonadmin get backup my-backup
+
+  # Get all non-admin backup storage locations
+  kubectl oadp nonadmin get bsl
+
+  # Get a specific backup storage location
+  kubectl oadp nonadmin get bsl my-storage`,
 	})
 }
 

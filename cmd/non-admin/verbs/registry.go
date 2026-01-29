@@ -36,10 +36,9 @@ func RegisterBackupResources(builder *NonAdminVerbBuilder, verb string) {
 }
 
 // RegisterBSLResources registers bsl resource for a specific verb
-// Note: BSL only supports create command, so we only register for create
 func RegisterBSLResources(builder *NonAdminVerbBuilder, verb string) {
-	// Only register BSL for create command since it doesn't have get, delete, describe, or logs
-	if verb == "create" {
+	// Only register BSL for supported verbs: create, get
+	if verb == "create" || verb == "get" {
 		builder.RegisterResource("bsl", NonAdminResourceHandler{
 			GetCommandFunc: func(factory client.Factory) *cobra.Command {
 				return bsl.NewBSLCommand(factory)

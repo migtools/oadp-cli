@@ -200,6 +200,6 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 
 	fmt.Printf("NonAdminBackupStorageLocation %q created successfully.\n", nabsl.Name)
 	fmt.Printf("The controller will create a request for admin approval.\n")
-	fmt.Printf("Use 'kubectl oadp nonadmin bsl request get' to view auto-created requests.\n")
+	fmt.Printf("Use 'oc oadp nonadmin bsl request get' to view auto-created requests.\n")
 	return nil
 }

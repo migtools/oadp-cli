@@ -191,7 +191,7 @@ func replaceVeleroCommandWithOADP(text string) string {
 	// Replace "velero <command>" patterns with "oc/kubectl oadp <command>"
 	result := veleroCommandPattern.ReplaceAllStringFunc(text, func(match string) string {
 		// Preserve leading whitespace or backtick
-		if strings.HasPrefix(match, " ") || strings.HasPrefix(match, "\t") || strings.HasPrefix(match, "`") {
+		if strings.HasPrefix(match, " ") || strings.HasPrefix(match, "\t") || strings.HasPrefix(match, "`") || strings.HasPrefix(match, "\n") {
 			prefix := match[0:1]
 			return prefix + cliPrefix + " " + strings.Replace(match[1:], "velero", "oadp", 1)
 		}

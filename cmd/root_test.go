@@ -146,10 +146,10 @@ func TestReplaceVeleroWithOADP_BasicReplacement(t *testing.T) {
 	if strings.Contains(cmd.Example, "velero") {
 		t.Errorf("Expected 'velero' to be replaced in Example, got: %s", cmd.Example)
 	}
-	if !strings.Contains(cmd.Example, "oadp") {
-		t.Errorf("Expected 'oadp' in Example, got: %s", cmd.Example)
+	if !strings.Contains(cmd.Example, "oc oadp") {
+		t.Errorf("Expected 'oc oadp' in Example, got: %s", cmd.Example)
 	}
-	expected := "oadp backup create my-backup"
+	expected := "oc oadp backup create my-backup"
 	if cmd.Example != expected {
 		t.Errorf("Expected Example to be %q, got %q", expected, cmd.Example)
 	}
@@ -187,14 +187,14 @@ func TestReplaceVeleroWithOADP_RecursiveReplacement(t *testing.T) {
 	}
 
 	// Verify replacement happened
-	if !strings.Contains(parent.Example, "oadp") {
-		t.Errorf("Parent Example doesn't contain 'oadp': %s", parent.Example)
+	if !strings.Contains(parent.Example, "oc oadp") {
+		t.Errorf("Parent Example doesn't contain 'oc oadp': %s", parent.Example)
 	}
-	if !strings.Contains(child.Example, "oadp") {
-		t.Errorf("Child Example doesn't contain 'oadp': %s", child.Example)
+	if !strings.Contains(child.Example, "oc oadp") {
+		t.Errorf("Child Example doesn't contain 'oc oadp': %s", child.Example)
 	}
-	if !strings.Contains(grandchild.Example, "oadp") {
-		t.Errorf("Grandchild Example doesn't contain 'oadp': %s", grandchild.Example)
+	if !strings.Contains(grandchild.Example, "oc oadp") {
+		t.Errorf("Grandchild Example doesn't contain 'oc oadp': %s", grandchild.Example)
 	}
 }
 
@@ -213,10 +213,10 @@ Use velero backup logs to check status`,
 		t.Errorf("Example still contains 'velero': %s", cmd.Example)
 	}
 
-	// Count occurrences of "oadp"
-	count := strings.Count(cmd.Example, "oadp")
+	// Count occurrences of "oc oadp"
+	count := strings.Count(cmd.Example, "oc oadp")
 	if count != 3 {
-		t.Errorf("Expected 3 occurrences of 'oadp', got %d", count)
+		t.Errorf("Expected 3 occurrences of 'oc oadp', got %d\nActual output:\n%s", count, cmd.Example)
 	}
 }
 
@@ -258,19 +258,19 @@ func TestReplaceVeleroWithOADP_RunFunctionWrapper(t *testing.T) {
 		t.Error("Original Run function was not executed")
 	}
 
-	if strings.Contains(output, "velero") {
-		t.Errorf("Output still contains 'velero': %s", output)
+	if strings.Contains(output, "velero backup") {
+		t.Errorf("Output still contains 'velero backup': %s", output)
 	}
 
-	if !strings.Contains(output, "oadp") {
-		t.Errorf("Output doesn't contain 'oadp': %s", output)
+	if !strings.Contains(output, "oc oadp") {
+		t.Errorf("Output doesn't contain 'oc oadp': %s", output)
 	}
 
 	// Verify both lines were replaced
-	if !strings.Contains(output, "oadp backup describe") {
+	if !strings.Contains(output, "oc oadp backup describe") {
 		t.Errorf("First line not properly replaced: %s", output)
 	}
-	if !strings.Contains(output, "oadp backup logs") {
+	if !strings.Contains(output, "oc oadp backup logs") {
 		t.Errorf("Second line not properly replaced: %s", output)
 	}
 }
@@ -351,8 +351,8 @@ func TestReplaceVeleroWithOADP_CaseSensitive(t *testing.T) {
 	if strings.Contains(cmd.Example, "velero backup describe") {
 		t.Errorf("Expected lowercase 'velero' to be replaced, got: %s", cmd.Example)
 	}
-	if !strings.Contains(cmd.Example, "oadp backup describe") {
-		t.Errorf("Expected 'oadp backup describe' after replacement, got: %s", cmd.Example)
+	if !strings.Contains(cmd.Example, "oc oadp backup describe") {
+		t.Errorf("Expected 'oc oadp backup describe' after replacement, got: %s", cmd.Example)
 	}
 }
 
@@ -381,7 +381,7 @@ func TestReplaceVeleroWithOADP_PreservesProperNouns(t *testing.T) {
 		{
 			name:     "mixed - command and reference",
 			input:    "Run velero backup create to use the velero backup feature",
-			expected: "Run oadp backup create to use the velero backup feature",
+			expected: "Run oc oadp backup create to use the velero backup feature",
 		},
 		{
 			name:     "velero namespace",
@@ -391,12 +391,12 @@ func TestReplaceVeleroWithOADP_PreservesProperNouns(t *testing.T) {
 		{
 			name:     "command at start of line",
 			input:    "velero backup get my-backup",
-			expected: "oadp backup get my-backup",
+			expected: "oc oadp backup get my-backup",
 		},
 		{
 			name:     "command after backtick",
 			input:    "Run `velero backup logs` for details",
-			expected: "Run `oadp backup logs` for details",
+			expected: "Run `oc oadp backup logs` for details",
 		},
 	}
 
@@ -437,7 +437,7 @@ func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 			outputFunc: func() {
 				fmt.Println("Run `velero backup describe test` for details")
 			},
-			shouldContain:    []string{"oadp backup describe"},
+			shouldContain:    []string{"oc oadp backup describe"},
 			shouldNotContain: []string{"velero backup describe"},
 		},
 		{
@@ -445,8 +445,8 @@ func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 			outputFunc: func() {
 				fmt.Println("Use velero backup create to backup using the velero backup controller")
 			},
-			shouldContain:    []string{"oadp backup create", "velero backup controller"},
-			shouldNotContain: []string{"velero backup create", "oadp backup controller"},
+			shouldContain:    []string{"oc oadp backup create", "velero backup controller"},
+			shouldNotContain: []string{"velero backup create", "oc oadp backup controller"},
 		},
 	}
 

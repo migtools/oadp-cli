@@ -11,6 +11,9 @@ kubectl-oadp-linux-*
 kubectl-oadp-darwin-*
 kubectl-oadp-windows-*
 
+# Local development tools
+bin/
+
 # Release artifacts
 *.tar.gz
 *.sha256

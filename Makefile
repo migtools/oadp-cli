@@ -26,11 +26,6 @@ PLATFORM ?=
 GOOS = $(word 1,$(subst /, ,$(PLATFORM)))
 GOARCH = $(word 2,$(subst /, ,$(PLATFORM)))
 
-# Helper function to get binary name with .exe for Windows
-define get_binary_name
-$(if $(findstring windows,$(1)),$(BINARY_NAME).exe,$(BINARY_NAME))
-endef
-
 # Default target
 .PHONY: help
 help: ## Show this help message
@@ -62,10 +57,11 @@ help: ## Show this help message
 	@echo "  make build PLATFORM=windows/amd64"
 	@echo "  make build PLATFORM=windows/arm64"
 	@echo ""
-	@echo "Testing commands:"
+	@echo "Testing and linting commands:"
 	@echo "  make test              # Run all tests (unit + integration)"
 	@echo "  make test-unit         # Run unit tests only"
 	@echo "  make test-integration  # Run integration tests only"
+	@echo "  make lint              # Run golangci-lint checks"
 	@echo ""
 	@echo "Release commands:"
 	@echo "  make release-build         # Build binaries for all platforms"
@@ -329,6 +325,41 @@ uninstall-all: ## Uninstall the kubectl plugin from all locations (user + system
 	@make --no-print-directory uninstall
 	@make --no-print-directory uninstall-system
 
+# Local binary directory for development tools
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+# Tool versions
+GOLANGCI_LINT_VERSION ?= v1.63.4
+
+# Tool binaries
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+
+# go-install-tool will 'go install' any package $2 and install it to $1.
+define go-install-tool
+[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(LOCALBIN) go install $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# golangci-lint installation
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary
+$(GOLANGCI_LINT): $(LOCALBIN)
+	@if [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version 2>&1 | grep -q $(GOLANGCI_LINT_VERSION); then \
+		echo "golangci-lint $(GOLANGCI_LINT_VERSION) is already installed"; \
+	else \
+		echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)"; \
+		$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)); \
+	fi
+
 # Testing targets
 .PHONY: test
 test: ## Run all tests
@@ -351,13 +382,18 @@ test-integration: ## Run integration tests only
 	go test . -v
 	@echo "✅ Integration tests completed!"
 
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint checks against all project's Go files
+	$(GOLANGCI_LINT) run ./...
+
 # Cleanup targets
 .PHONY: clean
-clean: ## Remove built binaries
+clean: ## Remove built binaries and downloaded tools
 	@echo "Cleaning up..."
 	@rm -f $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-linux-* $(BINARY_NAME)-darwin-* $(BINARY_NAME)-windows-*
 	@rm -f *.tar.gz *.sha256
 	@rm -f oadp-*.yaml oadp-*.yaml.tmp
+	@rm -rf $(LOCALBIN)
 	@echo "✅ Cleanup complete!"
 
 # Status and utility targets

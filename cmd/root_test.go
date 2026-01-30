@@ -243,7 +243,7 @@ func TestReplaceVeleroWithOADP_RunFunctionWrapper(t *testing.T) {
 	cmd.Run(cmd, []string{})
 
 	// Restore stdout
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	// Read captured output
@@ -470,7 +470,7 @@ func TestReplaceVeleroWithOADP_RunOutputPreservesProperNouns(t *testing.T) {
 			cmd.Run(cmd, []string{})
 
 			// Restore stdout
-			w.Close()
+			_ = w.Close()
 			os.Stdout = oldStdout
 
 			// Read captured output
@@ -658,11 +658,13 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 			cmd.Run(cmd, []string{})
-			w.Close()
+			_ = w.Close()
 			os.Stdout = oldStdout
 
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Fatalf("Error copying output: %v", err)
+			}
 
 			if !runCalled {
 				t.Error("Original Run function was not called")
@@ -709,7 +711,7 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 		err := cmd.RunE(cmd, []string{})
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		if err != nil {
@@ -721,7 +723,9 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 		}
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		if _, err := io.Copy(&buf, r); err != nil {
+			t.Fatalf("Error copying output: %v", err)
+		}
 		output := buf.String()
 
 		// Logs command output should NOT be modified

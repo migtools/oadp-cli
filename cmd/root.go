@@ -224,7 +224,7 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			originalRun(c, args)
 
 			// Restore stdout
-			w.Close()
+			_ = w.Close()
 			os.Stdout = oldStdout
 
 			// Read captured output and replace velero with oadp (context-aware)
@@ -251,7 +251,7 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			err := originalRunE(c, args)
 
 			// Restore stdout
-			w.Close()
+			_ = w.Close()
 			os.Stdout = oldStdout
 
 			// Read captured output and replace velero with oadp (context-aware)

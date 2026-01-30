@@ -591,6 +591,146 @@ func TestApplyTimeoutToConfig(t *testing.T) {
 	}
 }
 
+// TestReplaceVeleroWithOADP_LogsCommandNotWrapped tests that logs commands are never wrapped
+func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
+	tests := []struct {
+		name        string
+		use         string
+		shouldWrap  bool
+	}{
+		{
+			name:       "logs command",
+			use:        "logs",
+			shouldWrap: false,
+		},
+		{
+			name:       "logs with args",
+			use:        "logs NAME",
+			shouldWrap: false,
+		},
+		{
+			name:       "get command",
+			use:        "get",
+			shouldWrap: true,
+		},
+		{
+			name:       "describe command",
+			use:        "describe",
+			shouldWrap: true,
+		},
+		{
+			name:       "create command",
+			use:        "create",
+			shouldWrap: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test with Run function
+			runCalled := false
+			cmd := &cobra.Command{
+				Use: tt.use,
+				Run: func(c *cobra.Command, args []string) {
+					runCalled = true
+					fmt.Println("test output with velero backup create")
+				},
+			}
+
+			// Store reference to original Run function
+			originalRun := cmd.Run
+
+			replaceVeleroWithOADP(cmd)
+
+			// If logs command, Run should not be wrapped (same function pointer)
+			// If not logs, Run should be wrapped (different function pointer)
+			isWrapped := fmt.Sprintf("%p", originalRun) != fmt.Sprintf("%p", cmd.Run)
+
+			if tt.shouldWrap && !isWrapped {
+				t.Errorf("Expected command %q to be wrapped, but it wasn't", tt.use)
+			}
+			if !tt.shouldWrap && isWrapped {
+				t.Errorf("Expected command %q NOT to be wrapped, but it was", tt.use)
+			}
+
+			// Verify the command still executes
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+			cmd.Run(cmd, []string{})
+			w.Close()
+			os.Stdout = oldStdout
+
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+
+			if !runCalled {
+				t.Error("Original Run function was not called")
+			}
+
+			output := buf.String()
+			if tt.shouldWrap {
+				// Wrapped commands should have output replaced
+				if strings.Contains(output, "velero backup create") {
+					t.Errorf("Wrapped command output should have 'velero' replaced, got: %s", output)
+				}
+			} else {
+				// Logs commands should NOT have output replaced
+				if !strings.Contains(output, "velero backup create") {
+					t.Errorf("Logs command output should NOT be modified, got: %s", output)
+				}
+			}
+		})
+	}
+
+	// Test with RunE function
+	t.Run("logs_command_runE_not_wrapped", func(t *testing.T) {
+		runECalled := false
+		cmd := &cobra.Command{
+			Use: "logs",
+			RunE: func(c *cobra.Command, args []string) error {
+				runECalled = true
+				fmt.Println("test output with velero backup logs")
+				return nil
+			},
+		}
+
+		originalRunE := cmd.RunE
+		replaceVeleroWithOADP(cmd)
+
+		// Logs command should not be wrapped
+		isWrapped := fmt.Sprintf("%p", originalRunE) != fmt.Sprintf("%p", cmd.RunE)
+		if isWrapped {
+			t.Error("Expected logs command RunE NOT to be wrapped, but it was")
+		}
+
+		// Verify output is not modified
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+		err := cmd.RunE(cmd, []string{})
+		w.Close()
+		os.Stdout = oldStdout
+
+		if err != nil {
+			t.Errorf("RunE returned error: %v", err)
+		}
+
+		if !runECalled {
+			t.Error("Original RunE function was not called")
+		}
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := buf.String()
+
+		// Logs command output should NOT be modified
+		if !strings.Contains(output, "velero backup logs") {
+			t.Errorf("Logs command output should NOT be modified, got: %s", output)
+		}
+	})
+}
+
 // TestApplyTimeoutToConfig_DialerTimeout tests that the custom dialer respects the timeout
 func TestApplyTimeoutToConfig_DialerTimeout(t *testing.T) {
 	// Set a very short timeout

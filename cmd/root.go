@@ -220,32 +220,21 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			// Start goroutine to read from pipe and write to real stdout
-			// This prevents deadlock with streaming commands (like logs)
-			done := make(chan error, 1)
-			go func() {
-				var buf strings.Builder
-				_, err := io.Copy(&buf, r)
-				if err != nil {
-					done <- err
-					return
-				}
-				output := replaceVeleroCommandWithOADP(buf.String())
-				fmt.Fprint(oldStdout, output)
-				done <- nil
-			}()
-
 			// Run the original command
 			originalRun(c, args)
 
-			// Close writer to signal EOF to the reading goroutine
+			// Restore stdout
 			w.Close()
 			os.Stdout = oldStdout
 
-			// Wait for the goroutine to finish reading and writing
-			if err := <-done; err != nil {
+			// Read captured output and replace velero with oadp (context-aware)
+			var buf strings.Builder
+			_, err := io.Copy(&buf, r)
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: Error copying output: %v\n", err)
 			}
+			output := replaceVeleroCommandWithOADP(buf.String())
+			fmt.Print(output)
 		}
 	}
 
@@ -258,32 +247,21 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			// Start goroutine to read from pipe and write to real stdout
-			// This prevents deadlock with streaming commands (like logs)
-			done := make(chan error, 1)
-			go func() {
-				var buf strings.Builder
-				_, copyErr := io.Copy(&buf, r)
-				if copyErr != nil {
-					done <- copyErr
-					return
-				}
-				output := replaceVeleroCommandWithOADP(buf.String())
-				fmt.Fprint(oldStdout, output)
-				done <- nil
-			}()
-
 			// Run the original command
 			err := originalRunE(c, args)
 
-			// Close writer to signal EOF to the reading goroutine
+			// Restore stdout
 			w.Close()
 			os.Stdout = oldStdout
 
-			// Wait for the goroutine to finish reading and writing
-			if copyErr := <-done; copyErr != nil {
+			// Read captured output and replace velero with oadp (context-aware)
+			var buf strings.Builder
+			_, copyErr := io.Copy(&buf, r)
+			if copyErr != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: Error copying output: %v\n", copyErr)
 			}
+			output := replaceVeleroCommandWithOADP(buf.String())
+			fmt.Print(output)
 
 			return err
 		}

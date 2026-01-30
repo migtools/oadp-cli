@@ -208,8 +208,11 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 	// Replace in multiple command fields using context-aware replacement
 	cmd.Example = replaceVeleroCommandWithOADP(cmd.Example)
 
+	// Skip wrapping logs commands to allow real-time streaming without buffering
+	isLogsCommand := cmd.Use == "logs" || strings.HasPrefix(cmd.Use, "logs ")
+
 	// Wrap the Run function to replace velero in output
-	if cmd.Run != nil {
+	if cmd.Run != nil && !isLogsCommand {
 		originalRun := cmd.Run
 		cmd.Run = func(c *cobra.Command, args []string) {
 			// Capture stdout temporarily
@@ -217,26 +220,37 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
+			// Start goroutine to read from pipe and write to real stdout
+			// This prevents deadlock with streaming commands (like logs)
+			done := make(chan error, 1)
+			go func() {
+				var buf strings.Builder
+				_, err := io.Copy(&buf, r)
+				if err != nil {
+					done <- err
+					return
+				}
+				output := replaceVeleroCommandWithOADP(buf.String())
+				fmt.Fprint(oldStdout, output)
+				done <- nil
+			}()
+
 			// Run the original command
 			originalRun(c, args)
 
-			// Restore stdout
+			// Close writer to signal EOF to the reading goroutine
 			w.Close()
 			os.Stdout = oldStdout
 
-			// Read captured output and replace velero with oadp (context-aware)
-			var buf strings.Builder
-			_, err := io.Copy(&buf, r)
-			if err != nil {
+			// Wait for the goroutine to finish reading and writing
+			if err := <-done; err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: Error copying output: %v\n", err)
 			}
-			output := replaceVeleroCommandWithOADP(buf.String())
-			fmt.Print(output)
 		}
 	}
 
 	// Wrap the RunE function to replace velero in output
-	if cmd.RunE != nil {
+	if cmd.RunE != nil && !isLogsCommand {
 		originalRunE := cmd.RunE
 		cmd.RunE = func(c *cobra.Command, args []string) error {
 			// Capture stdout temporarily
@@ -244,21 +258,32 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
+			// Start goroutine to read from pipe and write to real stdout
+			// This prevents deadlock with streaming commands (like logs)
+			done := make(chan error, 1)
+			go func() {
+				var buf strings.Builder
+				_, copyErr := io.Copy(&buf, r)
+				if copyErr != nil {
+					done <- copyErr
+					return
+				}
+				output := replaceVeleroCommandWithOADP(buf.String())
+				fmt.Fprint(oldStdout, output)
+				done <- nil
+			}()
+
 			// Run the original command
 			err := originalRunE(c, args)
 
-			// Restore stdout
+			// Close writer to signal EOF to the reading goroutine
 			w.Close()
 			os.Stdout = oldStdout
 
-			// Read captured output and replace velero with oadp (context-aware)
-			var buf strings.Builder
-			_, copyErr := io.Copy(&buf, r)
-			if copyErr != nil {
+			// Wait for the goroutine to finish reading and writing
+			if copyErr := <-done; copyErr != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: Error copying output: %v\n", copyErr)
 			}
-			output := replaceVeleroCommandWithOADP(buf.String())
-			fmt.Print(output)
 
 			return err
 		}

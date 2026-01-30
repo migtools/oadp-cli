@@ -594,9 +594,9 @@ func TestApplyTimeoutToConfig(t *testing.T) {
 // TestReplaceVeleroWithOADP_LogsCommandNotWrapped tests that logs commands are never wrapped
 func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 	tests := []struct {
-		name        string
-		use         string
-		shouldWrap  bool
+		name       string
+		use        string
+		shouldWrap bool
 	}{
 		{
 			name:       "logs command",

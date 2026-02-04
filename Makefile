@@ -62,6 +62,7 @@ help: ## Show this help message
 	@echo "  make test-unit         # Run unit tests only"
 	@echo "  make test-integration  # Run integration tests only"
 	@echo "  make lint              # Run golangci-lint checks"
+	@echo "  make lint-fix          # Run golangci-lint auto-fix and format code"
 	@echo ""
 	@echo "Release commands:"
 	@echo "  make release-build         # Build binaries for all platforms"
@@ -407,6 +408,14 @@ test-integration: ## Run integration tests only
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint checks against all project's Go files
 	$(GOLANGCI_LINT) run ./...
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint auto-fix and format code
+	@echo "Running golangci-lint with auto-fix..."
+	$(GOLANGCI_LINT) run --fix ./...
+	@echo "Running go fmt..."
+	go fmt ./...
+	@echo "✅ Linting and formatting complete!"
 
 # Cleanup targets
 .PHONY: clean

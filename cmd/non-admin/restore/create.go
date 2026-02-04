@@ -94,8 +94,8 @@ type CreateOptions struct {
 
 func NewCreateOptions() *CreateOptions {
 	return &CreateOptions{
-		Labels:           flag.NewMap(),
-		Annotations:      flag.NewMap(),
+		Labels:            flag.NewMap(),
+		Annotations:       flag.NewMap(),
 		NamespaceMappings: flag.NewMap(),
 	}
 }

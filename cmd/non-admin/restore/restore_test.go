@@ -38,6 +38,9 @@ func TestNonAdminRestoreCommands(t *testing.T) {
 				"Work with non-admin restores",
 				"create",
 				"get",
+				"describe",
+				"logs",
+				"delete",
 			},
 		},
 		{
@@ -65,6 +68,9 @@ func TestNonAdminRestoreCommands(t *testing.T) {
 				"Work with non-admin restores",
 				"create",
 				"get",
+				"describe",
+				"logs",
+				"delete",
 			},
 		},
 		// Verb-noun order help command tests
@@ -121,6 +127,12 @@ func TestNonAdminRestoreHelpFlags(t *testing.T) {
 		{"nonadmin", "restore", "create", "-h"},
 		{"nonadmin", "restore", "get", "--help"},
 		{"nonadmin", "restore", "get", "-h"},
+		{"nonadmin", "restore", "describe", "--help"},
+		{"nonadmin", "restore", "describe", "-h"},
+		{"nonadmin", "restore", "logs", "--help"},
+		{"nonadmin", "restore", "logs", "-h"},
+		{"nonadmin", "restore", "delete", "--help"},
+		{"nonadmin", "restore", "delete", "-h"},
 		{"na", "restore", "--help"},
 		{"na", "restore", "-h"},
 		// Verb-noun order help flags
@@ -128,6 +140,12 @@ func TestNonAdminRestoreHelpFlags(t *testing.T) {
 		{"nonadmin", "get", "restore", "-h"},
 		{"nonadmin", "create", "restore", "--help"},
 		{"nonadmin", "create", "restore", "-h"},
+		{"nonadmin", "describe", "restore", "--help"},
+		{"nonadmin", "describe", "restore", "-h"},
+		{"nonadmin", "logs", "restore", "--help"},
+		{"nonadmin", "logs", "restore", "-h"},
+		{"nonadmin", "delete", "restore", "--help"},
+		{"nonadmin", "delete", "restore", "-h"},
 		// Shorthand verb-noun order help flags
 		{"na", "get", "restore", "--help"},
 		{"na", "get", "restore", "-h"},
@@ -187,6 +205,9 @@ func TestNonAdminRestoreExamples(t *testing.T) {
 		expectedSubcommands := []string{
 			"create",
 			"get",
+			"describe",
+			"logs",
+			"delete",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -213,10 +234,16 @@ func TestNonAdminRestoreClientConfigIntegration(t *testing.T) {
 		commands := [][]string{
 			{"nonadmin", "restore", "get", "--help"},
 			{"nonadmin", "restore", "create", "--help"},
+			{"nonadmin", "restore", "describe", "--help"},
+			{"nonadmin", "restore", "logs", "--help"},
+			{"nonadmin", "restore", "delete", "--help"},
 			{"na", "restore", "get", "--help"},
 			// Verb-noun order commands
 			{"nonadmin", "get", "restore", "--help"},
 			{"nonadmin", "create", "restore", "--help"},
+			{"nonadmin", "describe", "restore", "--help"},
+			{"nonadmin", "logs", "restore", "--help"},
+			{"nonadmin", "delete", "restore", "--help"},
 			{"na", "get", "restore", "--help"},
 			{"na", "create", "restore", "--help"},
 		}
@@ -273,11 +300,17 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 		expectedExamples := []string{
 			"kubectl oadp nonadmin get restore",
 			"kubectl oadp nonadmin create restore",
+			"kubectl oadp nonadmin describe restore",
+			"kubectl oadp nonadmin logs restore",
+			"kubectl oadp nonadmin delete restore",
 		}
 
 		commands := [][]string{
 			{"nonadmin", "get", "--help"},
 			{"nonadmin", "create", "--help"},
+			{"nonadmin", "describe", "--help"},
+			{"nonadmin", "logs", "--help"},
+			{"nonadmin", "delete", "--help"},
 		}
 
 		for i, cmd := range commands {
@@ -290,11 +323,17 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 		expectedExamples := []string{
 			"kubectl oadp nonadmin get restore my-restore",
 			"kubectl oadp nonadmin create restore my-restore",
+			"kubectl oadp nonadmin describe restore my-restore",
+			"kubectl oadp nonadmin logs restore my-restore",
+			"kubectl oadp nonadmin delete restore my-restore",
 		}
 
 		commands := [][]string{
 			{"nonadmin", "get", "restore", "--help"},
 			{"nonadmin", "create", "restore", "--help"},
+			{"nonadmin", "describe", "restore", "--help"},
+			{"nonadmin", "logs", "restore", "--help"},
+			{"nonadmin", "delete", "restore", "--help"},
 		}
 
 		for i, cmd := range commands {
@@ -307,11 +346,17 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 		expectedExamples := []string{
 			"kubectl oadp nonadmin get restore",
 			"kubectl oadp nonadmin create restore",
+			"kubectl oadp nonadmin describe restore",
+			"kubectl oadp nonadmin logs restore",
+			"kubectl oadp nonadmin delete restore",
 		}
 
 		commands := [][]string{
 			{"na", "get", "--help"},
 			{"na", "create", "--help"},
+			{"na", "describe", "--help"},
+			{"na", "logs", "--help"},
+			{"na", "delete", "--help"},
 		}
 
 		for i, cmd := range commands {
@@ -328,5 +373,150 @@ func TestNonAdminRestoreCreateRequiresBackupName(t *testing.T) {
 		testutil.TestHelpCommand(t, binaryPath,
 			[]string{"nonadmin", "restore", "create", "--help"},
 			[]string{"--backup-name", "required"})
+	})
+}
+
+// TestNonAdminRestoreDescribeCommands tests describe command functionality
+func TestNonAdminRestoreDescribeCommands(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectContains []string
+	}{
+		{
+			name: "nonadmin restore describe help",
+			args: []string{"nonadmin", "restore", "describe", "--help"},
+			expectContains: []string{
+				"Describe a non-admin restore",
+				"--details",
+				"--request-timeout",
+			},
+		},
+		{
+			name: "nonadmin describe restore help - verb-noun order",
+			args: []string{"nonadmin", "describe", "restore", "--help"},
+			expectContains: []string{
+				"Describe non-admin resources",
+				"restore",
+			},
+		},
+		{
+			name: "na describe restore help - shorthand",
+			args: []string{"na", "describe", "restore", "--help"},
+			expectContains: []string{
+				"Describe non-admin resources",
+				"restore",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testutil.TestHelpCommand(t, binaryPath, tt.args, tt.expectContains)
+		})
+	}
+}
+
+// TestNonAdminRestoreLogsCommands tests logs command functionality
+func TestNonAdminRestoreLogsCommands(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectContains []string
+	}{
+		{
+			name: "nonadmin restore logs help",
+			args: []string{"nonadmin", "restore", "logs", "--help"},
+			expectContains: []string{
+				"Show logs for a non-admin restore",
+				"--request-timeout",
+			},
+		},
+		{
+			name: "nonadmin logs restore help - verb-noun order",
+			args: []string{"nonadmin", "logs", "restore", "--help"},
+			expectContains: []string{
+				"Get logs for non-admin resources",
+				"restore",
+			},
+		},
+		{
+			name: "na logs restore help - shorthand",
+			args: []string{"na", "logs", "restore", "--help"},
+			expectContains: []string{
+				"Get logs for non-admin resources",
+				"restore",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testutil.TestHelpCommand(t, binaryPath, tt.args, tt.expectContains)
+		})
+	}
+}
+
+// TestNonAdminRestoreDeleteCommands tests delete command functionality
+func TestNonAdminRestoreDeleteCommands(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectContains []string
+	}{
+		{
+			name: "nonadmin restore delete help",
+			args: []string{"nonadmin", "restore", "delete", "--help"},
+			expectContains: []string{
+				"Delete one or more non-admin restores",
+				"--confirm",
+				"--all",
+			},
+		},
+		{
+			name: "nonadmin delete restore help - verb-noun order",
+			args: []string{"nonadmin", "delete", "restore", "--help"},
+			expectContains: []string{
+				"Delete non-admin resources",
+				"restore",
+			},
+		},
+		{
+			name: "na delete restore help - shorthand",
+			args: []string{"na", "delete", "restore", "--help"},
+			expectContains: []string{
+				"Delete non-admin resources",
+				"restore",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testutil.TestHelpCommand(t, binaryPath, tt.args, tt.expectContains)
+		})
+	}
+}
+
+// TestNonAdminRestoreDeleteAllFlag tests --all flag behavior
+func TestNonAdminRestoreDeleteAllFlag(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	t.Run("delete help shows --all flag", func(t *testing.T) {
+		testutil.TestHelpCommand(t, binaryPath,
+			[]string{"nonadmin", "restore", "delete", "--help"},
+			[]string{"--all", "Delete all restores"})
+	})
+
+	t.Run("delete help shows --confirm flag", func(t *testing.T) {
+		testutil.TestHelpCommand(t, binaryPath,
+			[]string{"nonadmin", "restore", "delete", "--help"},
+			[]string{"--confirm", "Skip confirmation"})
 	})
 }

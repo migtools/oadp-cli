@@ -38,8 +38,8 @@ func RegisterBackupResources(builder *NonAdminVerbBuilder, verb string) {
 
 // RegisterRestoreResources registers restore resource for a specific verb
 func RegisterRestoreResources(builder *NonAdminVerbBuilder, verb string) {
-	// Only register restore for supported verbs: create, get
-	if verb == "create" || verb == "get" {
+	// Only register restore for supported verbs: create, get, describe, logs, delete
+	if verb == "create" || verb == "get" || verb == "describe" || verb == "logs" || verb == "delete" {
 		builder.RegisterResource("restore", NonAdminResourceHandler{
 			GetCommandFunc: func(factory client.Factory) *cobra.Command {
 				return restore.NewRestoreCommand(factory)

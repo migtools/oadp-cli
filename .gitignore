@@ -6,6 +6,7 @@
 *.dylib
 
 # Built binaries
+oadp
 kubectl-oadp
 kubectl-oadp-linux-*
 kubectl-oadp-darwin-*

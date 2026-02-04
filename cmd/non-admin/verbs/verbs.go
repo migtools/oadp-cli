@@ -25,6 +25,7 @@ import (
 func NewGetCommand(factory client.Factory) *cobra.Command {
 	builder := NewNonAdminVerbBuilder(factory)
 	RegisterBackupResources(builder, "get")
+	RegisterRestoreResources(builder, "get")
 	RegisterBSLResources(builder, "get")
 
 	return builder.BuildVerbCommand(NonAdminVerbConfig{
@@ -36,6 +37,12 @@ func NewGetCommand(factory client.Factory) *cobra.Command {
 
   # Get a specific non-admin backup
   kubectl oadp nonadmin get backup my-backup
+
+  # Get all non-admin restores
+  kubectl oadp nonadmin get restore
+
+  # Get a specific non-admin restore
+  kubectl oadp nonadmin get restore my-restore
 
   # Get all non-admin backup storage locations
   kubectl oadp nonadmin get bsl
@@ -49,6 +56,7 @@ func NewGetCommand(factory client.Factory) *cobra.Command {
 func NewCreateCommand(factory client.Factory) *cobra.Command {
 	builder := NewNonAdminVerbBuilder(factory)
 	RegisterBackupResources(builder, "create")
+	RegisterRestoreResources(builder, "create")
 	RegisterBSLResources(builder, "create")
 
 	return builder.BuildVerbCommand(NonAdminVerbConfig{
@@ -57,6 +65,9 @@ func NewCreateCommand(factory client.Factory) *cobra.Command {
 		Long:  "Create non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
 		Example: `  # Create a non-admin backup
   kubectl oadp nonadmin create backup my-backup
+
+  # Create a non-admin restore
+  kubectl oadp nonadmin create restore my-restore --backup-name my-backup
 
   # Create a backup storage location
   kubectl oadp nonadmin create bsl my-bsl`,

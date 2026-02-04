@@ -19,6 +19,7 @@ package verbs
 import (
 	"github.com/migtools/oadp-cli/cmd/non-admin/backup"
 	"github.com/migtools/oadp-cli/cmd/non-admin/bsl"
+	"github.com/migtools/oadp-cli/cmd/non-admin/restore"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
 )
@@ -33,6 +34,21 @@ func RegisterBackupResources(builder *NonAdminVerbBuilder, verb string) {
 			return getSubCommand(resourceCmd, verb)
 		},
 	})
+}
+
+// RegisterRestoreResources registers restore resource for a specific verb
+func RegisterRestoreResources(builder *NonAdminVerbBuilder, verb string) {
+	// Only register restore for supported verbs: create, get
+	if verb == "create" || verb == "get" {
+		builder.RegisterResource("restore", NonAdminResourceHandler{
+			GetCommandFunc: func(factory client.Factory) *cobra.Command {
+				return restore.NewRestoreCommand(factory)
+			},
+			GetSubCommandFunc: func(resourceCmd *cobra.Command) *cobra.Command {
+				return getSubCommand(resourceCmd, verb)
+			},
+		})
+	}
 }
 
 // RegisterBSLResources registers bsl resource for a specific verb

@@ -444,7 +444,6 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 		if formattedOps := formatItemOperations(itemOps); formattedOps != "" {
 			if !hasOutput {
 				fmt.Fprintf(out, "\n")
-				hasOutput = true
 			}
 			fmt.Fprintf(out, "Backup Item Operations:\n")
 			fmt.Fprintf(out, "%s\n", formattedOps)

@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -54,17 +53,14 @@ func getHTTPTimeout() time.Duration {
 func GetHTTPTimeoutWithOverride(override time.Duration) time.Duration {
 	// If an explicit override is provided (e.g., from --timeout flag), use it
 	if override > 0 {
-		log.Printf("Using HTTP timeout from command-line flag: %v", override)
 		return override
 	}
 
 	// Check for environment variable
 	if envTimeout := os.Getenv(TimeoutEnvVar); envTimeout != "" {
 		if parsed, err := time.ParseDuration(envTimeout); err == nil {
-			log.Printf("Using custom HTTP timeout from %s: %v", TimeoutEnvVar, parsed)
 			return parsed
 		}
-		log.Printf("Warning: Invalid duration in %s=%q, using default %v", TimeoutEnvVar, envTimeout, DefaultHTTPTimeout)
 	}
 
 	return DefaultHTTPTimeout
@@ -93,15 +89,14 @@ type DownloadRequestOptions struct {
 	// HTTPTimeout is the timeout for downloading content from the signed URL.
 	// If zero, uses the default timeout (env var or DefaultHTTPTimeout).
 	HTTPTimeout time.Duration
+	// OnProgress is an optional callback called on each polling iteration
+	OnProgress func()
 }
 
-// ProcessDownloadRequest creates a NonAdminDownloadRequest, waits for it to be processed,
-// downloads the content from the signed URL, and returns it as a string.
-// This function automatically cleans up the download request when done.
-func ProcessDownloadRequest(ctx context.Context, kbClient kbclient.Client, opts DownloadRequestOptions) (string, error) {
-	log.Printf("[ProcessDownloadRequest] Starting for BackupName=%q, DataType=%q, Namespace=%q",
-		opts.BackupName, opts.DataType, opts.Namespace)
-
+// CreateAndWaitForDownloadURL creates a NonAdminDownloadRequest, waits for it to be processed,
+// and returns the signed URL. The request is NOT automatically cleaned up - caller is responsible.
+// This is a lower-level function that allows callers to control cleanup timing.
+func CreateAndWaitForDownloadURL(ctx context.Context, kbClient kbclient.Client, opts DownloadRequestOptions) (*nacv1alpha1.NonAdminDownloadRequest, string, error) {
 	// Set defaults
 	if opts.Timeout == 0 {
 		opts.Timeout = 120 * time.Second
@@ -109,8 +104,6 @@ func ProcessDownloadRequest(ctx context.Context, kbClient kbclient.Client, opts 
 	if opts.PollInterval == 0 {
 		opts.PollInterval = 2 * time.Second
 	}
-	log.Printf("[ProcessDownloadRequest] Using Timeout=%v, PollInterval=%v, HTTPTimeout=%v",
-		opts.Timeout, opts.PollInterval, opts.HTTPTimeout)
 
 	// Create NonAdminDownloadRequest
 	req := &nacv1alpha1.NonAdminDownloadRequest{
@@ -126,86 +119,85 @@ func ProcessDownloadRequest(ctx context.Context, kbClient kbclient.Client, opts 
 		},
 	}
 
-	log.Printf("[ProcessDownloadRequest] Creating NonAdminDownloadRequest with GenerateName=%q", req.ObjectMeta.GenerateName)
 	if err := kbClient.Create(ctx, req); err != nil {
-		log.Printf("[ProcessDownloadRequest] ERROR: Failed to create NonAdminDownloadRequest: %v", err)
-		return "", fmt.Errorf("failed to create NonAdminDownloadRequest for %s: %w", opts.DataType, err)
+		return nil, "", fmt.Errorf("failed to create NonAdminDownloadRequest for %s: %w", opts.DataType, err)
 	}
-	log.Printf("[ProcessDownloadRequest] Successfully created NonAdminDownloadRequest with Name=%q", req.Name)
+
+	// Wait for the download request to be processed
+	signedURL, err := waitForDownloadURL(ctx, kbClient, req, opts.Timeout, opts.PollInterval, opts.OnProgress)
+	if err != nil {
+		return req, "", err
+	}
+
+	return req, signedURL, nil
+}
+
+// ProcessDownloadRequest creates a NonAdminDownloadRequest, waits for it to be processed,
+// downloads the content from the signed URL, and returns it as a string.
+// This function automatically cleans up the download request when done.
+func ProcessDownloadRequest(ctx context.Context, kbClient kbclient.Client, opts DownloadRequestOptions) (string, error) {
+	req, signedURL, err := CreateAndWaitForDownloadURL(ctx, kbClient, opts)
+	if err != nil {
+		if req != nil {
+			// Clean up on error
+			deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelDelete()
+			_ = kbClient.Delete(deleteCtx, req)
+		}
+		return "", err
+	}
 
 	// Clean up the download request when done
 	defer func() {
-		log.Printf("[ProcessDownloadRequest] Cleaning up NonAdminDownloadRequest Name=%q", req.Name)
 		deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelDelete()
-		if err := kbClient.Delete(deleteCtx, req); err != nil {
-			log.Printf("[ProcessDownloadRequest] WARNING: Failed to delete NonAdminDownloadRequest: %v", err)
-		} else {
-			log.Printf("[ProcessDownloadRequest] Successfully deleted NonAdminDownloadRequest")
-		}
+		_ = kbClient.Delete(deleteCtx, req)
 	}()
-
-	// Wait for the download request to be processed
-	log.Printf("[ProcessDownloadRequest] Waiting for download URL...")
-	signedURL, err := waitForDownloadURL(ctx, kbClient, req, opts.Timeout, opts.PollInterval)
-	if err != nil {
-		log.Printf("[ProcessDownloadRequest] ERROR: Failed to get download URL: %v", err)
-		return "", err
-	}
-	log.Printf("[ProcessDownloadRequest] Received signed URL (length=%d)", len(signedURL))
 
 	// Download and return the content using the specified HTTP timeout
 	httpTimeout := GetHTTPTimeoutWithOverride(opts.HTTPTimeout)
-	log.Printf("[ProcessDownloadRequest] Downloading content with HTTP timeout=%v", httpTimeout)
 	content, err := DownloadContentWithTimeout(signedURL, httpTimeout)
 	if err != nil {
-		log.Printf("[ProcessDownloadRequest] ERROR: Failed to download content: %v", err)
 		return "", err
 	}
-	log.Printf("[ProcessDownloadRequest] Successfully downloaded content (length=%d bytes)", len(content))
 	return content, nil
 }
 
-// waitForDownloadURL waits for a NonAdminDownloadRequest to be processed and returns the signed URL
-func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv1alpha1.NonAdminDownloadRequest, timeout, pollInterval time.Duration) (string, error) {
-	log.Printf("[waitForDownloadURL] Starting wait for Name=%q, timeout=%v, pollInterval=%v", req.Name, timeout, pollInterval)
+// waitForDownloadURL waits for a NonAdminDownloadRequest to be processed and returns the signed URL.
+// If onProgress is provided, it will be called on each polling iteration.
+func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv1alpha1.NonAdminDownloadRequest, timeout, pollInterval time.Duration, onProgress func()) (string, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	pollCount := 0
 	for {
 		select {
 		case <-timeoutCtx.Done():
-			log.Printf("[waitForDownloadURL] TIMEOUT after %d polls", pollCount)
 			return "", fmt.Errorf("timed out waiting for NonAdminDownloadRequest to be processed")
 		case <-ticker.C:
-			pollCount++
-			log.Printf("[waitForDownloadURL] Poll #%d: Getting status for Name=%q", pollCount, req.Name)
+			if onProgress != nil {
+				onProgress()
+			}
+
 			var updated nacv1alpha1.NonAdminDownloadRequest
 			if err := kbClient.Get(ctx, kbclient.ObjectKey{
 				Namespace: req.Namespace,
 				Name:      req.Name,
 			}, &updated); err != nil {
-				log.Printf("[waitForDownloadURL] ERROR on poll #%d: Failed to get NonAdminDownloadRequest: %v", pollCount, err)
+				// If context expired during Get, let next iteration handle it
+				if ctx.Err() != nil {
+					continue
+				}
 				return "", fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
 			}
 
-			log.Printf("[waitForDownloadURL] Poll #%d: Got %d conditions", pollCount, len(updated.Status.Conditions))
-
 			// Check if the download request was processed successfully
-			for i, condition := range updated.Status.Conditions {
-				log.Printf("[waitForDownloadURL] Poll #%d: Condition[%d] Type=%q, Status=%q, Reason=%q, Message=%q",
-					pollCount, i, condition.Type, condition.Status, condition.Reason, condition.Message)
-
+			for _, condition := range updated.Status.Conditions {
 				if condition.Type == "Processed" && condition.Status == "True" {
 					if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
-						log.Printf("[waitForDownloadURL] SUCCESS on poll #%d: Got download URL", pollCount)
 						return updated.Status.VeleroDownloadRequest.Status.DownloadURL, nil
-					} else {
-						log.Printf("[waitForDownloadURL] Poll #%d: Processed=True but no DownloadURL yet", pollCount)
 					}
 				}
 			}
@@ -213,7 +205,6 @@ func waitForDownloadURL(ctx context.Context, kbClient kbclient.Client, req *nacv
 			// Check for failure conditions
 			for _, condition := range updated.Status.Conditions {
 				if condition.Status == "True" && condition.Reason == "Error" {
-					log.Printf("[waitForDownloadURL] FAILURE on poll #%d: Error condition found", pollCount)
 					return "", fmt.Errorf("NonAdminDownloadRequest failed: %s - %s", condition.Type, condition.Message)
 				}
 			}
@@ -231,23 +222,16 @@ func DownloadContent(url string) (string, error) {
 // DownloadContentWithTimeout fetches content from a signed URL with a specified timeout.
 // It handles both gzipped and non-gzipped content automatically.
 func DownloadContentWithTimeout(url string, timeout time.Duration) (string, error) {
-	log.Printf("[DownloadContentWithTimeout] Starting download with timeout=%v", timeout)
 	client := httpClientWithTimeout(timeout)
 
-	log.Printf("[DownloadContentWithTimeout] Sending HTTP GET request...")
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Printf("[DownloadContentWithTimeout] ERROR: HTTP GET failed: %v", err)
 		return "", fmt.Errorf("failed to download content from URL %q: %w", url, err)
 	}
 	defer resp.Body.Close()
 
-	log.Printf("[DownloadContentWithTimeout] HTTP response: Status=%s, Content-Encoding=%s",
-		resp.Status, resp.Header.Get("Content-Encoding"))
-
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("[DownloadContentWithTimeout] ERROR: Non-OK status code: %s, body length=%d", resp.Status, len(bodyBytes))
 		return "", fmt.Errorf("failed to download content: status %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
@@ -267,15 +251,12 @@ func DownloadContentWithTimeout(url string, timeout time.Duration) (string, erro
 		magicBytes, err := bufReader.Peek(2)
 		if err == nil && len(magicBytes) == 2 && magicBytes[0] == 0x1f && magicBytes[1] == 0x8b {
 			isGzipped = true
-			log.Printf("[DownloadContentWithTimeout] Detected gzip format by magic bytes")
 		}
 	}
 
 	if isGzipped {
-		log.Printf("[DownloadContentWithTimeout] Content is gzipped, creating gzip reader...")
 		gzr, err := gzip.NewReader(bufReader)
 		if err != nil {
-			log.Printf("[DownloadContentWithTimeout] ERROR: Failed to create gzip reader: %v", err)
 			return "", fmt.Errorf("failed to create gzip reader: %w", err)
 		}
 		defer gzr.Close()
@@ -283,14 +264,11 @@ func DownloadContentWithTimeout(url string, timeout time.Duration) (string, erro
 	}
 
 	// Read all content
-	log.Printf("[DownloadContentWithTimeout] Reading content from response body...")
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		log.Printf("[DownloadContentWithTimeout] ERROR: Failed to read content: %v", err)
 		return "", fmt.Errorf("failed to read content: %w", err)
 	}
 
-	log.Printf("[DownloadContentWithTimeout] Successfully read %d bytes", len(content))
 	return string(content), nil
 }
 

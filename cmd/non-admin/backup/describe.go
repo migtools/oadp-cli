@@ -75,7 +75,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 
 			// Add detailed output if --details flag is set
 			if details {
-				if err := printDetailedBackupInfo(cmd, kbClient, &nab, userNamespace, effectiveTimeout); err != nil {
+				if err := printDetailedBackupInfo(cmd, kbClient, backupName, userNamespace, effectiveTimeout); err != nil {
 					return fmt.Errorf("failed to fetch detailed backup information: %w", err)
 				}
 			}
@@ -365,16 +365,8 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 // - BackupResourceList (inventory by GroupVersionKind)
 // - BackupVolumeInfos (snapshot details)
 // - BackupItemOperations (plugin operations)
-func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string, timeout time.Duration) error {
+func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration) error {
 	out := cmd.OutOrStdout()
-
-	// Check if VeleroBackup exists
-	if nab.Status.VeleroBackup == nil || nab.Status.VeleroBackup.Name == "" {
-		fmt.Fprintf(out, "\nDetailed information not available. Backup may not have been processed yet.\n")
-		return nil
-	}
-
-	veleroBackupName := nab.Status.VeleroBackup.Name
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -383,7 +375,7 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, nab *
 
 	// 1. Fetch BackupVolumeInfos (most useful for users)
 	volumeInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-		BackupName:  veleroBackupName,
+		BackupName:  backupName,
 		DataType:    "BackupVolumeInfos",
 		Namespace:   userNamespace,
 		HTTPTimeout: timeout,
@@ -403,7 +395,7 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, nab *
 
 	// 2. Fetch BackupResourceList
 	resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-		BackupName:  veleroBackupName,
+		BackupName:  backupName,
 		DataType:    "BackupResourceList",
 		Namespace:   userNamespace,
 		HTTPTimeout: timeout,
@@ -423,7 +415,7 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, nab *
 
 	// 3. Fetch BackupResults
 	results, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-		BackupName:  veleroBackupName,
+		BackupName:  backupName,
 		DataType:    "BackupResults",
 		Namespace:   userNamespace,
 		HTTPTimeout: timeout,
@@ -443,7 +435,7 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, nab *
 
 	// 4. Fetch BackupItemOperations
 	itemOps, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-		BackupName:  veleroBackupName,
+		BackupName:  backupName,
 		DataType:    "BackupItemOperations",
 		Namespace:   userNamespace,
 		HTTPTimeout: timeout,

@@ -25,9 +25,7 @@ import (
 	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -92,21 +90,32 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("failed to get NonAdminBackup %q: %w", backupName, err)
 			}
 
-			req := &nacv1alpha1.NonAdminDownloadRequest{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: backupName + "-logs-",
-					Namespace:    userNamespace,
-				},
-				Spec: nacv1alpha1.NonAdminDownloadRequestSpec{
-					Target: velerov1.DownloadTarget{
-						Kind: "BackupLog",
-						Name: backupName, // Use NonAdminBackup name, controller will resolve to Velero backup
-					},
-				},
-			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed (timeout: %v)...\n", effectiveTimeout)
 
-			if err := kbClient.Create(ctx, req); err != nil {
-				return fmt.Errorf("failed to create NonAdminDownloadRequest: %w", err)
+			// Create download request and wait for signed URL
+			req, signedURL, err := shared.CreateAndWaitForDownloadURL(ctx, kbClient, shared.DownloadRequestOptions{
+				BackupName:   backupName,
+				DataType:     "BackupLog",
+				Namespace:    userNamespace,
+				Timeout:      effectiveTimeout,
+				PollInterval: 2 * time.Second,
+				HTTPTimeout:  effectiveTimeout,
+				OnProgress: func() {
+					fmt.Fprintf(cmd.OutOrStdout(), ".")
+				},
+			})
+
+			if err != nil {
+				if req != nil {
+					// Clean up on error
+					if ctx.Err() == context.DeadlineExceeded {
+						return shared.FormatDownloadRequestTimeoutError(kbClient, req, effectiveTimeout)
+					}
+					deleteCtx, cancelDelete := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancelDelete()
+					_ = kbClient.Delete(deleteCtx, req)
+				}
+				return err
 			}
 
 			// Clean up the download request when done
@@ -116,56 +125,7 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 				_ = kbClient.Delete(deleteCtx, req)
 			}()
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Waiting for backup logs to be processed (timeout: %v)...\n", effectiveTimeout)
-
-			// Wait for the download request to be processed
-			ticker := time.NewTicker(2 * time.Second)
-			defer ticker.Stop()
-
-			var signedURL string
-		Loop:
-			for {
-				select {
-				case <-ctx.Done():
-					// Check if context was cancelled due to timeout or other reason
-					if ctx.Err() == context.DeadlineExceeded {
-						return shared.FormatDownloadRequestTimeoutError(kbClient, req, effectiveTimeout)
-					}
-					// Context cancelled for other reason (e.g., user interruption)
-					return fmt.Errorf("operation cancelled: %w", ctx.Err())
-				case <-ticker.C:
-					fmt.Fprintf(cmd.OutOrStdout(), ".")
-					var updated nacv1alpha1.NonAdminDownloadRequest
-					if err := kbClient.Get(ctx, kbclient.ObjectKey{
-						Namespace: req.Namespace,
-						Name:      req.Name,
-					}, &updated); err != nil {
-						// If context expired during Get, handle it in next iteration
-						if ctx.Err() != nil {
-							continue
-						}
-						return fmt.Errorf("failed to get NonAdminDownloadRequest: %w", err)
-					}
-
-					// Check if the download request was processed successfully
-					for _, condition := range updated.Status.Conditions {
-						if condition.Type == "Processed" && condition.Status == "True" {
-							if updated.Status.VeleroDownloadRequest.Status.DownloadURL != "" {
-								signedURL = updated.Status.VeleroDownloadRequest.Status.DownloadURL
-								fmt.Fprintf(cmd.OutOrStdout(), "\nDownload URL received, fetching logs...\n")
-								break Loop
-							}
-						}
-					}
-
-					// Check for failure conditions
-					for _, condition := range updated.Status.Conditions {
-						if condition.Status == "True" && condition.Reason == "Error" {
-							return fmt.Errorf("NonAdminDownloadRequest failed: %s - %s", condition.Type, condition.Message)
-						}
-					}
-				}
-			}
+			fmt.Fprintf(cmd.OutOrStdout(), "\nDownload URL received, fetching logs...\n")
 
 			// Use the shared StreamDownloadContent function to download and stream logs
 			// Note: We use the same effective timeout for the HTTP download

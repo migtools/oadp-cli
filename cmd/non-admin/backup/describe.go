@@ -18,7 +18,10 @@ import (
 )
 
 func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
-	var requestTimeout time.Duration
+	var (
+		requestTimeout time.Duration
+		details        bool
+	)
 
 	c := &cobra.Command{
 		Use:   use + " NAME",
@@ -70,13 +73,22 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			// Print in Velero-style format
 			printNonAdminBackupDetails(cmd, &nab)
 
+			// Add detailed output if --details flag is set
+			if details {
+				if err := printDetailedBackupInfo(cmd, kbClient, &nab, userNamespace, effectiveTimeout); err != nil {
+					return fmt.Errorf("failed to fetch detailed backup information: %w", err)
+				}
+			}
+
 			return nil
 		},
 		Example: `  kubectl oadp nonadmin backup describe my-backup
-  kubectl oadp nonadmin backup describe my-backup --request-timeout=30m`,
+  kubectl oadp nonadmin backup describe my-backup --details
+  kubectl oadp nonadmin backup describe my-backup --details --request-timeout=30m`,
 	}
 
 	c.Flags().DurationVar(&requestTimeout, "request-timeout", 0, fmt.Sprintf("The length of time to wait before giving up on a single server request (e.g., 30s, 5m, 1h). Overrides %s env var. Default: %v", shared.TimeoutEnvVar, shared.DefaultHTTPTimeout))
+	c.Flags().BoolVar(&details, "details", false, "Display additional backup details including volume snapshots, resource lists, and item operations")
 
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
@@ -345,6 +357,151 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 		fmt.Fprintf(out, "Velero backup information not yet available.\n")
 		fmt.Fprintf(out, "Request Phase: %s\n", nab.Status.Phase)
 	}
+}
+
+// printDetailedBackupInfo fetches and displays additional backup details when --details flag is used.
+// It uses NonAdminDownloadRequest to fetch:
+// - BackupResults (errors, warnings)
+// - BackupResourceList (inventory by GroupVersionKind)
+// - BackupVolumeInfos (snapshot details)
+// - BackupItemOperations (plugin operations)
+func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, nab *nacv1alpha1.NonAdminBackup, userNamespace string, timeout time.Duration) error {
+	out := cmd.OutOrStdout()
+
+	// Check if VeleroBackup exists
+	if nab.Status.VeleroBackup == nil || nab.Status.VeleroBackup.Name == "" {
+		fmt.Fprintf(out, "\nDetailed information not available. Backup may not have been processed yet.\n")
+		return nil
+	}
+
+	veleroBackupName := nab.Status.VeleroBackup.Name
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	fmt.Fprintf(out, "\nFetching detailed backup information...\n\n")
+
+	// 1. Fetch BackupVolumeInfos (most useful for users)
+	volumeInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+		BackupName:  veleroBackupName,
+		DataType:    "BackupVolumeInfos",
+		Namespace:   userNamespace,
+		HTTPTimeout: timeout,
+	})
+
+	if err == nil && volumeInfo != "" {
+		fmt.Fprintf(out, "Volume Snapshot Details:\n")
+		if formattedInfo := formatVolumeInfo(volumeInfo); formattedInfo != "" {
+			fmt.Fprintf(out, "%s", formattedInfo)
+		} else {
+			fmt.Fprintf(out, "  <none>\n")
+		}
+		fmt.Fprintf(out, "\n")
+	} else if err != nil {
+		fmt.Fprintf(out, "Volume Info: <not available: %v>\n\n", err)
+	}
+
+	// 2. Fetch BackupResourceList
+	resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+		BackupName:  veleroBackupName,
+		DataType:    "BackupResourceList",
+		Namespace:   userNamespace,
+		HTTPTimeout: timeout,
+	})
+
+	if err == nil && resourceList != "" {
+		fmt.Fprintf(out, "Resource List:\n")
+		if formattedList := formatResourceList(resourceList); formattedList != "" {
+			fmt.Fprintf(out, "%s", formattedList)
+		} else {
+			fmt.Fprintf(out, "  <none>\n")
+		}
+		fmt.Fprintf(out, "\n")
+	} else if err != nil {
+		fmt.Fprintf(out, "Resource List: <not available: %v>\n\n", err)
+	}
+
+	// 3. Fetch BackupResults
+	results, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+		BackupName:  veleroBackupName,
+		DataType:    "BackupResults",
+		Namespace:   userNamespace,
+		HTTPTimeout: timeout,
+	})
+
+	if err == nil && results != "" {
+		fmt.Fprintf(out, "Backup Results:\n")
+		if formattedResults := formatBackupResults(results); formattedResults != "" {
+			fmt.Fprintf(out, "%s", formattedResults)
+		} else {
+			fmt.Fprintf(out, "  <none>\n")
+		}
+		fmt.Fprintf(out, "\n")
+	} else if err != nil {
+		fmt.Fprintf(out, "Backup Results: <not available: %v>\n\n", err)
+	}
+
+	// 4. Fetch BackupItemOperations
+	itemOps, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+		BackupName:  veleroBackupName,
+		DataType:    "BackupItemOperations",
+		Namespace:   userNamespace,
+		HTTPTimeout: timeout,
+	})
+
+	if err == nil && itemOps != "" {
+		fmt.Fprintf(out, "Backup Item Operations:\n")
+		if formattedOps := formatItemOperations(itemOps); formattedOps != "" {
+			fmt.Fprintf(out, "%s", formattedOps)
+		} else {
+			fmt.Fprintf(out, "  <none>\n")
+		}
+		fmt.Fprintf(out, "\n")
+	} else if err != nil {
+		fmt.Fprintf(out, "Backup Item Operations: <not available: %v>\n\n", err)
+	}
+
+	return nil
+}
+
+// formatVolumeInfo formats volume snapshot information for display
+func formatVolumeInfo(volumeInfo string) string {
+	// Start with simple indented output
+	// TODO: Parse JSON/YAML and format nicely (future enhancement)
+	if strings.TrimSpace(volumeInfo) == "" {
+		return ""
+	}
+	return indent(volumeInfo, "  ")
+}
+
+// formatResourceList formats the resource list for display
+func formatResourceList(resourceList string) string {
+	// Start with simple indented output
+	// TODO: Parse and group by GroupVersionKind (future enhancement)
+	if strings.TrimSpace(resourceList) == "" {
+		return ""
+	}
+	return indent(resourceList, "  ")
+}
+
+// formatBackupResults formats backup results (errors/warnings) for display
+func formatBackupResults(results string) string {
+	// Start with simple indented output
+	// TODO: Parse JSON and show errors/warnings prominently (future enhancement)
+	if strings.TrimSpace(results) == "" {
+		return ""
+	}
+	return indent(results, "  ")
+}
+
+// formatItemOperations formats backup item operations for display
+func formatItemOperations(itemOps string) string {
+	// Start with simple indented output
+	// TODO: Parse and show operation details (future enhancement)
+	if strings.TrimSpace(itemOps) == "" {
+		return ""
+	}
+	return indent(itemOps, "  ")
 }
 
 // colorizePhase returns the phase string with ANSI color codes

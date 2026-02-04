@@ -591,8 +591,8 @@ func TestApplyTimeoutToConfig(t *testing.T) {
 	}
 }
 
-// TestReplaceVeleroWithOADP_LogsCommandNotWrapped tests that logs commands are never wrapped
-func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
+// TestReplaceVeleroWithOADP_OutputWrapperExclusions tests that certain commands are excluded from output wrapping
+func TestReplaceVeleroWithOADP_OutputWrapperExclusions(t *testing.T) {
 	tests := []struct {
 		name       string
 		use        string
@@ -616,7 +616,12 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 		{
 			name:       "describe command",
 			use:        "describe",
-			shouldWrap: true,
+			shouldWrap: false,
+		},
+		{
+			name:       "describe with args",
+			use:        "describe NAME",
+			shouldWrap: false,
 		},
 		{
 			name:       "create command",
@@ -677,16 +682,16 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 					t.Errorf("Wrapped command output should have 'velero' replaced, got: %s", output)
 				}
 			} else {
-				// Logs commands should NOT have output replaced
+				// Excluded commands should NOT have output replaced
 				if !strings.Contains(output, "velero backup create") {
-					t.Errorf("Logs command output should NOT be modified, got: %s", output)
+					t.Errorf("Excluded command output should NOT be modified, got: %s", output)
 				}
 			}
 		})
 	}
 
 	// Test with RunE function
-	t.Run("logs_command_runE_not_wrapped", func(t *testing.T) {
+	t.Run("excluded_command_runE_not_wrapped", func(t *testing.T) {
 		runECalled := false
 		cmd := &cobra.Command{
 			Use: "logs",
@@ -700,10 +705,10 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 		originalRunE := cmd.RunE
 		replaceVeleroWithOADP(cmd)
 
-		// Logs command should not be wrapped
+		// Excluded command should not be wrapped
 		isWrapped := fmt.Sprintf("%p", originalRunE) != fmt.Sprintf("%p", cmd.RunE)
 		if isWrapped {
-			t.Error("Expected logs command RunE NOT to be wrapped, but it was")
+			t.Error("Expected excluded command RunE NOT to be wrapped, but it was")
 		}
 
 		// Verify output is not modified
@@ -728,9 +733,9 @@ func TestReplaceVeleroWithOADP_LogsCommandNotWrapped(t *testing.T) {
 		}
 		output := buf.String()
 
-		// Logs command output should NOT be modified
+		// Excluded command output should NOT be modified
 		if !strings.Contains(output, "velero backup logs") {
-			t.Errorf("Logs command output should NOT be modified, got: %s", output)
+			t.Errorf("Excluded command output should NOT be modified, got: %s", output)
 		}
 	})
 }

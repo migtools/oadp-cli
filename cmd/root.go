@@ -208,11 +208,14 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 	// Replace in multiple command fields using context-aware replacement
 	cmd.Example = replaceVeleroCommandWithOADP(cmd.Example)
 
-	// Skip wrapping logs commands to allow real-time streaming without buffering
+	// Skip wrapping commands that stream output or make long-running requests
+	// to allow real-time display without buffering
 	isLogsCommand := cmd.Use == "logs" || strings.HasPrefix(cmd.Use, "logs ")
+	isDescribeCommand := cmd.Use == "describe" || strings.HasPrefix(cmd.Use, "describe ")
+	shouldSkipWrapper := isLogsCommand || isDescribeCommand
 
 	// Wrap the Run function to replace velero in output
-	if cmd.Run != nil && !isLogsCommand {
+	if cmd.Run != nil && !shouldSkipWrapper {
 		originalRun := cmd.Run
 		cmd.Run = func(c *cobra.Command, args []string) {
 			// Capture stdout temporarily
@@ -239,7 +242,7 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 	}
 
 	// Wrap the RunE function to replace velero in output
-	if cmd.RunE != nil && !isLogsCommand {
+	if cmd.RunE != nil && !shouldSkipWrapper {
 		originalRunE := cmd.RunE
 		cmd.RunE = func(c *cobra.Command, args []string) error {
 			// Capture stdout temporarily

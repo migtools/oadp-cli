@@ -228,8 +228,17 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		echo "   ├─ Temporarily updating PATH for verification"; \
 		if PATH="$(INSTALL_PATH):$$PATH" command -v kubectl >/dev/null 2>&1; then \
 			if PATH="$(INSTALL_PATH):$$PATH" kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
-				echo "   ├─ ✅ Installation verified: kubectl oadp plugin is accessible"; \
-				PATH="$(INSTALL_PATH):$$PATH" kubectl oadp version 2>/dev/null || echo "   │  └─ (Note: version command requires cluster access)"; \
+				echo "   └─ ✅ Installation verified: kubectl oadp plugin is accessible"; \
+				echo ""; \
+				echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+				echo "🎉 Installation complete!"; \
+				echo ""; \
+				echo "   ⚠️  To use in this terminal session, run:"; \
+				echo "      export PATH=\"$(INSTALL_PATH):$$PATH\""; \
+				echo ""; \
+				echo "   Quick start:"; \
+				echo "   • kubectl oadp --help          # Show available commands"; \
+				echo "   • kubectl oadp backup get      # List backups"; \
 			else \
 				echo "   ├─ ❌ Installation verification failed: kubectl oadp plugin not found"; \
 				echo "   │  └─ Try running: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
@@ -242,9 +251,22 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 		if command -v kubectl >/dev/null 2>&1; then \
 			if kubectl plugin list 2>/dev/null | grep -q "kubectl-oadp"; then \
 				echo "   ├─ ✅ Installation verified: kubectl oadp plugin is accessible"; \
-				echo "   ├─ Running version command..."; \
+				echo "   └─ Running version command..."; \
 				echo ""; \
-				kubectl oadp version 2>/dev/null || echo "   │  └─ (Note: version command requires cluster access)"; \
+				version_output=$$(kubectl oadp version 2>&1 | grep -v "WARNING: the client version does not match"); \
+				if [ $$? -eq 0 ] && [ -n "$$version_output" ]; then \
+					echo "$$version_output" | sed 's/^/      /'; \
+				else \
+					echo "      (Note: version command requires cluster access)"; \
+				fi; \
+				echo ""; \
+				echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+				echo "🎉 Installation complete!"; \
+				echo ""; \
+				echo "   Quick start:"; \
+				echo "   • kubectl oadp --help          # Show available commands"; \
+				echo "   • kubectl oadp backup get      # List backups"; \
+				echo "   • kubectl oadp version         # Show version info"; \
 			else \
 				echo "   └─ ❌ Installation verification failed: kubectl oadp plugin not found"; \
 			fi; \

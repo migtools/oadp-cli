@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -71,7 +72,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			}
 
 			// Print in Velero-style format
-			printNonAdminBackupDetails(cmd, &nab)
+			printNonAdminBackupDetails(cmd, &nab, kbClient, backupName, userNamespace, effectiveTimeout)
 
 			// Add detailed output if --details flag is set
 			if details {
@@ -97,7 +98,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 }
 
 // printNonAdminBackupDetails prints backup details in Velero admin describe format
-func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup) {
+func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration) {
 	out := cmd.OutOrStdout()
 
 	// Get Velero backup reference if available
@@ -321,6 +322,25 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 
 		fmt.Fprintf(out, "\n")
 
+		// Fetch and display Resource List
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+			BackupName:  backupName,
+			DataType:    "BackupResourceList",
+			Namespace:   userNamespace,
+			HTTPTimeout: timeout,
+		})
+
+		if err == nil && resourceList != "" {
+			if formattedList := formatResourceList(resourceList); formattedList != "" {
+				fmt.Fprintf(out, "Resource List:\n")
+				fmt.Fprintf(out, "%s\n", formattedList)
+				fmt.Fprintf(out, "\n")
+			}
+		}
+
 		// Backup Volumes
 		fmt.Fprintf(out, "Backup Volumes:\n")
 
@@ -361,9 +381,8 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 
 // printDetailedBackupInfo fetches and displays additional backup details when --details flag is used.
 // It uses NonAdminDownloadRequest to fetch:
-// - BackupResults (errors, warnings)
-// - BackupResourceList (inventory by GroupVersionKind)
 // - BackupVolumeInfos (snapshot details)
+// - BackupResults (errors, warnings)
 // - BackupItemOperations (plugin operations)
 func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration) error {
 	out := cmd.OutOrStdout()
@@ -371,9 +390,9 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	fmt.Fprintf(out, "\nFetching detailed backup information...\n\n")
+	hasOutput := false
 
-	// 1. Fetch BackupVolumeInfos (most useful for users)
+	// 1. Fetch BackupVolumeInfos
 	volumeInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
 		BackupName:  backupName,
 		DataType:    "BackupVolumeInfos",
@@ -382,38 +401,18 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 	})
 
 	if err == nil && volumeInfo != "" {
-		fmt.Fprintf(out, "Volume Snapshot Details:\n")
 		if formattedInfo := formatVolumeInfo(volumeInfo); formattedInfo != "" {
-			fmt.Fprintf(out, "%s", formattedInfo)
-		} else {
-			fmt.Fprintf(out, "  <none>\n")
+			if !hasOutput {
+				fmt.Fprintf(out, "\n")
+				hasOutput = true
+			}
+			fmt.Fprintf(out, "Volume Snapshot Details:\n")
+			fmt.Fprintf(out, "%s\n", formattedInfo)
+			fmt.Fprintf(out, "\n")
 		}
-		fmt.Fprintf(out, "\n")
-	} else if err != nil {
-		fmt.Fprintf(out, "Volume Info: <not available: %v>\n\n", err)
 	}
 
-	// 2. Fetch BackupResourceList
-	resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-		BackupName:  backupName,
-		DataType:    "BackupResourceList",
-		Namespace:   userNamespace,
-		HTTPTimeout: timeout,
-	})
-
-	if err == nil && resourceList != "" {
-		fmt.Fprintf(out, "Resource List:\n")
-		if formattedList := formatResourceList(resourceList); formattedList != "" {
-			fmt.Fprintf(out, "%s", formattedList)
-		} else {
-			fmt.Fprintf(out, "  <none>\n")
-		}
-		fmt.Fprintf(out, "\n")
-	} else if err != nil {
-		fmt.Fprintf(out, "Resource List: <not available: %v>\n\n", err)
-	}
-
-	// 3. Fetch BackupResults
+	// 2. Fetch BackupResults
 	results, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
 		BackupName:  backupName,
 		DataType:    "BackupResults",
@@ -422,18 +421,18 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 	})
 
 	if err == nil && results != "" {
-		fmt.Fprintf(out, "Backup Results:\n")
 		if formattedResults := formatBackupResults(results); formattedResults != "" {
-			fmt.Fprintf(out, "%s", formattedResults)
-		} else {
-			fmt.Fprintf(out, "  <none>\n")
+			if !hasOutput {
+				fmt.Fprintf(out, "\n")
+				hasOutput = true
+			}
+			fmt.Fprintf(out, "Backup Results:\n")
+			fmt.Fprintf(out, "%s\n", formattedResults)
+			fmt.Fprintf(out, "\n")
 		}
-		fmt.Fprintf(out, "\n")
-	} else if err != nil {
-		fmt.Fprintf(out, "Backup Results: <not available: %v>\n\n", err)
 	}
 
-	// 4. Fetch BackupItemOperations
+	// 3. Fetch BackupItemOperations
 	itemOps, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
 		BackupName:  backupName,
 		DataType:    "BackupItemOperations",
@@ -442,15 +441,15 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 	})
 
 	if err == nil && itemOps != "" {
-		fmt.Fprintf(out, "Backup Item Operations:\n")
 		if formattedOps := formatItemOperations(itemOps); formattedOps != "" {
-			fmt.Fprintf(out, "%s", formattedOps)
-		} else {
-			fmt.Fprintf(out, "  <none>\n")
+			if !hasOutput {
+				fmt.Fprintf(out, "\n")
+				hasOutput = true
+			}
+			fmt.Fprintf(out, "Backup Item Operations:\n")
+			fmt.Fprintf(out, "%s\n", formattedOps)
+			fmt.Fprintf(out, "\n")
 		}
-		fmt.Fprintf(out, "\n")
-	} else if err != nil {
-		fmt.Fprintf(out, "Backup Item Operations: <not available: %v>\n\n", err)
 	}
 
 	return nil
@@ -458,42 +457,133 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 
 // formatVolumeInfo formats volume snapshot information for display
 func formatVolumeInfo(volumeInfo string) string {
-	// Start with simple indented output
-	// TODO: Parse JSON/YAML and format nicely (future enhancement)
 	if strings.TrimSpace(volumeInfo) == "" {
 		return ""
 	}
-	return indent(volumeInfo, "  ")
+
+	// Try to parse as JSON array
+	var snapshots []interface{}
+	if err := json.Unmarshal([]byte(volumeInfo), &snapshots); err != nil {
+		// If parsing fails, fall back to indented output
+		return indent(volumeInfo, "  ")
+	}
+
+	// If empty array, return empty string (will show "<none>")
+	if len(snapshots) == 0 {
+		return ""
+	}
+
+	// Format as indented JSON for readability
+	formatted, err := json.MarshalIndent(snapshots, "  ", "  ")
+	if err != nil {
+		return indent(volumeInfo, "  ")
+	}
+	return indent(string(formatted), "  ")
 }
 
 // formatResourceList formats the resource list for display
 func formatResourceList(resourceList string) string {
-	// Start with simple indented output
-	// TODO: Parse and group by GroupVersionKind (future enhancement)
 	if strings.TrimSpace(resourceList) == "" {
 		return ""
 	}
-	return indent(resourceList, "  ")
+
+	// Try to parse as JSON map
+	var resources map[string][]string
+	if err := json.Unmarshal([]byte(resourceList), &resources); err != nil {
+		// If parsing fails, fall back to indented output
+		return indent(resourceList, "  ")
+	}
+
+	// Sort the keys (GroupVersionKind)
+	keys := make([]string, 0, len(resources))
+	for k := range resources {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Build formatted output
+	var output strings.Builder
+	for _, gvk := range keys {
+		items := resources[gvk]
+		output.WriteString(fmt.Sprintf("  %s:\n", gvk))
+		for _, item := range items {
+			output.WriteString(fmt.Sprintf("    - %s\n", item))
+		}
+	}
+
+	return strings.TrimSuffix(output.String(), "\n")
 }
 
 // formatBackupResults formats backup results (errors/warnings) for display
 func formatBackupResults(results string) string {
-	// Start with simple indented output
-	// TODO: Parse JSON and show errors/warnings prominently (future enhancement)
 	if strings.TrimSpace(results) == "" {
 		return ""
 	}
-	return indent(results, "  ")
+
+	// Try to parse as JSON object with errors and warnings
+	var resultsObj struct {
+		Errors   map[string]interface{} `json:"errors"`
+		Warnings map[string]interface{} `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(results), &resultsObj); err != nil {
+		// If parsing fails, fall back to indented output
+		return indent(results, "  ")
+	}
+
+	// If both are empty, return empty string so section won't be printed
+	if len(resultsObj.Errors) == 0 && len(resultsObj.Warnings) == 0 {
+		return ""
+	}
+
+	// Format nicely
+	var output strings.Builder
+
+	// Show errors
+	output.WriteString("  Errors:\n")
+	if len(resultsObj.Errors) > 0 {
+		formatted, _ := json.MarshalIndent(resultsObj.Errors, "    ", "  ")
+		output.WriteString(indent(string(formatted), "    "))
+	} else {
+		output.WriteString("    <none>")
+	}
+	output.WriteString("\n\n")
+
+	// Show warnings
+	output.WriteString("  Warnings:\n")
+	if len(resultsObj.Warnings) > 0 {
+		formatted, _ := json.MarshalIndent(resultsObj.Warnings, "    ", "  ")
+		output.WriteString(indent(string(formatted), "    "))
+	} else {
+		output.WriteString("    <none>")
+	}
+
+	return strings.TrimSuffix(output.String(), "\n")
 }
 
 // formatItemOperations formats backup item operations for display
 func formatItemOperations(itemOps string) string {
-	// Start with simple indented output
-	// TODO: Parse and show operation details (future enhancement)
 	if strings.TrimSpace(itemOps) == "" {
 		return ""
 	}
-	return indent(itemOps, "  ")
+
+	// Try to parse as JSON array
+	var operations []interface{}
+	if err := json.Unmarshal([]byte(itemOps), &operations); err != nil {
+		// If parsing fails, fall back to indented output
+		return indent(itemOps, "  ")
+	}
+
+	// If empty array, return empty string (will show "<none>")
+	if len(operations) == 0 {
+		return ""
+	}
+
+	// Format as indented JSON for readability
+	formatted, err := json.MarshalIndent(operations, "  ", "  ")
+	if err != nil {
+		return indent(itemOps, "  ")
+	}
+	return indent(string(formatted), "  ")
 }
 
 // colorizePhase returns the phase string with ANSI color codes

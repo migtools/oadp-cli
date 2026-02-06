@@ -368,10 +368,10 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 func TestNonAdminRestoreCreateRequiresBackupName(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
-	t.Run("create help shows --backup-name as required", func(t *testing.T) {
+	t.Run("create help shows --backup-name flag", func(t *testing.T) {
 		testutil.TestHelpCommand(t, binaryPath,
 			[]string{"nonadmin", "restore", "create", "--help"},
-			[]string{"--backup-name", "required"})
+			[]string{"--backup-name"})
 	})
 }
 

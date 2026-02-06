@@ -52,7 +52,6 @@ func TestNonAdminBackupCommands(t *testing.T) {
 				"--include-resources",
 				"--exclude-resources",
 				"--force",
-				"--assume-yes",
 			},
 		},
 		{
@@ -243,19 +242,21 @@ func TestNonAdminBackupHelpFlags(t *testing.T) {
 func TestNonAdminBackupCreateFlags(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
-	t.Run("create command has all expected flags", func(t *testing.T) {
+	t.Run("create command has all expected MVP flags", func(t *testing.T) {
 		expectedFlags := []string{
-			"--storage-location",
 			"--include-resources",
 			"--exclude-resources",
-			"--labels",
-			"--annotations",
-			"--force",
-			"--assume-yes",
-			"--snapshot-volumes",
-			"--ttl",
 			"--selector",
 			"--or-selector",
+			"--include-cluster-resources",
+			"--ttl",
+			"--storage-location",
+			"--csi-snapshot-timeout",
+			"--item-operation-timeout",
+			"--snapshot-volumes",
+			"--snapshot-move-data",
+			"--default-volumes-to-fs-backup",
+			"--force",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

@@ -51,7 +51,8 @@ func TestNonAdminRestoreCommands(t *testing.T) {
 				"--backup-name",
 				"--include-resources",
 				"--exclude-resources",
-				"--namespace-mappings",
+				"--selector",
+				"--or-selector",
 			},
 		},
 		{
@@ -165,17 +166,15 @@ func TestNonAdminRestoreCreateFlags(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	t.Run("create command has all expected flags", func(t *testing.T) {
+		// Minimal MVP flags only (based on NAR restrictions for non-admin users)
 		expectedFlags := []string{
 			"--backup-name",
 			"--include-resources",
 			"--exclude-resources",
-			"--namespace-mappings",
-			"--labels",
-			"--annotations",
-			"--restore-volumes",
 			"--selector",
 			"--or-selector",
-			"--existing-resource-policy",
+			"--include-cluster-resources",
+			"--item-operation-timeout",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -192,8 +191,8 @@ func TestNonAdminRestoreExamples(t *testing.T) {
 		expectedExamples := []string{
 			"kubectl oadp nonadmin restore create",
 			"--backup-name",
-			"--namespace-mappings",
 			"--include-resources",
+			"--selector",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

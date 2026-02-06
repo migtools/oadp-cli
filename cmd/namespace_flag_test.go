@@ -32,38 +32,38 @@ func TestNamespaceFlag(t *testing.T) {
 		expectContains []string
 	}{
 		{
-			name: "backup help shows namespace flag",
-			args: []string{"backup", "create", "--help"},
+			name:           "backup help shows namespace flag",
+			args:           []string{"backup", "create", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 		{
-			name: "restore help shows namespace flag",
-			args: []string{"restore", "create", "--help"},
+			name:           "restore help shows namespace flag",
+			args:           []string{"restore", "create", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 		{
-			name: "schedule help shows namespace flag",
-			args: []string{"schedule", "create", "--help"},
+			name:           "schedule help shows namespace flag",
+			args:           []string{"schedule", "create", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 		{
-			name: "nabsl-request get help shows namespace flag",
-			args: []string{"nabsl-request", "get", "--help"},
+			name:           "nabsl-request get help shows namespace flag",
+			args:           []string{"nabsl-request", "get", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 		{
-			name: "nabsl-request approve help shows namespace flag",
-			args: []string{"nabsl-request", "approve", "--help"},
+			name:           "nabsl-request approve help shows namespace flag",
+			args:           []string{"nabsl-request", "approve", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 		{
-			name: "nabsl-request reject help shows namespace flag",
-			args: []string{"nabsl-request", "reject", "--help"},
+			name:           "nabsl-request reject help shows namespace flag",
+			args:           []string{"nabsl-request", "reject", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 		{
-			name: "nabsl-request describe help shows namespace flag",
-			args: []string{"nabsl-request", "describe", "--help"},
+			name:           "nabsl-request describe help shows namespace flag",
+			args:           []string{"nabsl-request", "describe", "--help"},
 			expectContains: []string{"-n, --namespace"},
 		},
 	}
@@ -74,4 +74,3 @@ func TestNamespaceFlag(t *testing.T) {
 		})
 	}
 }
-

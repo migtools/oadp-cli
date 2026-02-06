@@ -46,16 +46,24 @@ type NonAdminRestoreBuilder struct {
 
 // ForNonAdminRestore is the constructor for a NonAdminRestoreBuilder.
 func ForNonAdminRestore(ns, name string) *NonAdminRestoreBuilder {
+	objMeta := metav1.ObjectMeta{
+		Namespace: ns,
+	}
+
+	// If name is empty, use GenerateName for auto-generation
+	if name == "" {
+		objMeta.GenerateName = "restore-"
+	} else {
+		objMeta.Name = name
+	}
+
 	return &NonAdminRestoreBuilder{
 		object: &nacv1alpha1.NonAdminRestore{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: nacv1alpha1.GroupVersion.String(),
 				Kind:       "NonAdminRestore",
 			},
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
-				Name:      name,
-			},
+			ObjectMeta: objMeta,
 		},
 	}
 }

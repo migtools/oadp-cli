@@ -414,7 +414,12 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	c.AddCommand(nonadmin.NewNonAdminCommand(f))
 
 	// Apply velero->oadp replacement to all commands recursively
+	// Skip nonadmin commands since we have full control over their output
 	for _, cmd := range c.Commands() {
+		// Don't wrap nonadmin commands - we control them and they already use correct terminology
+		if cmd.Use == "nonadmin" || cmd.Use == "nabsl-request" {
+			continue
+		}
 		replaceVeleroWithOADP(cmd)
 	}
 

@@ -19,11 +19,9 @@ limitations under the License.
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/migtools/oadp-cli/cmd/shared"
@@ -31,7 +29,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/builder"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd"
-	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
+	velerorestore "github.com/vmware-tanzu/velero/pkg/cmd/cli/restore"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 )
 
@@ -39,7 +37,7 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 	o := NewCreateOptions()
 
 	c := &cobra.Command{
-		Use:   use + " NAME",
+		Use:   use + " [NAME]",
 		Short: "Create a non-admin restore",
 		Args:  cobra.MaximumNArgs(1),
 		Run: func(c *cobra.Command, args []string) {
@@ -47,17 +45,20 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Validate(c, args, f))
 			cmd.CheckError(o.Run(c, f))
 		},
-		Example: `  # Create a non-admin restore from a backup.
+		Example: `  # Create a non-admin restore from a backup (auto-generated name).
+  kubectl oadp nonadmin restore create --backup-name backup1
+
+  # Create a non-admin restore with a specific name.
   kubectl oadp nonadmin restore create restore1 --backup-name backup1
 
-  # Create a non-admin restore with namespace mapping.
-  kubectl oadp nonadmin restore create restore2 --backup-name backup1 --namespace-mappings old-ns=new-ns
-
   # Create a non-admin restore with specific resource types.
-  kubectl oadp nonadmin restore create restore3 --backup-name backup1 --include-resources deployments,services
+  kubectl oadp nonadmin restore create restore2 --backup-name backup1 --include-resources deployments,services
 
   # Create a non-admin restore excluding certain resources.
-  kubectl oadp nonadmin restore create restore4 --backup-name backup1 --exclude-resources secrets
+  kubectl oadp nonadmin restore create restore3 --backup-name backup1 --exclude-resources secrets
+
+  # Create a non-admin restore with label selector.
+  kubectl oadp nonadmin restore create restore4 --backup-name backup1 --selector app=myapp
 
   # View the YAML for a non-admin restore without sending it to the server.
   kubectl oadp nonadmin restore create restore5 --backup-name backup1 -o yaml`,
@@ -71,57 +72,34 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 }
 
 type CreateOptions struct {
-	Name                      string
-	BackupName                string
-	IncludeNamespaces         flag.StringArray
-	ExcludeNamespaces         flag.StringArray
-	IncludeResources          flag.StringArray
-	ExcludeResources          flag.StringArray
-	NamespaceMappings         flag.Map
-	Labels                    flag.Map
-	Annotations               flag.Map
-	Selector                  flag.LabelSelector
-	OrSelector                flag.OrLabelSelector
-	RestoreVolumes            flag.OptionalBool
-	PreserveNodePorts         flag.OptionalBool
-	IncludeClusterResources   flag.OptionalBool
-	ExistingResourcePolicy    string
-	ItemOperationTimeout      time.Duration
-	ResourceModifierConfigMap string
-	client                    kbclient.WithWatch
-	currentNamespace          string
+	*velerorestore.CreateOptions
+
+	// NAR-specific fields
+	Name             string // The NonAdminRestore resource name (maps to Velero's RestoreName)
+	client           kbclient.WithWatch
+	currentNamespace string
 }
 
 func NewCreateOptions() *CreateOptions {
 	return &CreateOptions{
-		Labels:            flag.NewMap(),
-		Annotations:       flag.NewMap(),
-		NamespaceMappings: flag.NewMap(),
+		CreateOptions: velerorestore.NewCreateOptions(),
 	}
 }
 
 func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&o.BackupName, "backup-name", "", "The backup to restore from (required).")
-	flags.Var(&o.IncludeNamespaces, "include-namespaces", "Namespaces to include in the restore (use '*' for all namespaces).")
-	flags.Var(&o.ExcludeNamespaces, "exclude-namespaces", "Namespaces to exclude from the restore.")
-	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the restore, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources).")
-	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the restore, formatted as resource.group, such as storageclasses.storage.k8s.io.")
-	flags.Var(&o.NamespaceMappings, "namespace-mappings", "Namespace mappings from name in the backup to desired restored name in the form src1=dst1,src2=dst2,...")
-	flags.Var(&o.Labels, "labels", "Labels to apply to the restore.")
-	flags.Var(&o.Annotations, "annotations", "Annotations to apply to the restore.")
+	
+	flags.StringVar(&o.BackupName, "backup-name", "", "The backup to restore from.")
+
+	// Label selection
 	flags.VarP(&o.Selector, "selector", "l", "Only restore resources matching this label selector.")
 	flags.Var(&o.OrSelector, "or-selector", "Restore resources matching at least one of the label selector from the list. Label selectors should be separated by ' or '. For example, foo=bar or app=nginx")
-	flags.StringVar(&o.ExistingResourcePolicy, "existing-resource-policy", "", "Policy to handle restore of items that already exist in the cluster. Options are 'none' and 'update'.")
+
 	flags.DurationVar(&o.ItemOperationTimeout, "item-operation-timeout", o.ItemOperationTimeout, "How long to wait for async plugin operations before timeout.")
-	flags.StringVar(&o.ResourceModifierConfigMap, "resource-modifier-configmap", "", "Reference to the resource modifier configmap that restore should use")
 
-	f := flags.VarPF(&o.RestoreVolumes, "restore-volumes", "", "Whether to restore volumes from snapshots. If the parameter is not set, it is treated as setting to 'true'.")
-	f.NoOptDefVal = cmd.TRUE
-
-	f = flags.VarPF(&o.PreserveNodePorts, "preserve-nodeports", "", "Whether to preserve nodeports when restoring services.")
-	f.NoOptDefVal = cmd.TRUE
-
-	f = flags.VarPF(&o.IncludeClusterResources, "include-cluster-resources", "", "Include cluster-scoped resources in the restore.")
+	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the restore, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources).")
+	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the restore, formatted as resource.group, such as storageclasses.storage.k8s.io.")
+	
+	f := flags.VarPF(&o.IncludeClusterResources, "include-cluster-resources", "", "Include cluster-scoped resources in the restore.")
 	f.NoOptDefVal = cmd.TRUE
 }
 
@@ -130,10 +108,7 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 		return err
 	}
 
-	if len(args) != 1 {
-		return fmt.Errorf("a restore name is required")
-	}
-
+	// Must specify backup-name
 	if o.BackupName == "" {
 		return fmt.Errorf("--backup-name is required")
 	}
@@ -146,8 +121,11 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 }
 
 func (o *CreateOptions) Complete(args []string, f client.Factory) error {
+	// Name is optional - if not provided, will use GenerateName in the builder
 	if len(args) > 0 {
 		o.Name = args[0]
+	} else {
+		o.Name = ""
 	}
 
 	// Create client with NonAdmin scheme
@@ -184,8 +162,10 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 		return err
 	}
 
-	fmt.Printf("NonAdminRestore request %q submitted successfully.\n", nonAdminRestore.Name)
-	fmt.Printf("Run `oc oadp nonadmin restore describe %s` or `oc oadp nonadmin restore logs %s` for more details.\n", nonAdminRestore.Name, nonAdminRestore.Name)
+	// Use the actual name (either provided or auto-generated by the API server)
+	actualName := nonAdminRestore.Name
+	fmt.Printf("NonAdminRestore request %q submitted successfully.\n", actualName)
+	fmt.Printf("Run `oc oadp nonadmin restore describe %s` or `oc oadp nonadmin restore logs %s` for more details.\n", actualName, actualName)
 	return nil
 }
 
@@ -193,53 +173,21 @@ func (o *CreateOptions) BuildNonAdminRestore(namespace string) (*nacv1alpha1.Non
 	// Use Velero's builder for RestoreSpec
 	restoreBuilder := builder.ForRestore(namespace, o.Name).
 		Backup(o.BackupName).
-		IncludedNamespaces(o.IncludeNamespaces...).
-		ExcludedNamespaces(o.ExcludeNamespaces...)
-
-	// Convert namespace mappings from map to alternating key-value pairs
-	if len(o.NamespaceMappings.Data()) > 0 {
-		mappings := make([]string, 0, len(o.NamespaceMappings.Data())*2)
-		for k, v := range o.NamespaceMappings.Data() {
-			mappings = append(mappings, k, v)
-		}
-		restoreBuilder.NamespaceMappings(mappings...)
-	}
-
-	restoreBuilder.
 		IncludedResources(o.IncludeResources...).
 		ExcludedResources(o.ExcludeResources...).
 		LabelSelector(o.Selector.LabelSelector).
 		OrLabelSelector(o.OrSelector.OrLabelSelectors).
-		ItemOperationTimeout(o.ItemOperationTimeout).
-		ExistingResourcePolicy(o.ExistingResourcePolicy)
+		ItemOperationTimeout(o.ItemOperationTimeout)
 
-	// Apply optional bools
-	if o.RestoreVolumes.Value != nil {
-		restoreBuilder.RestorePVs(*o.RestoreVolumes.Value)
-	}
-	if o.PreserveNodePorts.Value != nil {
-		restoreBuilder.PreserveNodePorts(*o.PreserveNodePorts.Value)
-	}
+	// Apply optional include-cluster-resources flag
 	if o.IncludeClusterResources.Value != nil {
 		restoreBuilder.IncludeClusterResources(*o.IncludeClusterResources.Value)
 	}
 
 	tempRestore := restoreBuilder.Result()
 
-	// Set ResourceModifier manually since there's no builder method
-	if o.ResourceModifierConfigMap != "" {
-		tempRestore.Spec.ResourceModifier = &corev1.TypedLocalObjectReference{
-			Kind: "ConfigMap",
-			Name: o.ResourceModifierConfigMap,
-		}
-	}
-
 	// Wrap in NonAdminRestore
 	return ForNonAdminRestore(namespace, o.Name).
-		ObjectMeta(
-			WithLabelsMap(o.Labels.Data()),
-			WithAnnotationsMap(o.Annotations.Data()),
-		).
 		RestoreSpec(nacv1alpha1.NonAdminRestoreSpec{
 			RestoreSpec: &tempRestore.Spec,
 		}).

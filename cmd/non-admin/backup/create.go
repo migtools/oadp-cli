@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -34,7 +33,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/builder"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd"
-	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
+	velerobackup "github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 )
 
@@ -44,33 +43,32 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 	c := &cobra.Command{
 		Use:   use + " NAME",
 		Short: "Create a non-admin backup",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate(c, args, f))
 			cmd.CheckError(o.Run(c, f))
 		},
-		Example: `  # Create a non-admin backup containing all resources in the current namespace.
-  kubectl oadp nonadmin backup create backup1 --storage-location my-nabsl
+		Example: `  # Create a simple backup of all resources in the current namespace.
+  kubectl oadp nonadmin backup create backup1
 
-  # Create a non-admin backup with specific resource types.
-  kubectl oadp nonadmin backup create backup2 --include-resources deployments,services --storage-location my-nabsl
+  # Create a backup with specific resource types.
+  kubectl oadp nonadmin backup create backup2 --include-resources deployments,services
 
-  # Create a non-admin backup excluding certain resources.
-  kubectl oadp nonadmin backup create backup3 --exclude-resources secrets --storage-location my-nabsl
+  # Create a backup with label selector.
+  kubectl oadp nonadmin backup create backup3 --selector app=myapp
 
-  # Force creation with admin defaults (no storage location specified).
-  kubectl oadp nonadmin backup create backup4 --force
+  # Create a backup with snapshots and TTL.
+  kubectl oadp nonadmin backup create backup4 --snapshot-volumes --ttl 720h
 
-  # Force creation with admin defaults non-interactively.
-  kubectl oadp nonadmin backup create backup5 --force --assume-yes
+  # Create a backup with specific storage location.
+  kubectl oadp nonadmin backup create backup5 --storage-location my-nabsl
 
-  # View the YAML for a non-admin backup that doesn't snapshot volumes, without sending it to the server.
-  kubectl oadp nonadmin backup create backup6 --snapshot-volumes=false --storage-location my-nabsl -o yaml`,
+  # View the YAML for a backup without sending it to the server.
+  kubectl oadp nonadmin backup create backup6 -o yaml`,
 	}
 
 	o.BindFlags(c.Flags())
-	o.BindFromSchedule(c.Flags())
 	output.BindFlags(c.Flags())
 	output.ClearOutputFlagDefault(c)
 
@@ -78,89 +76,53 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 }
 
 type CreateOptions struct {
-	Name                            string
-	TTL                             time.Duration
-	SnapshotVolumes                 flag.OptionalBool
-	SnapshotMoveData                flag.OptionalBool
-	DataMover                       string
-	DefaultVolumesToFsBackup        flag.OptionalBool
-	IncludeResources                flag.StringArray
-	ExcludeResources                flag.StringArray
-	IncludeClusterScopedResources   flag.StringArray
-	ExcludeClusterScopedResources   flag.StringArray
-	IncludeNamespaceScopedResources flag.StringArray
-	ExcludeNamespaceScopedResources flag.StringArray
-	Labels                          flag.Map
-	Annotations                     flag.Map
-	Selector                        flag.LabelSelector
-	OrSelector                      flag.OrLabelSelector
-	IncludeClusterResources         flag.OptionalBool
-	StorageLocation                 string
-	SnapshotLocations               []string
-	FromSchedule                    string
-	OrderedResources                string
-	CSISnapshotTimeout              time.Duration
-	ItemOperationTimeout            time.Duration
-	ResPoliciesConfigmap            string
-	Force                           bool
-	AssumeYes                       bool
-	client                          kbclient.WithWatch
-	ParallelFilesUpload             int
-	currentNamespace                string
+	*velerobackup.CreateOptions // Embed Velero's CreateOptions
+
+	// NAB-specific fields
+	Name             string // The NonAdminBackup resource name (maps to Velero's BackupName)
+	Force            bool   // NAB-specific: bypass storage-location requirement
+	client           kbclient.WithWatch
+	currentNamespace string
 }
 
 func NewCreateOptions() *CreateOptions {
 	return &CreateOptions{
-		IncludeResources:        flag.NewStringArray("*"),
-		Labels:                  flag.NewMap(),
-		Annotations:             flag.NewMap(),
-		SnapshotVolumes:         flag.NewOptionalBool(nil),
-		IncludeClusterResources: flag.NewOptionalBool(nil),
+		CreateOptions: velerobackup.NewCreateOptions(),
+		Force:         false,
 	}
 }
 
 func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
-	flags.DurationVar(&o.TTL, "ttl", o.TTL, "How long before the backup can be garbage collected.")
-	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the backup, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources). Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
-	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the backup, formatted as resource.group, such as storageclasses.storage.k8s.io. Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
-	flags.Var(&o.IncludeClusterScopedResources, "include-cluster-scoped-resources", "Cluster-scoped resources to include in the backup, formatted as resource.group, such as storageclasses.storage.k8s.io(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.ExcludeClusterScopedResources, "exclude-cluster-scoped-resources", "Cluster-scoped resources to exclude from the backup, formatted as resource.group, such as storageclasses.storage.k8s.io(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.IncludeNamespaceScopedResources, "include-namespace-scoped-resources", "Namespaced resources to include in the backup, formatted as resource.group, such as deployments.apps(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.ExcludeNamespaceScopedResources, "exclude-namespace-scoped-resources", "Namespaced resources to exclude from the backup, formatted as resource.group, such as deployments.apps(use '*' for all resources). Cannot work with include-resources, exclude-resources and include-cluster-resources.")
-	flags.Var(&o.Labels, "labels", "Labels to apply to the backup.")
-	flags.Var(&o.Annotations, "annotations", "Annotations to apply to the backup.")
-	flags.StringVar(&o.StorageLocation, "storage-location", "", "Location in which to store the backup.")
-	flags.StringSliceVar(&o.SnapshotLocations, "volume-snapshot-locations", o.SnapshotLocations, "List of locations (at most one per provider) where volume snapshots should be stored.")
+	// Resource filtering (MVP)
+	flags.Var(&o.IncludeResources, "include-resources", "Resources to include in the backup, formatted as resource.group, such as storageclasses.storage.k8s.io (use '*' for all resources).")
+	flags.Var(&o.ExcludeResources, "exclude-resources", "Resources to exclude from the backup, formatted as resource.group, such as storageclasses.storage.k8s.io.")
+
+	// Label selection (MVP)
 	flags.VarP(&o.Selector, "selector", "l", "Only back up resources matching this label selector.")
 	flags.Var(&o.OrSelector, "or-selector", "Backup resources matching at least one of the label selector from the list. Label selectors should be separated by ' or '. For example, foo=bar or app=nginx")
-	flags.StringVar(&o.OrderedResources, "ordered-resources", "", "Mapping Kinds to an ordered list of specific resources of that Kind.  Resource names are separated by commas and their names are in format 'namespace/resourcename'. For cluster scope resource, simply use resource name. Key-value pairs in the mapping are separated by semi-colon.  Example: 'pods=ns1/pod1,ns1/pod2;persistentvolumeclaims=ns1/pvc4,ns1/pvc8'.  Optional.")
+
+	// Cluster resources (MVP)
+	f := flags.VarPF(&o.IncludeClusterResources, "include-cluster-resources", "", "Include cluster-scoped resources in the backup.")
+	f.NoOptDefVal = cmd.TRUE
+
+	// Timing/Storage (MVP)
+	flags.DurationVar(&o.TTL, "ttl", o.TTL, "How long before the backup can be garbage collected.")
+	flags.StringVar(&o.StorageLocation, "storage-location", "", "Location in which to store the backup.")
 	flags.DurationVar(&o.CSISnapshotTimeout, "csi-snapshot-timeout", o.CSISnapshotTimeout, "How long to wait for CSI snapshot creation before timeout.")
 	flags.DurationVar(&o.ItemOperationTimeout, "item-operation-timeout", o.ItemOperationTimeout, "How long to wait for async plugin operations before timeout.")
-	f := flags.VarPF(&o.SnapshotVolumes, "snapshot-volumes", "", "Take snapshots of PersistentVolumes as part of the backup. If the parameter is not set, it is treated as setting to 'true'.")
-	// this allows the user to just specify "--snapshot-volumes" as shorthand for "--snapshot-volumes=true"
-	// like a normal bool flag
+
+	// Snapshot control (MVP)
+	f = flags.VarPF(&o.SnapshotVolumes, "snapshot-volumes", "", "Take snapshots of PersistentVolumes as part of the backup.")
 	f.NoOptDefVal = cmd.TRUE
 
-	f = flags.VarPF(&o.SnapshotMoveData, "snapshot-move-data", "", "Specify whether snapshot data should be moved")
+	f = flags.VarPF(&o.SnapshotMoveData, "snapshot-move-data", "", "Specify whether snapshot data should be moved.")
 	f.NoOptDefVal = cmd.TRUE
 
-	f = flags.VarPF(&o.IncludeClusterResources, "include-cluster-resources", "", "Include cluster-scoped resources in the backup. Cannot work with include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources.")
+	f = flags.VarPF(&o.DefaultVolumesToFsBackup, "default-volumes-to-fs-backup", "", "Use pod volume file system backup by default for volumes.")
 	f.NoOptDefVal = cmd.TRUE
 
-	f = flags.VarPF(&o.DefaultVolumesToFsBackup, "default-volumes-to-fs-backup", "", "Use pod volume file system backup by default for volumes")
-	f.NoOptDefVal = cmd.TRUE
-
-	flags.StringVar(&o.ResPoliciesConfigmap, "resource-policies-configmap", "", "Reference to the resource policies configmap that backup should use")
-	flags.StringVar(&o.DataMover, "data-mover", "", "Specify the data mover to be used by the backup. If the parameter is not set or set as 'velero', the built-in data mover will be used")
-	flags.IntVar(&o.ParallelFilesUpload, "parallel-files-upload", 0, "Number of files uploads simultaneously when running a backup. This is only applicable for the kopia uploader")
+	// NAB-specific control flag
 	flags.BoolVarP(&o.Force, "force", "f", o.Force, "Force creation without specifying a storage location (uses admin defaults).")
-	flags.BoolVarP(&o.AssumeYes, "assume-yes", "y", o.AssumeYes, "Assume yes to all prompts and run non-interactively.")
-}
-
-// BindFromSchedule binds the from-schedule flag separately so it is not called
-// by other create commands that reuse CreateOptions's BindFlags method.
-func (o *CreateOptions) BindFromSchedule(flags *pflag.FlagSet) {
-	flags.StringVar(&o.FromSchedule, "from-schedule", "", "Create a backup from the template of an existing schedule. Cannot be used with any other filters. Backup name is optional if used.")
 }
 
 func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
@@ -168,29 +130,15 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 		return err
 	}
 
+	if len(args) != 1 {
+		return fmt.Errorf("a backup name is required")
+	}
+
 	if o.Selector.LabelSelector != nil && o.OrSelector.OrLabelSelectors != nil {
 		return fmt.Errorf("either a 'selector' or an 'or-selector' can be specified, but not both")
 	}
 
-	// Ensure if FromSchedule is set, it has a non-empty value
-	if err := o.validateFromScheduleFlag(c); err != nil {
-		return err
-	}
-
-	// Ensure that unless FromSchedule is set, args contains a backup name
-	if o.FromSchedule == "" && len(args) != 1 {
-		return fmt.Errorf("a backup name is required, unless you are creating based on a schedule")
-	}
-
-	if o.oldAndNewFilterParametersUsedTogether() {
-		return fmt.Errorf("include-resources, exclude-resources and include-cluster-resources are old filter parameters.\n" +
-			"include-cluster-scoped-resources, exclude-cluster-scoped-resources, include-namespace-scoped-resources and exclude-namespace-scoped-resources are new filter parameters.\n" +
-			"They cannot be used together")
-	}
-
-	// Note: Storage location and snapshot location validation removed for NonAdminBackup
-	// as these are typically managed by the underlying Velero backup resource
-
+	// Storage location validation
 	if !o.Force && o.StorageLocation == "" {
 		return fmt.Errorf("a valid NonAdminBackupStorageLocation must be provided via --storage-location, or use --force to create with admin defaults")
 	}
@@ -198,22 +146,8 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 	return nil
 }
 
-func (o *CreateOptions) validateFromScheduleFlag(c *cobra.Command) error {
-	trimmed := strings.TrimSpace(o.FromSchedule)
-	if c.Flags().Changed("from-schedule") && trimmed == "" {
-		return fmt.Errorf("flag must have a non-empty value: --from-schedule")
-	}
-
-	// Assign the trimmed value back
-	o.FromSchedule = trimmed
-	return nil
-}
-
 func (o *CreateOptions) Complete(args []string, f client.Factory) error {
-	// If an explicit name is specified, use that name
-	if len(args) > 0 {
-		o.Name = args[0]
-	}
+	o.Name = args[0]
 
 	// Create client with NonAdmin scheme
 	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
@@ -244,10 +178,6 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 		return err
 	}
 
-	if o.FromSchedule != "" {
-		fmt.Println("Creating non-admin backup from schedule, all other filters are ignored.")
-	}
-
 	// Prompt for confirmation if using force without storage location
 	if err := o.promptForceConfirmation(); err != nil {
 		return err
@@ -263,58 +193,13 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 	return nil
 }
 
-// ParseOrderedResources converts to map of Kinds to an ordered list of specific resources of that Kind.
-// Resource names in the list are in format 'namespace/resourcename' and separated by commas.
-// Key-value pairs in the mapping are separated by semi-colon.
-// Ex: 'pods=ns1/pod1,ns1/pod2;persistentvolumeclaims=ns1/pvc4,ns1/pvc8'.
-func ParseOrderedResources(orderMapStr string) (map[string]string, error) {
-	entries := strings.Split(orderMapStr, ";")
-	if len(entries) == 0 {
-		return nil, fmt.Errorf("invalid OrderedResources '%s'", orderMapStr)
-	}
-	orderedResources := make(map[string]string)
-	for _, entry := range entries {
-		kv := strings.Split(entry, "=")
-		if len(kv) != 2 {
-			return nil, fmt.Errorf("invalid OrderedResources '%s'", entry)
-		}
-		kind := strings.TrimSpace(kv[0])
-		order := strings.TrimSpace(kv[1])
-		orderedResources[kind] = order
-	}
-	return orderedResources, nil
-}
-
 func (o *CreateOptions) BuildNonAdminBackup(namespace string) (*nacv1alpha1.NonAdminBackup, error) {
-	var backupSpec *velerov1api.BackupSpec
-	var err error
-
-	if o.FromSchedule != "" {
-		backupSpec, err = o.buildBackupSpecFromSchedule(namespace)
-	} else {
-		backupSpec, err = o.buildBackupSpecFromOptions(namespace)
-	}
-
+	backupSpec, err := o.buildBackupSpecFromOptions(namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	return o.createNonAdminBackup(namespace, backupSpec), nil
-}
-
-// buildBackupSpecFromSchedule creates a BackupSpec from an existing schedule
-func (o *CreateOptions) buildBackupSpecFromSchedule(namespace string) (*velerov1api.BackupSpec, error) {
-	schedule := new(velerov1api.Schedule)
-	err := o.client.Get(context.TODO(), kbclient.ObjectKey{Namespace: namespace, Name: o.FromSchedule}, schedule)
-	if err != nil {
-		return nil, err
-	}
-
-	if o.Name == "" {
-		o.Name = schedule.TimestampedName(time.Now().UTC())
-	}
-
-	return &schedule.Spec.Template, nil
 }
 
 // buildBackupSpecFromOptions creates a BackupSpec from command line options
@@ -323,40 +208,24 @@ func (o *CreateOptions) buildBackupSpecFromOptions(namespace string) (*velerov1a
 		IncludedNamespaces(namespace). // Automatically include the current namespace
 		IncludedResources(o.IncludeResources...).
 		ExcludedResources(o.ExcludeResources...).
-		IncludedClusterScopedResources(o.IncludeClusterScopedResources...).
-		ExcludedClusterScopedResources(o.ExcludeClusterScopedResources...).
-		IncludedNamespaceScopedResources(o.IncludeNamespaceScopedResources...).
-		ExcludedNamespaceScopedResources(o.ExcludeNamespaceScopedResources...).
 		LabelSelector(o.Selector.LabelSelector).
 		OrLabelSelector(o.OrSelector.OrLabelSelectors).
 		TTL(o.TTL).
 		StorageLocation(o.StorageLocation).
-		VolumeSnapshotLocations(o.SnapshotLocations...).
 		CSISnapshotTimeout(o.CSISnapshotTimeout).
-		ItemOperationTimeout(o.ItemOperationTimeout).
-		DataMover(o.DataMover)
+		ItemOperationTimeout(o.ItemOperationTimeout)
 
 	if err := o.applyOptionalBackupOptions(backupBuilder); err != nil {
 		return nil, err
 	}
 
-	tempBackup := backupBuilder.
-		ObjectMeta(builder.WithLabelsMap(o.Labels.Data()), builder.WithAnnotationsMap(o.Annotations.Data())).
-		Result()
+	tempBackup := backupBuilder.Result()
 
 	return &tempBackup.Spec, nil
 }
 
 // applyOptionalBackupOptions applies optional flags to the backup builder
 func (o *CreateOptions) applyOptionalBackupOptions(backupBuilder *builder.BackupBuilder) error {
-	if len(o.OrderedResources) > 0 {
-		orders, err := ParseOrderedResources(o.OrderedResources)
-		if err != nil {
-			return err
-		}
-		backupBuilder.OrderedResources(orders)
-	}
-
 	if o.SnapshotVolumes.Value != nil {
 		backupBuilder.SnapshotVolumes(*o.SnapshotVolumes.Value)
 	}
@@ -369,12 +238,6 @@ func (o *CreateOptions) applyOptionalBackupOptions(backupBuilder *builder.Backup
 	if o.DefaultVolumesToFsBackup.Value != nil {
 		backupBuilder.DefaultVolumesToFsBackup(*o.DefaultVolumesToFsBackup.Value)
 	}
-	if o.ResPoliciesConfigmap != "" {
-		backupBuilder.ResourcePolicies(o.ResPoliciesConfigmap)
-	}
-	if o.ParallelFilesUpload > 0 {
-		backupBuilder.ParallelFilesUpload(o.ParallelFilesUpload)
-	}
 
 	return nil
 }
@@ -382,26 +245,10 @@ func (o *CreateOptions) applyOptionalBackupOptions(backupBuilder *builder.Backup
 // createNonAdminBackup creates the NonAdminBackup CR from a BackupSpec
 func (o *CreateOptions) createNonAdminBackup(namespace string, backupSpec *velerov1api.BackupSpec) *nacv1alpha1.NonAdminBackup {
 	return ForNonAdminBackup(namespace, o.Name).
-		ObjectMeta(
-			WithLabelsMap(o.Labels.Data()),
-			WithAnnotationsMap(o.Annotations.Data()),
-		).
 		BackupSpec(nacv1alpha1.NonAdminBackupSpec{
 			BackupSpec: backupSpec,
 		}).
 		Result()
-}
-
-func (o *CreateOptions) oldAndNewFilterParametersUsedTogether() bool {
-	haveOldResourceFilterParameters := len(o.IncludeResources) > 0 ||
-		len(o.ExcludeResources) > 0 ||
-		o.IncludeClusterResources.Value != nil
-	haveNewResourceFilterParameters := len(o.IncludeClusterScopedResources) > 0 ||
-		(len(o.ExcludeClusterScopedResources) > 0) ||
-		(len(o.IncludeNamespaceScopedResources) > 0) ||
-		(len(o.ExcludeNamespaceScopedResources) > 0)
-
-	return haveOldResourceFilterParameters && haveNewResourceFilterParameters
 }
 
 // promptForceConfirmation prompts the user to confirm when using --force without storage location
@@ -412,12 +259,6 @@ func (o *CreateOptions) promptForceConfirmation() error {
 
 	fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
 	fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
-
-	if o.AssumeYes {
-		fmt.Println("Proceeding with --assume-yes flag.")
-		fmt.Println()
-		return nil
-	}
 
 	fmt.Print("Do you want to continue? (y/N): ")
 	reader := bufio.NewReader(os.Stdin)

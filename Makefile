@@ -238,8 +238,8 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 				echo "      export PATH=\"$(INSTALL_PATH):$$PATH\""; \
 				echo ""; \
 				echo "   Quick start:"; \
-				echo "   • kubectl oadp --help          # Show available commands"; \
-				echo "   • kubectl oadp backup get      # List backups"; \
+				echo "   • oc oadp --help          # Show available commands"; \
+				echo "   • oc oadp backup get      # List backups"; \
 			else \
 				echo "   ├─ ❌ Installation verification failed: kubectl oadp plugin not found"; \
 				echo "   │  └─ Try running: export PATH=\"$(INSTALL_PATH):$$PATH\""; \
@@ -265,9 +265,9 @@ install: build ## Build and install the kubectl plugin to ~/.local/bin (no sudo 
 				echo "🎉 Installation complete!"; \
 				echo ""; \
 				echo "   Quick start:"; \
-				echo "   • kubectl oadp --help          # Show available commands"; \
-				echo "   • kubectl oadp backup get      # List backups"; \
-				echo "   • kubectl oadp version         # Show version info"; \
+				echo "   • oc oadp --help          # Show available commands"; \
+				echo "   • oc oadp backup get      # List backups"; \
+				echo "   • oc oadp version         # Show version info"; \
 			else \
 				echo "   └─ ❌ Installation verification failed: kubectl oadp plugin not found"; \
 			fi; \
@@ -284,7 +284,7 @@ install-user: build ## Build and install the kubectl plugin to ~/.local/bin (no 
 	cp $(BINARY_NAME) ~/.local/bin/
 	@echo "✅ Installed to ~/.local/bin"
 	@echo "Add to PATH: export PATH=\"\$$HOME/.local/bin:\$$PATH\""
-	@echo "Test: kubectl oadp --help"
+	@echo "Test: oc oadp --help"
 
 .PHONY: install-bin
 install-bin: build ## Build and install the kubectl plugin to ~/bin (no sudo required)
@@ -293,14 +293,14 @@ install-bin: build ## Build and install the kubectl plugin to ~/bin (no sudo req
 	cp $(BINARY_NAME) ~/bin/
 	@echo "✅ Installed to ~/bin"
 	@echo "Add to PATH: export PATH=\"\$$HOME/bin:\$$PATH\""
-	@echo "Test: kubectl oadp --help"
+	@echo "Test: oc oadp --help"
 
 .PHONY: install-system
 install-system: build ## Build and install the kubectl plugin to /usr/local/bin (requires sudo)
 	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
 	@sudo mv $(BINARY_NAME) /usr/local/bin/
 	@echo "✅ Installed to /usr/local/bin"
-	@echo "Test: kubectl oadp --help"
+	@echo "Test: oc oadp --help"
 
 .PHONY: uninstall
 uninstall: ## Uninstall the kubectl plugin from user locations

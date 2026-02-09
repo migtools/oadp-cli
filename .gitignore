@@ -12,6 +12,9 @@ kubectl-oadp-linux-*
 kubectl-oadp-darwin-*
 kubectl-oadp-windows-*
 
+# Must-gather artifacts
+/must-gather/
+
 # Local development tools
 bin/
 

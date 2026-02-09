@@ -17,6 +17,7 @@ limitations under the License.
 package mustgather
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -127,7 +128,7 @@ func (o *MustGatherOptions) Run(c *cobra.Command, f client.Factory) error {
 // formatError formats error messages for common failure scenarios
 func (o *MustGatherOptions) formatError(err error) error {
 	// Check if oc not installed (shouldn't happen as we validate, but defensive)
-	if err == exec.ErrNotFound {
+	if errors.Is(err, exec.ErrNotFound) {
 		return fmt.Errorf("'oc' command not found. Install OpenShift CLI from: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/")
 	}
 

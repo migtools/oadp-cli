@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	mustgather "github.com/migtools/oadp-cli/cmd/must-gather"
 	"github.com/migtools/oadp-cli/cmd/nabsl-request"
 	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/spf13/cobra"
@@ -348,7 +349,9 @@ func wrapPreRunE(existing func(*cobra.Command, []string) error, additional func(
 	}
 }
 
-// NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
+// NewVeleroRootCommand returns a configured root cobra.Command for the OADP CLI with all Velero subcommands and related wiring.
+// 
+// The returned command mounts Velero subcommands (backup, schedule, restore, etc.), the admin NABSL request command, non-admin custom commands, and the must-gather diagnostic command. It binds namespace-related flags to the client factory, wraps the factory to apply a global request timeout controlled by --request-timeout, applies Velero→OADP text replacements to command examples and output (skipping nonadmin, nabsl-request, and must-gather), renames --timeout flags to --request-timeout recursively, customizes the usage template to show the "oc" prefix, and initializes klog flags.
 func NewVeleroRootCommand(baseName string) *cobra.Command {
 
 	config, err := clientcmd.LoadConfig()
@@ -418,11 +421,14 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	// Custom subcommands - use NonAdmin factory
 	c.AddCommand(nonadmin.NewNonAdminCommand(f))
 
+	// Must-gather command - diagnostic tool
+	c.AddCommand(mustgather.NewMustGatherCommand(f))
+
 	// Apply velero->oadp replacement to all commands recursively
 	// Skip nonadmin commands since we have full control over their output
 	for _, cmd := range c.Commands() {
 		// Don't wrap nonadmin commands - we control them and they already use correct terminology
-		if cmd.Use == "nonadmin" || cmd.Use == "nabsl-request" {
+		if cmd.Use == "nonadmin" || cmd.Use == "nabsl-request" || cmd.Use == "must-gather" {
 			continue
 		}
 		replaceVeleroWithOADP(cmd)

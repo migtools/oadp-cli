@@ -386,40 +386,6 @@ func TestNonAdminVerbBuilder_MultipleResourceTypes(t *testing.T) {
 	}
 }
 
-// TestNonAdminVerbBuilder_CreateCommandInstance tests command instance creation
-func TestNonAdminVerbBuilder_CreateCommandInstance(t *testing.T) {
-	builder := NewNonAdminVerbBuilder(nil)
-
-	originalCmd := &cobra.Command{
-		Use:   "create NAME",
-		Short: "Create a resource",
-		Long:  "Create a non-admin resource",
-	}
-	originalCmd.Flags().String("test-flag", "default", "test flag")
-	originalCmd.PersistentFlags().String("persistent-flag", "default", "persistent flag")
-
-	newCmd := builder.createCommandInstance(originalCmd)
-
-	// Verify basic fields are copied
-	if newCmd.Use != originalCmd.Use {
-		t.Errorf("Expected Use to be %s, got %s", originalCmd.Use, newCmd.Use)
-	}
-	if newCmd.Short != originalCmd.Short {
-		t.Errorf("Expected Short to be %s, got %s", originalCmd.Short, newCmd.Short)
-	}
-	if newCmd.Long != originalCmd.Long {
-		t.Errorf("Expected Long to be %s, got %s", originalCmd.Long, newCmd.Long)
-	}
-
-	// Verify flags are copied
-	if newCmd.Flags().Lookup("test-flag") == nil {
-		t.Error("Expected test-flag to be copied to new command")
-	}
-	if newCmd.PersistentFlags().Lookup("persistent-flag") == nil {
-		t.Error("Expected persistent-flag to be copied to new command")
-	}
-}
-
 // TestNonAdminVerbBuilder_NilHandler tests handling of nil handlers
 func TestNonAdminVerbBuilder_NilHandler(t *testing.T) {
 	builder := NewNonAdminVerbBuilder(nil)

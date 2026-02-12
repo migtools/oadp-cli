@@ -72,7 +72,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 			}
 
 			// Print in Velero-style format
-			printNonAdminBackupDetails(cmd, &nab, kbClient, backupName, userNamespace, effectiveTimeout)
+			printNonAdminBackupDetails(cmd, &nab, kbClient, backupName, userNamespace, effectiveTimeout, details)
 
 			// Add detailed output if --details flag is set
 			if details {
@@ -98,7 +98,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 }
 
 // printNonAdminBackupDetails prints backup details in Velero admin describe format
-func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration) {
+func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration, showDetails bool) {
 	out := cmd.OutOrStdout()
 
 	// Get Velero backup reference if available
@@ -322,22 +322,24 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 
 		fmt.Fprintf(out, "\n")
 
-		// Fetch and display Resource List
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+		// Fetch and display Resource List (only if showDetails is true)
+		if showDetails {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
 
-		resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-			BackupName:  backupName,
-			DataType:    "BackupResourceList",
-			Namespace:   userNamespace,
-			HTTPTimeout: timeout,
-		})
+			resourceList, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+				BackupName:  backupName,
+				DataType:    "BackupResourceList",
+				Namespace:   userNamespace,
+				HTTPTimeout: timeout,
+			})
 
-		if err == nil && resourceList != "" {
-			if formattedList := formatResourceList(resourceList); formattedList != "" {
-				fmt.Fprintf(out, "Resource List:\n")
-				fmt.Fprintf(out, "%s\n", formattedList)
-				fmt.Fprintf(out, "\n")
+			if err == nil && resourceList != "" {
+				if formattedList := formatResourceList(resourceList); formattedList != "" {
+					fmt.Fprintf(out, "Resource List:\n")
+					fmt.Fprintf(out, "%s\n", formattedList)
+					fmt.Fprintf(out, "\n")
+				}
 			}
 		}
 

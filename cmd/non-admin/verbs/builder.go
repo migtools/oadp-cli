@@ -88,12 +88,14 @@ func (vb *NonAdminVerbBuilder) runEFunc(verb string) func(cmd *cobra.Command, ar
 		}
 
 		// Get the main command for the resource (e.g., "backup" command)
+		// This creates a FRESH command instance each time, which is important
+		// to avoid flag state persistence across invocations
 		resourceCmd := handler.GetCommandFunc(vb.factory)
 		if resourceCmd == nil {
 			return fmt.Errorf("%s command not found for resource type %s", verb, resourceType)
 		}
 
-		// Get the specific subcommand for the verb (e.g., "backup get" command)
+		// Get the specific subcommand for the verb (e.g., "backup describe" command)
 		subCmd := handler.GetSubCommandFunc(resourceCmd)
 		if subCmd == nil {
 			return fmt.Errorf("%s %s command not found", resourceType, verb)
@@ -102,11 +104,11 @@ func (vb *NonAdminVerbBuilder) runEFunc(verb string) func(cmd *cobra.Command, ar
 		// Add flags to remaining args so they get passed to the delegated command
 		remainingArgs = vb.addFlagsToArgs(cmd, remainingArgs)
 
-		// Create a new command instance to avoid argument inheritance
-		newSubCmd := vb.createCommandInstance(subCmd)
-		newSubCmd.SetArgs(remainingArgs)
+		// Use the original subcommand directly (not a copy) and set its args
+		// This ensures the RunE closure uses the correct flag variables
+		subCmd.SetArgs(remainingArgs)
 
-		return newSubCmd.Execute()
+		return subCmd.Execute()
 	}
 }
 
@@ -138,28 +140,10 @@ func (vb *NonAdminVerbBuilder) addFlagsToArgs(cmd *cobra.Command, remainingArgs 
 	return remainingArgs
 }
 
-// createCommandInstance creates a new cobra.Command instance from an existing one to avoid argument/flag inheritance issues.
-func (vb *NonAdminVerbBuilder) createCommandInstance(originalCmd *cobra.Command) *cobra.Command {
-	newCmd := &cobra.Command{
-		Use:   originalCmd.Use,
-		Short: originalCmd.Short,
-		Long:  originalCmd.Long,
-		Run:   originalCmd.Run,
-		RunE:  originalCmd.RunE,
-	}
-
-	// Copy flags from the original command
-	originalCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		newCmd.Flags().AddFlag(flag)
-	})
-	// Also copy persistent flags
-	originalCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
-		newCmd.PersistentFlags().AddFlag(flag)
-	})
-	return newCmd
-}
-
 // addFlagsFromResources adds flags from all registered resources to the verb command
+// Note: We add flag references (not copies) here for recognition at the verb level.
+// The actual command execution will use fresh command instances created by GetCommandFunc,
+// so flag state won't persist across invocations.
 func (vb *NonAdminVerbBuilder) addFlagsFromResources(verbCmd *cobra.Command, verb string) {
 	addedFlags := make(map[string]bool)
 

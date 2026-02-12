@@ -36,11 +36,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewCreateCommand(f client.Factory) *cobra.Command {
+func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 	o := NewCreateOptions()
 
 	c := &cobra.Command{
-		Use:   "create NAME",
+		Use:   use + " NAME",
 		Short: "Create a non-admin backup storage location",
 		Args:  cobra.ExactArgs(1),
 		Run: func(c *cobra.Command, args []string) {

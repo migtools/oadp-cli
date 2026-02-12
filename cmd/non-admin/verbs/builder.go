@@ -108,7 +108,36 @@ func (vb *NonAdminVerbBuilder) runEFunc(verb string) func(cmd *cobra.Command, ar
 		// This ensures the RunE closure uses the correct flag variables
 		subCmd.SetArgs(remainingArgs)
 
-		return subCmd.Execute()
+		// Parse flags from the args we set
+		// IMPORTANT: We cannot use subCmd.Execute() here because it causes Cobra to
+		// re-parse os.Args from the root command, which results in incorrect command
+		// path parsing (e.g., "unknown command 'na' for 'backup'" error).
+		// Instead, we manually parse flags and execute the RunE function directly.
+		if err := subCmd.ParseFlags(remainingArgs); err != nil {
+			return err
+		}
+
+		// Validate arguments
+		if subCmd.Args != nil {
+			// Get the args after flag parsing
+			flags := subCmd.Flags()
+			argsList := flags.Args()
+			if err := subCmd.Args(subCmd, argsList); err != nil {
+				return err
+			}
+		}
+
+		// Execute the RunE function directly with parsed args
+		if subCmd.RunE != nil {
+			flags := subCmd.Flags()
+			return subCmd.RunE(subCmd, flags.Args())
+		} else if subCmd.Run != nil {
+			flags := subCmd.Flags()
+			subCmd.Run(subCmd, flags.Args())
+			return nil
+		}
+
+		return fmt.Errorf("command %s does not have Run or RunE", subCmd.Name())
 	}
 }
 

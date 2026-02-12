@@ -408,3 +408,131 @@ func TestNonAdminVerbBuilder_NilHandler(t *testing.T) {
 		t.Logf("Got error (as expected): %v", err)
 	}
 }
+
+// TestNonAdminVerbBuilder_VerbNounExecution tests that verb-noun command execution works correctly
+// This test specifically verifies that the command delegation doesn't cause os.Args re-parsing issues
+func TestNonAdminVerbBuilder_VerbNounExecution(t *testing.T) {
+	// Track that the delegated command was actually executed
+	executionCalled := false
+	var receivedArgs []string
+
+	// Create a mock subcommand that tracks execution
+	mockSubCmd := &cobra.Command{
+		Use:   "get",
+		Short: "Get a backup",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			executionCalled = true
+			receivedArgs = args
+			return nil
+		},
+	}
+
+	mockResourceCmd := &cobra.Command{
+		Use:   "backup",
+		Short: "Work with backups",
+	}
+	mockResourceCmd.AddCommand(mockSubCmd)
+
+	handler := NonAdminResourceHandler{
+		GetCommandFunc: func(f client.Factory) *cobra.Command {
+			return mockResourceCmd
+		},
+		GetSubCommandFunc: func(cmd *cobra.Command) *cobra.Command {
+			return mockSubCmd
+		},
+	}
+
+	// Build the verb command
+	builder := NewNonAdminVerbBuilder(nil)
+	builder.RegisterResource("backup", handler)
+
+	verbCmd := builder.BuildVerbCommand(NonAdminVerbConfig{
+		Use:   "get",
+		Short: "Get resources",
+	})
+
+	// Execute with verb-noun pattern: "get backup my-backup"
+	verbCmd.SetArgs([]string{"backup", "my-backup"})
+
+	err := verbCmd.Execute()
+	if err != nil {
+		// Check that the error is NOT the "unknown command" error that indicates os.Args re-parsing
+		if strings.Contains(err.Error(), "unknown command") {
+			t.Fatalf("Got 'unknown command' error, indicating os.Args re-parsing bug: %v", err)
+		}
+		// Other errors are okay (e.g., no cluster connection)
+		t.Logf("Got expected error (no cluster): %v", err)
+	}
+
+	// Verify the delegated command was actually called
+	if !executionCalled {
+		t.Error("Expected delegated command to be executed, but it wasn't called")
+	}
+
+	// Verify the arguments were passed correctly
+	expectedArgs := []string{"my-backup"}
+	if len(receivedArgs) != len(expectedArgs) {
+		t.Errorf("Expected %d args, got %d: %v", len(expectedArgs), len(receivedArgs), receivedArgs)
+	} else if len(receivedArgs) > 0 && receivedArgs[0] != expectedArgs[0] {
+		t.Errorf("Expected args %v, got %v", expectedArgs, receivedArgs)
+	}
+
+	t.Log("Verb-noun execution test passed successfully")
+}
+
+// TestNonAdminVerbBuilder_VerbNounWithFlags tests verb-noun pattern with flags
+func TestNonAdminVerbBuilder_VerbNounWithFlags(t *testing.T) {
+	executionCalled := false
+	var receivedFlagValue string
+
+	mockSubCmd := &cobra.Command{
+		Use:   "get",
+		Short: "Get a backup",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			executionCalled = true
+			flag := cmd.Flags().Lookup("output")
+			if flag != nil {
+				receivedFlagValue = flag.Value.String()
+			}
+			return nil
+		},
+	}
+	mockSubCmd.Flags().String("output", "", "output format")
+
+	mockResourceCmd := &cobra.Command{Use: "backup"}
+	mockResourceCmd.AddCommand(mockSubCmd)
+
+	handler := NonAdminResourceHandler{
+		GetCommandFunc:    func(f client.Factory) *cobra.Command { return mockResourceCmd },
+		GetSubCommandFunc: func(cmd *cobra.Command) *cobra.Command { return mockSubCmd },
+	}
+
+	builder := NewNonAdminVerbBuilder(nil)
+	builder.RegisterResource("backup", handler)
+
+	verbCmd := builder.BuildVerbCommand(NonAdminVerbConfig{
+		Use:   "get",
+		Short: "Get resources",
+	})
+
+	// Execute with verb-noun pattern and flags: "get backup my-backup --output=json"
+	verbCmd.SetArgs([]string{"backup", "my-backup", "--output=json"})
+
+	err := verbCmd.Execute()
+	if err != nil {
+		if strings.Contains(err.Error(), "unknown command") {
+			t.Fatalf("Got 'unknown command' error, indicating os.Args re-parsing bug: %v", err)
+		}
+		t.Logf("Got expected error (no cluster): %v", err)
+	}
+
+	if !executionCalled {
+		t.Error("Expected delegated command to be executed")
+	}
+
+	if receivedFlagValue != "json" {
+		t.Errorf("Expected flag value 'json', got '%s'", receivedFlagValue)
+	}
+
+	t.Log("Verb-noun with flags test passed successfully")
+}

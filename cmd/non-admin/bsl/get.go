@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/migtools/oadp-cli/cmd/non-admin/output"
 	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
-	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 

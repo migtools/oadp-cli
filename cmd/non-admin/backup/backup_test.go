@@ -100,41 +100,35 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			name: "nonadmin get backup help",
 			args: []string{"nonadmin", "get", "backup", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"backup",
+				"Get one or more non-admin backups",
 			},
 		},
 		{
 			name: "nonadmin create backup help",
 			args: []string{"nonadmin", "create", "backup", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"backup",
-				"bsl",
+				"Create a non-admin backup",
 			},
 		},
 		{
 			name: "nonadmin delete backup help",
 			args: []string{"nonadmin", "delete", "backup", "--help"},
 			expectContains: []string{
-				"Delete non-admin resources",
-				"backup",
+				"Delete one or more non-admin backups",
 			},
 		},
 		{
 			name: "nonadmin describe backup help",
 			args: []string{"nonadmin", "describe", "backup", "--help"},
 			expectContains: []string{
-				"Describe non-admin resources",
-				"backup",
+				"Describe a non-admin backup",
 			},
 		},
 		{
 			name: "nonadmin logs backup help",
 			args: []string{"nonadmin", "logs", "backup", "--help"},
 			expectContains: []string{
-				"Get logs for non-admin resources",
-				"backup",
+				"Show logs for a non-admin backup",
 			},
 		},
 		// Shorthand verb-noun order tests
@@ -142,41 +136,35 @@ func TestNonAdminBackupCommands(t *testing.T) {
 			name: "na get backup help",
 			args: []string{"na", "get", "backup", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"backup",
+				"Get one or more non-admin backups",
 			},
 		},
 		{
 			name: "na create backup help",
 			args: []string{"na", "create", "backup", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"backup",
-				"bsl",
+				"Create a non-admin backup",
 			},
 		},
 		{
 			name: "na delete backup help",
 			args: []string{"na", "delete", "backup", "--help"},
 			expectContains: []string{
-				"Delete non-admin resources",
-				"backup",
+				"Delete one or more non-admin backups",
 			},
 		},
 		{
 			name: "na describe backup help",
 			args: []string{"na", "describe", "backup", "--help"},
 			expectContains: []string{
-				"Describe non-admin resources",
-				"backup",
+				"Describe a non-admin backup",
 			},
 		},
 		{
 			name: "na logs backup help",
 			args: []string{"na", "logs", "backup", "--help"},
 			expectContains: []string{
-				"Get logs for non-admin resources",
-				"backup",
+				"Show logs for a non-admin backup",
 			},
 		},
 	}
@@ -400,13 +388,13 @@ func TestVerbNounOrderExamples(t *testing.T) {
 	})
 
 	t.Run("verb commands with specific resources show proper examples", func(t *testing.T) {
-		// Test that verb commands with specific resources show examples
+		// Test that verb commands with specific resources show examples (noun-first format from underlying commands)
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get backup my-backup",
-			"kubectl oadp nonadmin create backup my-backup",
-			"kubectl oadp nonadmin delete backup my-backup",
-			"kubectl oadp nonadmin describe backup my-backup",
-			"kubectl oadp nonadmin logs backup my-backup",
+			"kubectl oadp nonadmin backup get",
+			"kubectl oadp nonadmin backup create backup1",
+			"kubectl oadp nonadmin backup delete my-backup",
+			"kubectl oadp nonadmin backup describe my-backup",
+			"kubectl oadp nonadmin backup logs my-backup",
 		}
 
 		commands := [][]string{
@@ -509,6 +497,19 @@ func TestNonAdminBackupDeleteAllFlagExamples(t *testing.T) {
 		testutil.TestHelpCommand(t, binaryPath,
 			[]string{"nonadmin", "backup", "delete", "--help"},
 			expectedPatterns)
+	})
+
+	t.Run("delete help has examples section", func(t *testing.T) {
+		// Test that examples section exists and shows various delete patterns
+		expectedExamples := []string{
+			"kubectl oadp nonadmin backup delete my-backup",
+			"kubectl oadp nonadmin backup delete --all",
+			"kubectl oadp nonadmin backup delete my-backup --confirm",
+		}
+
+		testutil.TestHelpCommand(t, binaryPath,
+			[]string{"nonadmin", "backup", "delete", "--help"},
+			expectedExamples)
 	})
 }
 

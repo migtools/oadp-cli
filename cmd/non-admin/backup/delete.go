@@ -57,6 +57,17 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Validate())
 			cmd.CheckError(o.Run())
 		},
+		Example: `  # Delete a specific backup
+  kubectl oadp nonadmin backup delete my-backup
+
+  # Delete multiple backups
+  kubectl oadp nonadmin backup delete backup1 backup2 backup3
+
+  # Delete all backups in the current namespace
+  kubectl oadp nonadmin backup delete --all
+
+  # Delete without confirmation prompt
+  kubectl oadp nonadmin backup delete my-backup --confirm`,
 	}
 
 	o.BindFlags(c.Flags())

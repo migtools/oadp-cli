@@ -79,16 +79,14 @@ func TestNonAdminRestoreCommands(t *testing.T) {
 			name: "nonadmin get restore help",
 			args: []string{"nonadmin", "get", "restore", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"restore",
+				"Get one or more non-admin restores",
 			},
 		},
 		{
 			name: "nonadmin create restore help",
 			args: []string{"nonadmin", "create", "restore", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"restore",
+				"Create a non-admin restore",
 			},
 		},
 		// Shorthand verb-noun order tests
@@ -96,16 +94,14 @@ func TestNonAdminRestoreCommands(t *testing.T) {
 			name: "na get restore help",
 			args: []string{"na", "get", "restore", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"restore",
+				"Get one or more non-admin restores",
 			},
 		},
 		{
 			name: "na create restore help",
 			args: []string{"na", "create", "restore", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"restore",
+				"Create a non-admin restore",
 			},
 		},
 	}
@@ -318,13 +314,13 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 	})
 
 	t.Run("verb commands with specific resources show proper examples", func(t *testing.T) {
-		// Test that verb commands with specific resources show examples
+		// Test that verb commands with specific resources show examples (noun-first format from underlying commands)
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get restore my-restore",
-			"kubectl oadp nonadmin create restore my-restore",
-			"kubectl oadp nonadmin describe restore my-restore",
-			"kubectl oadp nonadmin logs restore my-restore",
-			"kubectl oadp nonadmin delete restore my-restore",
+			"kubectl oadp nonadmin restore get",
+			"kubectl oadp nonadmin restore create",
+			"kubectl oadp nonadmin restore describe my-restore",
+			"kubectl oadp nonadmin restore logs my-restore",
+			"kubectl oadp nonadmin restore delete my-restore",
 		}
 
 		commands := [][]string{
@@ -397,16 +393,14 @@ func TestNonAdminRestoreDescribeCommands(t *testing.T) {
 			name: "nonadmin describe restore help - verb-noun order",
 			args: []string{"nonadmin", "describe", "restore", "--help"},
 			expectContains: []string{
-				"Describe non-admin resources",
-				"restore",
+				"Describe a non-admin restore",
 			},
 		},
 		{
 			name: "na describe restore help - shorthand",
 			args: []string{"na", "describe", "restore", "--help"},
 			expectContains: []string{
-				"Describe non-admin resources",
-				"restore",
+				"Describe a non-admin restore",
 			},
 		},
 	}
@@ -439,16 +433,14 @@ func TestNonAdminRestoreLogsCommands(t *testing.T) {
 			name: "nonadmin logs restore help - verb-noun order",
 			args: []string{"nonadmin", "logs", "restore", "--help"},
 			expectContains: []string{
-				"Get logs for non-admin resources",
-				"restore",
+				"Show logs for a non-admin restore",
 			},
 		},
 		{
 			name: "na logs restore help - shorthand",
 			args: []string{"na", "logs", "restore", "--help"},
 			expectContains: []string{
-				"Get logs for non-admin resources",
-				"restore",
+				"Show logs for a non-admin restore",
 			},
 		},
 	}
@@ -482,16 +474,14 @@ func TestNonAdminRestoreDeleteCommands(t *testing.T) {
 			name: "nonadmin delete restore help - verb-noun order",
 			args: []string{"nonadmin", "delete", "restore", "--help"},
 			expectContains: []string{
-				"Delete non-admin resources",
-				"restore",
+				"Delete one or more non-admin restores",
 			},
 		},
 		{
 			name: "na delete restore help - shorthand",
 			args: []string{"na", "delete", "restore", "--help"},
 			expectContains: []string{
-				"Delete non-admin resources",
-				"restore",
+				"Delete one or more non-admin restores",
 			},
 		},
 	}
@@ -517,5 +507,18 @@ func TestNonAdminRestoreDeleteAllFlag(t *testing.T) {
 		testutil.TestHelpCommand(t, binaryPath,
 			[]string{"nonadmin", "restore", "delete", "--help"},
 			[]string{"--confirm", "Skip confirmation"})
+	})
+
+	t.Run("delete help has examples section", func(t *testing.T) {
+		// Test that examples section exists and shows various delete patterns
+		expectedExamples := []string{
+			"kubectl oadp nonadmin restore delete my-restore",
+			"kubectl oadp nonadmin restore delete --all",
+			"kubectl oadp nonadmin restore delete my-restore --confirm",
+		}
+
+		testutil.TestHelpCommand(t, binaryPath,
+			[]string{"nonadmin", "restore", "delete", "--help"},
+			expectedExamples)
 	})
 }

@@ -19,16 +19,15 @@ package verbs
 import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
+
+	"github.com/migtools/oadp-cli/cmd/non-admin/backup"
+	"github.com/migtools/oadp-cli/cmd/non-admin/bsl"
+	"github.com/migtools/oadp-cli/cmd/non-admin/restore"
 )
 
 // NewGetCommand creates the "get" verb command that delegates to noun commands
 func NewGetCommand(factory client.Factory) *cobra.Command {
-	builder := NewNonAdminVerbBuilder(factory)
-	RegisterBackupResources(builder, "get")
-	RegisterRestoreResources(builder, "get")
-	RegisterBSLResources(builder, "get")
-
-	return builder.BuildVerbCommand(NonAdminVerbConfig{
+	c := &cobra.Command{
 		Use:   "get",
 		Short: "Get one or more non-admin resources",
 		Long:  "Get one or more non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
@@ -49,17 +48,20 @@ func NewGetCommand(factory client.Factory) *cobra.Command {
 
   # Get a specific backup storage location
   kubectl oadp nonadmin get bsl my-storage`,
-	})
+	}
+
+	c.AddCommand(
+		backup.NewGetCommand(factory, "backup"),
+		restore.NewGetCommand(factory, "restore"),
+		bsl.NewGetCommand(factory, "bsl"),
+	)
+
+	return c
 }
 
 // NewCreateCommand creates the "create" verb command that delegates to noun commands
 func NewCreateCommand(factory client.Factory) *cobra.Command {
-	builder := NewNonAdminVerbBuilder(factory)
-	RegisterBackupResources(builder, "create")
-	RegisterRestoreResources(builder, "create")
-	RegisterBSLResources(builder, "create")
-
-	return builder.BuildVerbCommand(NonAdminVerbConfig{
+	c := &cobra.Command{
 		Use:   "create",
 		Short: "Create non-admin resources",
 		Long:  "Create non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
@@ -71,17 +73,20 @@ func NewCreateCommand(factory client.Factory) *cobra.Command {
 
   # Create a backup storage location
   kubectl oadp nonadmin create bsl my-bsl`,
-	})
+	}
+
+	c.AddCommand(
+		backup.NewCreateCommand(factory, "backup"),
+		restore.NewCreateCommand(factory, "restore"),
+		bsl.NewCreateCommand(factory, "bsl"),
+	)
+
+	return c
 }
 
 // NewDeleteCommand creates the "delete" verb command that delegates to noun commands
 func NewDeleteCommand(factory client.Factory) *cobra.Command {
-	builder := NewNonAdminVerbBuilder(factory)
-	RegisterBackupResources(builder, "delete")
-	RegisterRestoreResources(builder, "delete")
-	RegisterBSLResources(builder, "delete")
-
-	return builder.BuildVerbCommand(NonAdminVerbConfig{
+	c := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete non-admin resources",
 		Long:  "Delete non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
@@ -90,17 +95,19 @@ func NewDeleteCommand(factory client.Factory) *cobra.Command {
 
   # Delete a non-admin restore
   kubectl oadp nonadmin delete restore my-restore`,
-	})
+	}
+
+	c.AddCommand(
+		backup.NewDeleteCommand(factory, "backup"),
+		restore.NewDeleteCommand(factory, "restore"),
+	)
+
+	return c
 }
 
 // NewDescribeCommand creates the "describe" verb command that delegates to noun commands
 func NewDescribeCommand(factory client.Factory) *cobra.Command {
-	builder := NewNonAdminVerbBuilder(factory)
-	RegisterBackupResources(builder, "describe")
-	RegisterRestoreResources(builder, "describe")
-	RegisterBSLResources(builder, "describe")
-
-	return builder.BuildVerbCommand(NonAdminVerbConfig{
+	c := &cobra.Command{
 		Use:   "describe",
 		Short: "Describe non-admin resources",
 		Long:  "Describe non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
@@ -109,17 +116,19 @@ func NewDescribeCommand(factory client.Factory) *cobra.Command {
 
   # Describe a non-admin restore
   kubectl oadp nonadmin describe restore my-restore`,
-	})
+	}
+
+	c.AddCommand(
+		backup.NewDescribeCommand(factory, "backup"),
+		restore.NewDescribeCommand(factory, "restore"),
+	)
+
+	return c
 }
 
 // NewLogsCommand creates the "logs" verb command that delegates to noun commands
 func NewLogsCommand(factory client.Factory) *cobra.Command {
-	builder := NewNonAdminVerbBuilder(factory)
-	RegisterBackupResources(builder, "logs")
-	RegisterRestoreResources(builder, "logs")
-	RegisterBSLResources(builder, "logs")
-
-	return builder.BuildVerbCommand(NonAdminVerbConfig{
+	c := &cobra.Command{
 		Use:   "logs",
 		Short: "Get logs for non-admin resources",
 		Long:  "Get logs for non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
@@ -128,5 +137,12 @@ func NewLogsCommand(factory client.Factory) *cobra.Command {
 
   # Get logs for a non-admin restore
   kubectl oadp nonadmin logs restore my-restore`,
-	})
+	}
+
+	c.AddCommand(
+		backup.NewLogsCommand(factory, "backup"),
+		restore.NewLogsCommand(factory, "restore"),
+	)
+
+	return c
 }

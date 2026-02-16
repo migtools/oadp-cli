@@ -73,16 +73,14 @@ func TestNonAdminBSLCommands(t *testing.T) {
 			name: "nonadmin get bsl help",
 			args: []string{"nonadmin", "get", "bsl", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"bsl",
+				"Get one or more non-admin backup storage locations",
 			},
 		},
 		{
 			name: "nonadmin create bsl help",
 			args: []string{"nonadmin", "create", "bsl", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"bsl",
+				"Create a non-admin backup storage location",
 			},
 		},
 		// Shorthand verb-noun order tests
@@ -90,16 +88,14 @@ func TestNonAdminBSLCommands(t *testing.T) {
 			name: "na get bsl help",
 			args: []string{"na", "get", "bsl", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"bsl",
+				"Get one or more non-admin backup storage locations",
 			},
 		},
 		{
 			name: "na create bsl help",
 			args: []string{"na", "create", "bsl", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"bsl",
+				"Create a non-admin backup storage location",
 			},
 		},
 	}
@@ -297,7 +293,7 @@ func TestVerbNounOrderBSLExamples(t *testing.T) {
 
 	t.Run("get bsl with specific resource shows proper examples", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get bsl",
+			"kubectl oadp nonadmin bsl get", // Shows noun-first format from underlying command
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -307,7 +303,7 @@ func TestVerbNounOrderBSLExamples(t *testing.T) {
 
 	t.Run("create bsl with specific resource shows proper examples", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin create bsl",
+			"kubectl oadp nonadmin bsl create", // Shows noun-first format from underlying command
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

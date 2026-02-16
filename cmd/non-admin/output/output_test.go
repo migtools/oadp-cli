@@ -235,7 +235,9 @@ func TestPrintWithFormat(t *testing.T) {
 			cmd := &cobra.Command{}
 			BindFlags(cmd.Flags())
 			if tt.outputFormat != "" {
-				cmd.Flags().Set("output", tt.outputFormat)
+				if err := cmd.Flags().Set("output", tt.outputFormat); err != nil {
+					t.Fatalf("Failed to set output flag: %v", err)
+				}
 			}
 
 			// Capture stdout
@@ -249,7 +251,9 @@ func TestPrintWithFormat(t *testing.T) {
 			w.Close()
 			os.Stdout = oldStdout
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Fatalf("Failed to read output: %v", err)
+			}
 			output := buf.String()
 
 			// Check error expectation
@@ -329,7 +333,9 @@ func TestPrintWithFormatList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &cobra.Command{}
 			BindFlags(cmd.Flags())
-			cmd.Flags().Set("output", tt.outputFormat)
+			if err := cmd.Flags().Set("output", tt.outputFormat); err != nil {
+				t.Fatalf("Failed to set output flag: %v", err)
+			}
 
 			// Capture stdout
 			oldStdout := os.Stdout
@@ -342,7 +348,9 @@ func TestPrintWithFormatList(t *testing.T) {
 			w.Close()
 			os.Stdout = oldStdout
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			if _, copyErr := io.Copy(&buf, r); copyErr != nil {
+				t.Fatalf("Failed to read output: %v", copyErr)
+			}
 			output := buf.String()
 
 			if err != nil {

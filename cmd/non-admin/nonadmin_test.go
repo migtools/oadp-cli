@@ -110,50 +110,42 @@ func TestNonAdminCommands(t *testing.T) {
 			name: "nonadmin get backup help",
 			args: []string{"nonadmin", "get", "backup", "--help"},
 			expectContains: []string{
-				"Get one or more non-admin resources",
-				"backup",
+				"Get one or more non-admin backups",
 			},
 		},
 		{
 			name: "nonadmin create backup help",
 			args: []string{"nonadmin", "create", "backup", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"backup",
-				"bsl",
+				"Create a non-admin backup",
 			},
 		},
 		{
 			name: "nonadmin delete backup help",
 			args: []string{"nonadmin", "delete", "backup", "--help"},
 			expectContains: []string{
-				"Delete non-admin resources",
-				"backup",
+				"Delete one or more non-admin backups",
 			},
 		},
 		{
 			name: "nonadmin describe backup help",
 			args: []string{"nonadmin", "describe", "backup", "--help"},
 			expectContains: []string{
-				"Describe non-admin resources",
-				"backup",
+				"Describe a non-admin backup",
 			},
 		},
 		{
 			name: "nonadmin logs backup help",
 			args: []string{"nonadmin", "logs", "backup", "--help"},
 			expectContains: []string{
-				"Get logs for non-admin resources",
-				"backup",
+				"Show logs for a non-admin backup",
 			},
 		},
 		{
 			name: "nonadmin create bsl help",
 			args: []string{"nonadmin", "create", "bsl", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"backup",
-				"bsl",
+				"Create a non-admin backup storage location",
 			},
 		},
 		// Shorthand tests for verb-noun order
@@ -169,9 +161,7 @@ func TestNonAdminCommands(t *testing.T) {
 			name: "na create backup help",
 			args: []string{"na", "create", "backup", "--help"},
 			expectContains: []string{
-				"Create non-admin resources",
-				"backup",
-				"bsl",
+				"Create a non-admin backup",
 			},
 		},
 	}

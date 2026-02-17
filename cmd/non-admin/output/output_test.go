@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
@@ -116,6 +117,29 @@ func TestNonAdminScheme(t *testing.T) {
 				t.Errorf("Expected GVK %v to be registered in scheme, but it was not found", tt.gvk)
 			}
 		})
+	}
+}
+
+// TestNonAdminSchemeConcurrency verifies that NonAdminScheme() is thread-safe and returns singleton
+func TestNonAdminSchemeConcurrency(t *testing.T) {
+	var wg sync.WaitGroup
+	schemes := make([]*runtime.Scheme, 100)
+
+	// Call from 100 goroutines
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			schemes[idx] = NonAdminScheme()
+		}(i)
+	}
+	wg.Wait()
+
+	// Verify all got same instance
+	for i := 1; i < 100; i++ {
+		if schemes[i] != schemes[0] {
+			t.Errorf("Expected same scheme instance, got different at index %d", i)
+		}
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	"github.com/pkg/errors"
@@ -32,21 +33,33 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
+var (
+	// Singleton scheme instance
+	nonAdminScheme     *runtime.Scheme
+	nonAdminSchemeOnce sync.Once
+
+	// Singleton codec factory instance
+	codecFactory     serializer.CodecFactory
+	codecFactoryOnce sync.Once
+)
+
 // NonAdminScheme returns a runtime.Scheme with NonAdmin types registered
 func NonAdminScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
+	nonAdminSchemeOnce.Do(func() {
+		nonAdminScheme = runtime.NewScheme()
 
-	// Add NonAdmin types
-	if err := nacv1alpha1.AddToScheme(scheme); err != nil {
-		panic(fmt.Sprintf("failed to add NonAdmin types to scheme: %v", err))
-	}
+		// Add NonAdmin types
+		if err := nacv1alpha1.AddToScheme(nonAdminScheme); err != nil {
+			panic(fmt.Sprintf("failed to add NonAdmin types to scheme: %v", err))
+		}
 
-	// Add Velero types for compatibility
-	if err := velerov1api.AddToScheme(scheme); err != nil {
-		panic(fmt.Sprintf("failed to add Velero types to scheme: %v", err))
-	}
+		// Add Velero types for compatibility
+		if err := velerov1api.AddToScheme(nonAdminScheme); err != nil {
+			panic(fmt.Sprintf("failed to add Velero types to scheme: %v", err))
+		}
+	})
 
-	return scheme
+	return nonAdminScheme
 }
 
 // BindFlags wraps Velero's BindFlags to add output flags
@@ -123,8 +136,10 @@ func encodeTo(obj runtime.Object, format string, w io.Writer) error {
 func encoderFor(format string, obj runtime.Object) (runtime.Encoder, error) {
 	var encoder runtime.Encoder
 
-	// Use NonAdminScheme instead of Velero's scheme
-	codecFactory := serializer.NewCodecFactory(NonAdminScheme())
+	// Initialize codec factory once using singleton scheme
+	codecFactoryOnce.Do(func() {
+		codecFactory = serializer.NewCodecFactory(NonAdminScheme())
+	})
 
 	desiredMediaType := fmt.Sprintf("application/%s", format)
 	serializerInfo, found := runtime.SerializerInfoForMediaType(codecFactory.SupportedMediaTypes(), desiredMediaType)

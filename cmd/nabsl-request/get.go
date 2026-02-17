@@ -105,92 +105,44 @@ func (o *GetOptions) Run(c *cobra.Command, f client.Factory) error {
 	// Get the admin namespace (from client config) where requests are stored
 	adminNS := f.Namespace()
 
-	// Get the current namespace to find user's NABSLs
-	currentNS, err := shared.GetCurrentNamespace()
-	if err != nil {
-		return fmt.Errorf("failed to determine current namespace: %w", err)
-	}
-
-	// First get all NABSLs in user's namespace to find related requests
-	var nabslList nacv1alpha1.NonAdminBackupStorageLocationList
-	err = o.client.List(context.Background(), &nabslList, kbclient.InNamespace(currentNS))
-	if err != nil {
-		return fmt.Errorf("failed to list NABSLs: %w", err)
-	}
-
-	// Collect request UUIDs from NABSL statuses
-	requestUUIDs := make(map[string]string) // UUID -> NABSL name
-	for _, nabsl := range nabslList.Items {
-		if nabsl.Status.VeleroBackupStorageLocation != nil && nabsl.Status.VeleroBackupStorageLocation.NACUUID != "" {
-			requestUUIDs[nabsl.Status.VeleroBackupStorageLocation.NACUUID] = nabsl.Name
-		}
-	}
-
 	if o.Name != "" {
-		// Get specific request by UUID or NABSL name
-		var targetUUID string
-
-		// Check if o.Name is a UUID or NABSL name
-		if _, exists := requestUUIDs[o.Name]; exists {
-			// o.Name is a UUID
-			targetUUID = o.Name
-		} else {
-			// o.Name might be a NABSL name, find its UUID
-			for uuid, nabslName := range requestUUIDs {
-				if nabslName == o.Name {
-					targetUUID = uuid
-					break
-				}
-			}
-		}
-
-		if targetUUID != "" {
-			var request nacv1alpha1.NonAdminBackupStorageLocationRequest
-			err := o.client.Get(context.Background(), kbclient.ObjectKey{
-				Name:      targetUUID,
-				Namespace: adminNS,
-			}, &request)
-			if err != nil {
-				return fmt.Errorf("failed to get request for %q: %w", o.Name, err)
-			}
-
-			if printed, err := output.PrintWithFormat(c, &request); printed || err != nil {
-				return err
-			}
-
-			list := &nacv1alpha1.NonAdminBackupStorageLocationRequestList{
-				Items: []nacv1alpha1.NonAdminBackupStorageLocationRequest{request},
-			}
-			return printRequestTable(list)
-		}
-
-		return fmt.Errorf("request %q not found for NABSLs in namespace %s", o.Name, currentNS)
-	}
-
-	// List all requests related to user's NABSLs
-	var userRequests []nacv1alpha1.NonAdminBackupStorageLocationRequest
-	for uuid := range requestUUIDs {
+		// Get specific request by name (UUID)
 		var request nacv1alpha1.NonAdminBackupStorageLocationRequest
 		err := o.client.Get(context.Background(), kbclient.ObjectKey{
-			Name:      uuid,
+			Name:      o.Name,
 			Namespace: adminNS,
 		}, &request)
 		if err != nil {
-			// Request might not exist yet, skip
-			continue
+			return fmt.Errorf("failed to get request %q: %w", o.Name, err)
 		}
-		userRequests = append(userRequests, request)
+
+		if printed, err := output.PrintWithFormat(c, &request); printed || err != nil {
+			return err
+		}
+
+		list := &nacv1alpha1.NonAdminBackupStorageLocationRequestList{
+			Items: []nacv1alpha1.NonAdminBackupStorageLocationRequest{request},
+		}
+		return printRequestTable(list)
 	}
 
-	requestList := &nacv1alpha1.NonAdminBackupStorageLocationRequestList{
-		Items: userRequests,
+	// List all requests in admin namespace
+	var requestList nacv1alpha1.NonAdminBackupStorageLocationRequestList
+	var err error
+	if o.AllNamespaces {
+		err = o.client.List(context.Background(), &requestList)
+	} else {
+		err = o.client.List(context.Background(), &requestList, kbclient.InNamespace(adminNS))
+	}
+	if err != nil {
+		return fmt.Errorf("failed to list requests: %w", err)
 	}
 
-	if printed, err := output.PrintWithFormat(c, requestList); printed || err != nil {
+	if printed, err := output.PrintWithFormat(c, &requestList); printed || err != nil {
 		return err
 	}
 
-	return printRequestTable(requestList)
+	return printRequestTable(&requestList)
 }
 
 func printRequestTable(requestList *nacv1alpha1.NonAdminBackupStorageLocationRequestList) error {

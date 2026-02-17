@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/migtools/oadp-cli/cmd/non-admin/output"
 	"github.com/migtools/oadp-cli/cmd/shared"
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -32,7 +33,6 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/flag"
-	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

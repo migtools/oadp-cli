@@ -210,10 +210,21 @@ func replaceVeleroWithOADP(cmd *cobra.Command) *cobra.Command {
 	cmd.Example = replaceVeleroCommandWithOADP(cmd.Example)
 
 	// Skip wrapping commands that stream output or make long-running requests
-	// to allow real-time display without buffering
+	// to allow real-time display without buffering. Check both the command itself
+	// and its parent to handle both "backup describe" and "describe backup" patterns.
 	isLogsCommand := cmd.Use == "logs" || strings.HasPrefix(cmd.Use, "logs ")
 	isDescribeCommand := cmd.Use == "describe" || strings.HasPrefix(cmd.Use, "describe ")
-	shouldSkipWrapper := isLogsCommand || isDescribeCommand
+	isDeleteCommand := cmd.Use == "delete" || strings.HasPrefix(cmd.Use, "delete ")
+
+	// Also check if parent command is one we should skip
+	if cmd.Parent() != nil {
+		parentUse := cmd.Parent().Use
+		isLogsCommand = isLogsCommand || parentUse == "logs" || strings.HasPrefix(parentUse, "logs ")
+		isDescribeCommand = isDescribeCommand || parentUse == "describe" || strings.HasPrefix(parentUse, "describe ")
+		isDeleteCommand = isDeleteCommand || parentUse == "delete" || strings.HasPrefix(parentUse, "delete ")
+	}
+
+	shouldSkipWrapper := isLogsCommand || isDescribeCommand || isDeleteCommand
 
 	// Wrap the Run function to replace velero in output
 	if cmd.Run != nil && !shouldSkipWrapper {

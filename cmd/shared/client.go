@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
@@ -29,6 +30,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// schemeKey uniquely identifies a scheme configuration
+type schemeKey struct {
+	hasNonAdmin bool
+	hasVelero   bool
+	hasCore     bool
+}
+
+var (
+	// Cache schemes by configuration
+	schemeCache sync.Map // map[schemeKey]*runtime.Scheme
 )
 
 // ClientOptions holds configuration for creating Kubernetes clients
@@ -122,6 +135,19 @@ func NewClientWithFullScheme(f client.Factory) (kbclient.WithWatch, error) {
 
 // NewSchemeWithTypes creates a new runtime scheme with the specified types
 func NewSchemeWithTypes(opts ClientOptions) (*runtime.Scheme, error) {
+	// Create cache key from options
+	key := schemeKey{
+		hasNonAdmin: opts.IncludeNonAdminTypes,
+		hasVelero:   opts.IncludeVeleroTypes,
+		hasCore:     opts.IncludeCoreTypes,
+	}
+
+	// Try cache first
+	if cached, ok := schemeCache.Load(key); ok {
+		return cached.(*runtime.Scheme), nil
+	}
+
+	// Create new scheme
 	scheme := runtime.NewScheme()
 
 	if opts.IncludeNonAdminTypes {
@@ -142,7 +168,9 @@ func NewSchemeWithTypes(opts ClientOptions) (*runtime.Scheme, error) {
 		}
 	}
 
-	return scheme, nil
+	// Store in cache (handles race conditions)
+	actual, _ := schemeCache.LoadOrStore(key, scheme)
+	return actual.(*runtime.Scheme), nil
 }
 
 // GetCurrentNamespace gets the current namespace from the kubeconfig context

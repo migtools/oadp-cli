@@ -147,6 +147,23 @@ func TestHttpClientWithTimeout(t *testing.T) {
 	}
 }
 
+// TestHTTPClientCaching verifies that HTTP clients are cached by timeout duration
+func TestHTTPClientCaching(t *testing.T) {
+	timeout := 10 * time.Minute
+	client1 := httpClientWithTimeout(timeout)
+	client2 := httpClientWithTimeout(timeout)
+
+	if client1 != client2 {
+		t.Error("Expected same client instance for same timeout")
+	}
+
+	differentTimeout := 5 * time.Minute
+	client3 := httpClientWithTimeout(differentTimeout)
+	if client1 == client3 {
+		t.Error("Expected different client for different timeout")
+	}
+}
+
 // TestDownloadContentWithTimeout tests downloading content with explicit timeout
 func TestDownloadContentWithTimeout(t *testing.T) {
 	tests := []struct {

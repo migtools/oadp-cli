@@ -25,12 +25,18 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	// Cache HTTP clients by timeout duration
+	httpClientCache sync.Map // map[time.Duration]*http.Client
 )
 
 // DefaultHTTPTimeout is the default timeout for HTTP requests when downloading content from object storage.
@@ -69,9 +75,19 @@ func GetHTTPTimeoutWithOverride(override time.Duration) time.Duration {
 // httpClientWithTimeout returns an HTTP client with a configured timeout.
 // Using a custom client instead of http.DefaultClient ensures downloads don't hang indefinitely.
 func httpClientWithTimeout(timeout time.Duration) *http.Client {
-	return &http.Client{
+	// Try to load from cache
+	if cached, ok := httpClientCache.Load(timeout); ok {
+		return cached.(*http.Client)
+	}
+
+	// Create new client
+	client := &http.Client{
 		Timeout: timeout,
 	}
+
+	// Store in cache (LoadOrStore handles race conditions)
+	actual, _ := httpClientCache.LoadOrStore(timeout, client)
+	return actual.(*http.Client)
 }
 
 // DownloadRequestOptions holds configuration for creating and processing NonAdminDownloadRequests

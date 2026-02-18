@@ -33,16 +33,16 @@ When users create NABSLs, approval requests are automatically generated for admi
 
 Use these commands to view, approve, or reject pending NABSL requests.`,
 		Example: `  # List all pending NABSL approval requests
-  kubectl oadp nabsl-request get
+  oc oadp nabsl-request get
 
   # Describe a specific NABSL approval request
-  kubectl oadp nabsl-request describe my-storage-request
+  oc oadp nabsl-request describe my-storage-request
 
   # Approve a NABSL approval request
-  kubectl oadp nabsl-request approve my-storage-request
+  oc oadp nabsl-request approve my-storage-request
 
   # Reject a NABSL approval request  
-  kubectl oadp nabsl-request reject my-storage-request`,
+  oc oadp nabsl-request reject my-storage-request`,
 	}
 
 	c.AddCommand(

@@ -46,22 +46,22 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Create a non-admin restore from a backup (auto-generated name).
-  kubectl oadp nonadmin restore create --backup-name backup1
+  oc oadp nonadmin restore create --backup-name backup1
 
   # Create a non-admin restore with a specific name.
-  kubectl oadp nonadmin restore create restore1 --backup-name backup1
+  oc oadp nonadmin restore create restore1 --backup-name backup1
 
   # Create a non-admin restore with specific resource types.
-  kubectl oadp nonadmin restore create restore2 --backup-name backup1 --include-resources deployments,services
+  oc oadp nonadmin restore create restore2 --backup-name backup1 --include-resources deployments,services
 
   # Create a non-admin restore excluding certain resources.
-  kubectl oadp nonadmin restore create restore3 --backup-name backup1 --exclude-resources secrets
+  oc oadp nonadmin restore create restore3 --backup-name backup1 --exclude-resources secrets
 
   # Create a non-admin restore with label selector.
-  kubectl oadp nonadmin restore create restore4 --backup-name backup1 --selector app=myapp
+  oc oadp nonadmin restore create restore4 --backup-name backup1 --selector app=myapp
 
   # View the YAML for a non-admin restore without sending it to the server.
-  kubectl oadp nonadmin restore create restore5 --backup-name backup1 -o yaml`,
+  oc oadp nonadmin restore create restore5 --backup-name backup1 -o yaml`,
 	}
 
 	o.BindFlags(c.Flags())

@@ -58,16 +58,16 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run())
 		},
 		Example: `  # Delete a specific restore
-  kubectl oadp nonadmin restore delete my-restore
+  oc oadp nonadmin restore delete my-restore
 
   # Delete multiple restores
-  kubectl oadp nonadmin restore delete restore1 restore2 restore3
+  oc oadp nonadmin restore delete restore1 restore2 restore3
 
   # Delete all restores in the current namespace
-  kubectl oadp nonadmin restore delete --all
+  oc oadp nonadmin restore delete --all
 
   # Delete without confirmation prompt
-  kubectl oadp nonadmin restore delete my-restore --confirm`,
+  oc oadp nonadmin restore delete my-restore --confirm`,
 	}
 
 	o.BindFlags(c.Flags())

@@ -58,16 +58,16 @@ func NewDeleteCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run())
 		},
 		Example: `  # Delete a specific backup
-  kubectl oadp nonadmin backup delete my-backup
+  oc oadp nonadmin backup delete my-backup
 
   # Delete multiple backups
-  kubectl oadp nonadmin backup delete backup1 backup2 backup3
+  oc oadp nonadmin backup delete backup1 backup2 backup3
 
   # Delete all backups in the current namespace
-  kubectl oadp nonadmin backup delete --all
+  oc oadp nonadmin backup delete --all
 
   # Delete without confirmation prompt
-  kubectl oadp nonadmin backup delete my-backup --confirm`,
+  oc oadp nonadmin backup delete my-backup --confirm`,
 	}
 
 	o.BindFlags(c.Flags())
@@ -204,7 +204,7 @@ func (o *DeleteOptions) Run() error {
 		fmt.Println()
 		fmt.Println("ℹ️  Note: The actual backup deletion will be performed asynchronously by the OADP controller.")
 		fmt.Println("   This may take some time to complete. You can monitor progress with:")
-		fmt.Printf("   kubectl get nonadminbackup -n %s\n", o.Namespace)
+		fmt.Printf("   oc get nonadminbackup -n %s\n", o.Namespace)
 	}
 
 	if len(failed) > 0 {

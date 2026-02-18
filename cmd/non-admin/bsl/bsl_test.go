@@ -165,7 +165,7 @@ func TestNonAdminBSLExamples(t *testing.T) {
 
 	t.Run("create examples use correct command format", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin bsl create",
+			"oc oadp nonadmin bsl create",
 			"--provider",
 			"--bucket",
 			"--credential",
@@ -178,7 +178,7 @@ func TestNonAdminBSLExamples(t *testing.T) {
 
 	t.Run("get examples use correct command format", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin bsl get",
+			"oc oadp nonadmin bsl get",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -273,7 +273,7 @@ func TestVerbNounOrderBSLExamples(t *testing.T) {
 
 	t.Run("get verb command shows bsl examples", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get bsl",
+			"oc oadp nonadmin get bsl",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -283,7 +283,7 @@ func TestVerbNounOrderBSLExamples(t *testing.T) {
 
 	t.Run("create verb command shows bsl examples", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin create bsl",
+			"oc oadp nonadmin create bsl",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -293,7 +293,7 @@ func TestVerbNounOrderBSLExamples(t *testing.T) {
 
 	t.Run("get bsl with specific resource shows proper examples", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin bsl get", // Shows noun-first format from underlying command
+			"oc oadp nonadmin bsl get", // Shows noun-first format from underlying command
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,
@@ -303,7 +303,7 @@ func TestVerbNounOrderBSLExamples(t *testing.T) {
 
 	t.Run("create bsl with specific resource shows proper examples", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin bsl create", // Shows noun-first format from underlying command
+			"oc oadp nonadmin bsl create", // Shows noun-first format from underlying command
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

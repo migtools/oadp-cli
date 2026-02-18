@@ -259,7 +259,7 @@ func TestNonAdminBackupExamples(t *testing.T) {
 
 	t.Run("create examples use correct command format", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin backup create",
+			"oc oadp nonadmin backup create",
 			"--storage-location",
 			"--include-resources",
 			"--exclude-resources",
@@ -365,13 +365,13 @@ func TestVerbNounOrderExamples(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	t.Run("verb commands show proper examples", func(t *testing.T) {
-		// Test that verb commands show examples with kubectl oadp prefix
+		// Test that verb commands show examples with oc oadp prefix
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get backup",
-			"kubectl oadp nonadmin create backup",
-			"kubectl oadp nonadmin delete backup",
-			"kubectl oadp nonadmin describe backup",
-			"kubectl oadp nonadmin logs backup",
+			"oc oadp nonadmin get backup",
+			"oc oadp nonadmin create backup",
+			"oc oadp nonadmin delete backup",
+			"oc oadp nonadmin describe backup",
+			"oc oadp nonadmin logs backup",
 		}
 
 		commands := [][]string{
@@ -390,11 +390,11 @@ func TestVerbNounOrderExamples(t *testing.T) {
 	t.Run("verb commands with specific resources show proper examples", func(t *testing.T) {
 		// Test that verb commands with specific resources show examples (noun-first format from underlying commands)
 		expectedExamples := []string{
-			"kubectl oadp nonadmin backup get",
-			"kubectl oadp nonadmin backup create backup1",
-			"kubectl oadp nonadmin backup delete my-backup",
-			"kubectl oadp nonadmin backup describe my-backup",
-			"kubectl oadp nonadmin backup logs my-backup",
+			"oc oadp nonadmin backup get",
+			"oc oadp nonadmin backup create backup1",
+			"oc oadp nonadmin backup delete my-backup",
+			"oc oadp nonadmin backup describe my-backup",
+			"oc oadp nonadmin backup logs my-backup",
 		}
 
 		commands := [][]string{
@@ -413,11 +413,11 @@ func TestVerbNounOrderExamples(t *testing.T) {
 	t.Run("shorthand verb commands show proper examples", func(t *testing.T) {
 		// Test that shorthand verb commands show examples
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get backup",
-			"kubectl oadp nonadmin create backup",
-			"kubectl oadp nonadmin delete backup",
-			"kubectl oadp nonadmin describe backup",
-			"kubectl oadp nonadmin logs backup",
+			"oc oadp nonadmin get backup",
+			"oc oadp nonadmin create backup",
+			"oc oadp nonadmin delete backup",
+			"oc oadp nonadmin describe backup",
+			"oc oadp nonadmin logs backup",
 		}
 
 		commands := [][]string{
@@ -502,9 +502,9 @@ func TestNonAdminBackupDeleteAllFlagExamples(t *testing.T) {
 	t.Run("delete help has examples section", func(t *testing.T) {
 		// Test that examples section exists and shows various delete patterns
 		expectedExamples := []string{
-			"kubectl oadp nonadmin backup delete my-backup",
-			"kubectl oadp nonadmin backup delete --all",
-			"kubectl oadp nonadmin backup delete my-backup --confirm",
+			"oc oadp nonadmin backup delete my-backup",
+			"oc oadp nonadmin backup delete --all",
+			"oc oadp nonadmin backup delete my-backup --confirm",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

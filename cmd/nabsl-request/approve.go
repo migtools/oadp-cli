@@ -40,10 +40,10 @@ func NewApproveCommand(f client.Factory) *cobra.Command {
 		Long:  "Approve a pending backup storage location request to allow the controller to create the corresponding BackupStorageLocation",
 		Args:  cobra.ExactArgs(1),
 		Example: `  # Approve a request by NABSL name (admin access required)
-  kubectl oadp nabsl-request approve user-test-bsl
+  oc oadp nabsl-request approve user-test-bsl
 
   # Approve a request by UUID with reason
-  kubectl oadp nabsl-request approve nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Approved for production use"`,
+  oc oadp nabsl-request approve nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Approved for production use"`,
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate(c, args, f))

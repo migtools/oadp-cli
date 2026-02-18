@@ -40,10 +40,10 @@ func NewRejectCommand(f client.Factory) *cobra.Command {
 		Long:  "Reject a pending backup storage location request to deny the user's request for a backup storage location",
 		Args:  cobra.ExactArgs(1),
 		Example: `  # Deny a request by NABSL name (admin access required)
-  kubectl oadp nabsl-request reject user-test-bsl --reason "Invalid configuration"
+  oc oadp nabsl-request reject user-test-bsl --reason "Invalid configuration"
 
   # Deny a request by UUID with detailed reason
-  kubectl oadp nabsl-request reject nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Bucket does not exist in specified region"`,
+  oc oadp nabsl-request reject nacuser01-user-test-bsl-96dfa8b7-3f6f-4c8d-a168-8527b00fbed8 --reason "Bucket does not exist in specified region"`,
 		Run: func(c *cobra.Command, args []string) {
 			cmd.CheckError(o.Complete(args, f))
 			cmd.CheckError(o.Validate(c, args, f))

@@ -135,8 +135,8 @@ func NewLogsCommand(f client.Factory, use string) *cobra.Command {
 
 			return nil
 		},
-		Example: `  kubectl oadp nonadmin backup logs my-backup
-  kubectl oadp nonadmin backup logs my-backup --request-timeout=30m`,
+		Example: `  oc oadp nonadmin backup logs my-backup
+  oc oadp nonadmin backup logs my-backup --request-timeout=30m`,
 	}
 
 	c.Flags().DurationVar(&requestTimeout, "request-timeout", 0, fmt.Sprintf("The length of time to wait before giving up on a single server request (e.g., 30s, 5m, 1h). Overrides %s env var. Default: %v", shared.TimeoutEnvVar, shared.DefaultHTTPTimeout))

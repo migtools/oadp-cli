@@ -38,7 +38,7 @@ import (
 const DefaultHTTPTimeout = 10 * time.Minute
 
 // TimeoutEnvVar is the environment variable name that can be used to override the default timeout.
-// Example: OADP_CLI_REQUEST_TIMEOUT=30m kubectl oadp nonadmin backup logs my-backup
+// Example: OADP_CLI_REQUEST_TIMEOUT=30m oc oadp nonadmin backup logs my-backup
 const TimeoutEnvVar = "OADP_CLI_REQUEST_TIMEOUT"
 
 // getHTTPTimeout returns the HTTP timeout to use for download operations.

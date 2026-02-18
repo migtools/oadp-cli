@@ -49,14 +49,14 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
 			cmd.CheckError(o.Run(c, f))
 		},
 		Example: `  # Create a non-admin backup storage location for AWS
-  kubectl oadp nonadmin bsl create my-storage \
+  oc oadp nonadmin bsl create my-storage \
     --provider aws \
     --bucket my-velero-bucket \
     --credential cloud-credentials=cloud \
     --region us-east-1
 
   # Create with prefix for organizing backups
-  kubectl oadp nonadmin bsl create my-storage \
+  oc oadp nonadmin bsl create my-storage \
     --provider aws \
     --bucket my-velero-bucket \
     --prefix velero-backups \
@@ -64,14 +64,14 @@ func NewCreateCommand(f client.Factory, use string) *cobra.Command {
     --region us-east-1
 
   # Create with custom credential key
-  kubectl oadp nonadmin bsl create my-storage \
+  oc oadp nonadmin bsl create my-storage \
     --provider aws \
     --bucket my-velero-bucket \
     --credential my-secret=service-account-key \
     --region us-east-1
 
   # View the YAML without creating the resource
-  kubectl oadp nonadmin bsl create my-storage \
+  oc oadp nonadmin bsl create my-storage \
     --provider aws \
     --bucket my-bucket \
     --credential cloud-credentials=cloud \

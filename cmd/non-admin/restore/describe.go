@@ -81,9 +81,9 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 
 			return nil
 		},
-		Example: `  kubectl oadp nonadmin restore describe my-restore
-  kubectl oadp nonadmin restore describe my-restore --details
-  kubectl oadp nonadmin restore describe my-restore --details --request-timeout=30m`,
+		Example: `  oc oadp nonadmin restore describe my-restore
+  oc oadp nonadmin restore describe my-restore --details
+  oc oadp nonadmin restore describe my-restore --details --request-timeout=30m`,
 	}
 
 	c.Flags().DurationVar(&requestTimeout, "request-timeout", 0, fmt.Sprintf("The length of time to wait before giving up on a single server request (e.g., 30s, 5m, 1h). Overrides %s env var. Default: %v", shared.TimeoutEnvVar, shared.DefaultHTTPTimeout))

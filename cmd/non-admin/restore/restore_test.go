@@ -185,7 +185,7 @@ func TestNonAdminRestoreExamples(t *testing.T) {
 
 	t.Run("create examples use correct command format", func(t *testing.T) {
 		expectedExamples := []string{
-			"kubectl oadp nonadmin restore create",
+			"oc oadp nonadmin restore create",
 			"--backup-name",
 			"--include-resources",
 			"--selector",
@@ -291,13 +291,13 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	t.Run("verb commands show proper examples", func(t *testing.T) {
-		// Test that verb commands show examples with kubectl oadp prefix
+		// Test that verb commands show examples with oc oadp prefix
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get restore",
-			"kubectl oadp nonadmin create restore",
-			"kubectl oadp nonadmin describe restore",
-			"kubectl oadp nonadmin logs restore",
-			"kubectl oadp nonadmin delete restore",
+			"oc oadp nonadmin get restore",
+			"oc oadp nonadmin create restore",
+			"oc oadp nonadmin describe restore",
+			"oc oadp nonadmin logs restore",
+			"oc oadp nonadmin delete restore",
 		}
 
 		commands := [][]string{
@@ -316,11 +316,11 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 	t.Run("verb commands with specific resources show proper examples", func(t *testing.T) {
 		// Test that verb commands with specific resources show examples (noun-first format from underlying commands)
 		expectedExamples := []string{
-			"kubectl oadp nonadmin restore get",
-			"kubectl oadp nonadmin restore create",
-			"kubectl oadp nonadmin restore describe my-restore",
-			"kubectl oadp nonadmin restore logs my-restore",
-			"kubectl oadp nonadmin restore delete my-restore",
+			"oc oadp nonadmin restore get",
+			"oc oadp nonadmin restore create",
+			"oc oadp nonadmin restore describe my-restore",
+			"oc oadp nonadmin restore logs my-restore",
+			"oc oadp nonadmin restore delete my-restore",
 		}
 
 		commands := [][]string{
@@ -339,11 +339,11 @@ func TestVerbNounOrderRestoreExamples(t *testing.T) {
 	t.Run("shorthand verb commands show proper examples", func(t *testing.T) {
 		// Test that shorthand verb commands show examples
 		expectedExamples := []string{
-			"kubectl oadp nonadmin get restore",
-			"kubectl oadp nonadmin create restore",
-			"kubectl oadp nonadmin describe restore",
-			"kubectl oadp nonadmin logs restore",
-			"kubectl oadp nonadmin delete restore",
+			"oc oadp nonadmin get restore",
+			"oc oadp nonadmin create restore",
+			"oc oadp nonadmin describe restore",
+			"oc oadp nonadmin logs restore",
+			"oc oadp nonadmin delete restore",
 		}
 
 		commands := [][]string{
@@ -512,9 +512,9 @@ func TestNonAdminRestoreDeleteAllFlag(t *testing.T) {
 	t.Run("delete help has examples section", func(t *testing.T) {
 		// Test that examples section exists and shows various delete patterns
 		expectedExamples := []string{
-			"kubectl oadp nonadmin restore delete my-restore",
-			"kubectl oadp nonadmin restore delete --all",
-			"kubectl oadp nonadmin restore delete my-restore --confirm",
+			"oc oadp nonadmin restore delete my-restore",
+			"oc oadp nonadmin restore delete --all",
+			"oc oadp nonadmin restore delete my-restore --confirm",
 		}
 
 		testutil.TestHelpCommand(t, binaryPath,

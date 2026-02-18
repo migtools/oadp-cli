@@ -87,16 +87,16 @@ func NewGetCommand(f client.Factory, use string) *cobra.Command {
 			}
 		},
 		Example: `  # Get all non-admin backups in the current namespace
-  kubectl oadp nonadmin backup get
+  oc oadp nonadmin backup get
 
   # Get a specific non-admin backup
-  kubectl oadp nonadmin backup get my-backup
+  oc oadp nonadmin backup get my-backup
 
   # Get backups in YAML format
-  kubectl oadp nonadmin backup get -o yaml
+  oc oadp nonadmin backup get -o yaml
 
   # Get a specific backup in JSON format
-  kubectl oadp nonadmin backup get my-backup -o json`,
+  oc oadp nonadmin backup get my-backup -o json`,
 	}
 
 	output.BindFlags(c.Flags())

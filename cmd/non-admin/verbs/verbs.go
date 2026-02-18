@@ -32,22 +32,22 @@ func NewGetCommand(factory client.Factory) *cobra.Command {
 		Short: "Get one or more non-admin resources",
 		Long:  "Get one or more non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
 		Example: `  # Get all non-admin backups
-  kubectl oadp nonadmin get backup
+  oc oadp nonadmin get backup
 
   # Get a specific non-admin backup
-  kubectl oadp nonadmin get backup my-backup
+  oc oadp nonadmin get backup my-backup
 
   # Get all non-admin restores
-  kubectl oadp nonadmin get restore
+  oc oadp nonadmin get restore
 
   # Get a specific non-admin restore
-  kubectl oadp nonadmin get restore my-restore
+  oc oadp nonadmin get restore my-restore
 
   # Get all non-admin backup storage locations
-  kubectl oadp nonadmin get bsl
+  oc oadp nonadmin get bsl
 
   # Get a specific backup storage location
-  kubectl oadp nonadmin get bsl my-storage`,
+  oc oadp nonadmin get bsl my-storage`,
 	}
 
 	c.AddCommand(
@@ -66,13 +66,13 @@ func NewCreateCommand(factory client.Factory) *cobra.Command {
 		Short: "Create non-admin resources",
 		Long:  "Create non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
 		Example: `  # Create a non-admin backup
-  kubectl oadp nonadmin create backup my-backup
+  oc oadp nonadmin create backup my-backup
 
   # Create a non-admin restore
-  kubectl oadp nonadmin create restore my-restore --backup-name my-backup
+  oc oadp nonadmin create restore my-restore --backup-name my-backup
 
   # Create a backup storage location
-  kubectl oadp nonadmin create bsl my-bsl`,
+  oc oadp nonadmin create bsl my-bsl`,
 	}
 
 	c.AddCommand(
@@ -91,10 +91,10 @@ func NewDeleteCommand(factory client.Factory) *cobra.Command {
 		Short: "Delete non-admin resources",
 		Long:  "Delete non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
 		Example: `  # Delete a non-admin backup
-  kubectl oadp nonadmin delete backup my-backup
+  oc oadp nonadmin delete backup my-backup
 
   # Delete a non-admin restore
-  kubectl oadp nonadmin delete restore my-restore`,
+  oc oadp nonadmin delete restore my-restore`,
 	}
 
 	c.AddCommand(
@@ -112,10 +112,10 @@ func NewDescribeCommand(factory client.Factory) *cobra.Command {
 		Short: "Describe non-admin resources",
 		Long:  "Describe non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
 		Example: `  # Describe a non-admin backup
-  kubectl oadp nonadmin describe backup my-backup
+  oc oadp nonadmin describe backup my-backup
 
   # Describe a non-admin restore
-  kubectl oadp nonadmin describe restore my-restore`,
+  oc oadp nonadmin describe restore my-restore`,
 	}
 
 	c.AddCommand(
@@ -133,10 +133,10 @@ func NewLogsCommand(factory client.Factory) *cobra.Command {
 		Short: "Get logs for non-admin resources",
 		Long:  "Get logs for non-admin resources. This is a verb-based command that delegates to the appropriate noun command.",
 		Example: `  # Get logs for a non-admin backup
-  kubectl oadp nonadmin logs backup my-backup
+  oc oadp nonadmin logs backup my-backup
 
   # Get logs for a non-admin restore
-  kubectl oadp nonadmin logs restore my-restore`,
+  oc oadp nonadmin logs restore my-restore`,
 	}
 
 	c.AddCommand(

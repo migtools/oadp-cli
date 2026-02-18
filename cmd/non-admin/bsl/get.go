@@ -113,16 +113,17 @@ func printNonAdminBSLTable(nabslList *nacv1alpha1.NonAdminBackupStorageLocationL
 	}
 
 	// Print header
-	fmt.Printf("%-30s %-15s %-15s %-20s %-10s\n", "NAME", "REQUEST PHASE", "PROVIDER", "BUCKET/PREFIX", "AGE")
+	fmt.Printf("%-30s %-15s %-15s %-15s %-20s %-10s\n", "NAME", "REQUEST PHASE", "VELERO PHASE", "PROVIDER", "BUCKET/PREFIX", "AGE")
 
 	// Print each BSL
 	for _, nabsl := range nabslList.Items {
 		status := getBSLStatus(&nabsl)
+		veleroPhase := getBSLVeleroPhase(&nabsl)
 		provider := getProvider(&nabsl)
 		bucketPrefix := getBucketPrefix(&nabsl)
 		age := formatAge(nabsl.CreationTimestamp.Time)
 
-		fmt.Printf("%-30s %-15s %-15s %-20s %-10s\n", nabsl.Name, status, provider, bucketPrefix, age)
+		fmt.Printf("%-30s %-15s %-15s %-15s %-20s %-10s\n", nabsl.Name, status, veleroPhase, provider, bucketPrefix, age)
 	}
 
 	return nil
@@ -133,6 +134,15 @@ func getBSLStatus(nabsl *nacv1alpha1.NonAdminBackupStorageLocation) string {
 		return string(nabsl.Status.Phase)
 	}
 	return "Unknown"
+}
+
+func getBSLVeleroPhase(nabsl *nacv1alpha1.NonAdminBackupStorageLocation) string {
+	if nabsl.Status.VeleroBackupStorageLocation != nil && nabsl.Status.VeleroBackupStorageLocation.Status != nil {
+		if nabsl.Status.VeleroBackupStorageLocation.Status.Phase != "" {
+			return string(nabsl.Status.VeleroBackupStorageLocation.Status.Phase)
+		}
+	}
+	return "N/A"
 }
 
 func getProvider(nabsl *nacv1alpha1.NonAdminBackupStorageLocation) string {

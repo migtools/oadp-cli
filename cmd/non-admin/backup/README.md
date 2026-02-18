@@ -45,12 +45,6 @@ The following flags represent the minimal viable product for backup creation:
 | `--snapshot-move-data` | OptionalBool | - | Move snapshot data | ✅ MVP |
 | `--default-volumes-to-fs-backup` | OptionalBool | - | Use filesystem backup | ✅ MVP |
 
-### Control Flags
-
-| Flag | Type | Default | Description | Status |
-|------|------|---------|-------------|--------|
-| `--force`, `-f` | Boolean | false | Skip storage-location requirement | ✅ MVP |
-
 ## Restricted Flags (Not Available)
 
 The following flags are **restricted** for non-admin users per the NAB API restrictions:
@@ -110,9 +104,6 @@ oadp nonadmin backup create my-backup \
 # Create backup with specific storage location
 oadp nonadmin backup create my-backup \
   --storage-location my-nabsl
-
-# Force creation with admin defaults (interactive confirmation)
-oadp nonadmin backup create my-backup --force
 ```
 
 ## Architecture Notes
@@ -133,7 +124,6 @@ type CreateOptions struct {
 
     // NAB-specific fields
     Name             string
-    Force            bool
     client           kbclient.WithWatch
     currentNamespace string
 }

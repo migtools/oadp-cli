@@ -17,11 +17,8 @@ limitations under the License.
 */
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -80,7 +77,6 @@ type CreateOptions struct {
 
 	// NAB-specific fields
 	Name             string // The NonAdminBackup resource name (maps to Velero's BackupName)
-	Force            bool   // NAB-specific: bypass storage-location requirement
 	client           kbclient.WithWatch
 	currentNamespace string
 }
@@ -88,7 +84,6 @@ type CreateOptions struct {
 func NewCreateOptions() *CreateOptions {
 	return &CreateOptions{
 		CreateOptions: velerobackup.NewCreateOptions(),
-		Force:         false,
 	}
 }
 
@@ -120,9 +115,6 @@ func (o *CreateOptions) BindFlags(flags *pflag.FlagSet) {
 
 	f = flags.VarPF(&o.DefaultVolumesToFsBackup, "default-volumes-to-fs-backup", "", "Use pod volume file system backup by default for volumes.")
 	f.NoOptDefVal = cmd.TRUE
-
-	// NAB-specific control flag
-	flags.BoolVarP(&o.Force, "force", "f", o.Force, "Force creation without specifying a storage location (uses admin defaults).")
 }
 
 func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
@@ -139,8 +131,8 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 	}
 
 	// Storage location validation
-	if !o.Force && o.StorageLocation == "" {
-		return fmt.Errorf("a valid NonAdminBackupStorageLocation must be provided via --storage-location, or use --force to create with admin defaults")
+	if o.StorageLocation == "" {
+		return fmt.Errorf("--storage-location is required")
 	}
 
 	return nil
@@ -178,18 +170,13 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 		return err
 	}
 
-	// Prompt for confirmation if using force without storage location
-	if err := o.promptForceConfirmation(); err != nil {
-		return err
-	}
-
 	// Create the backup
 	if err := o.client.Create(context.TODO(), nonAdminBackup, &kbclient.CreateOptions{}); err != nil {
 		return err
 	}
 
-	fmt.Println(o.formatSuccessMessage(nonAdminBackup.Name))
-	fmt.Print(o.formatCommandSuggestion(nonAdminBackup.Name))
+	fmt.Printf("NonAdminBackup request %q submitted successfully.\n", nonAdminBackup.Name)
+	fmt.Printf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.\n", nonAdminBackup.Name, nonAdminBackup.Name)
 	return nil
 }
 
@@ -249,52 +236,4 @@ func (o *CreateOptions) createNonAdminBackup(namespace string, backupSpec *veler
 			BackupSpec: backupSpec,
 		}).
 		Result()
-}
-
-// promptForceConfirmation prompts the user to confirm when using --force without storage location
-func (o *CreateOptions) promptForceConfirmation() error {
-	if !o.Force || o.StorageLocation != "" {
-		return nil
-	}
-
-	fmt.Println("\nWARNING: Using --force without specifying a storage location is not ideal.")
-	fmt.Println("This will use admin defaults and certain features like logs may not work as expected.")
-
-	fmt.Print("Do you want to continue? (y/N): ")
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response != "y" && response != "yes" {
-		fmt.Println("Operation cancelled.")
-		return fmt.Errorf("operation cancelled by user")
-	}
-
-	fmt.Println()
-	return nil
-}
-
-// usingAdminDefaults returns true if force flag is used without storage location
-func (o *CreateOptions) usingAdminDefaults() bool {
-	return o.Force && o.StorageLocation == ""
-}
-
-// formatSuccessMessage returns the success message with optional admin defaults note
-func (o *CreateOptions) formatSuccessMessage(name string) string {
-	if o.usingAdminDefaults() {
-		return fmt.Sprintf("NonAdminBackup request %q submitted successfully (using admin defaults).", name)
-	}
-	return fmt.Sprintf("NonAdminBackup request %q submitted successfully.", name)
-}
-
-// formatCommandSuggestion returns the command suggestion with optional admin defaults note
-func (o *CreateOptions) formatCommandSuggestion(name string) string {
-	baseMsg := fmt.Sprintf("Run `oc oadp nonadmin backup describe %s` or `oc oadp nonadmin backup logs %s` for more details.", name, name)
-	if o.usingAdminDefaults() {
-		return fmt.Sprintf("%s (Created using admin defaults)\n", baseMsg)
-	}
-	return baseMsg + "\n"
 }

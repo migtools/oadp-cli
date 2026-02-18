@@ -520,7 +520,6 @@ type CreateOptions struct {
 
     // NAB/NAR-specific fields
     Name             string
-    Force            bool  // backup only
     client           kbclient.WithWatch
     currentNamespace string
 }
@@ -534,7 +533,7 @@ type CreateOptions struct {
 - ✅ **Easy Enhancement Path** - Add flags incrementally as features mature
 - ✅ **Type Safety** - Reuses Velero's validated type definitions
 
-## Backup Create: MVP Flags (13 total)
+## Backup Create: MVP Flags (12 total)
 
 ### Resource Filtering (2)
 - `--include-resources` (default: `["*"]`)
@@ -557,9 +556,6 @@ type CreateOptions struct {
 - `--snapshot-volumes`
 - `--snapshot-move-data`
 - `--default-volumes-to-fs-backup`
-
-### Control Flags (1)
-- `--force` (bypass storage-location requirement)
 
 ### Flags Removed from Original Implementation
 

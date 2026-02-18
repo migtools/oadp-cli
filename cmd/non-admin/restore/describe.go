@@ -317,8 +317,13 @@ func printNonAdminRestoreDetails(cmd *cobra.Command, nar *nacv1alpha1.NonAdminRe
 		fmt.Fprintf(out, "\n")
 
 		// Hooks
-		fmt.Fprintf(out, "HooksAttempted:  %d\n", status.HookStatus.HooksAttempted)
-		fmt.Fprintf(out, "HooksFailed:     %d\n", status.HookStatus.HooksFailed)
+		if status.HookStatus != nil {
+			fmt.Fprintf(out, "HooksAttempted:  %d\n", status.HookStatus.HooksAttempted)
+			fmt.Fprintf(out, "HooksFailed:     %d\n", status.HookStatus.HooksFailed)
+		} else {
+			fmt.Fprintf(out, "HooksAttempted:  <none>\n")
+			fmt.Fprintf(out, "HooksFailed:     <none>\n")
+		}
 	} else {
 		// Velero restore not available yet
 		fmt.Fprintf(out, "Velero restore information not yet available.\n")

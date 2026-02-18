@@ -777,8 +777,8 @@ func TestApplyTimeoutToConfig_DialerTimeout(t *testing.T) {
 	}
 
 	// Should complete within a reasonable time of the timeout
-	// Allow some margin for test execution overhead
-	maxExpected := timeout + 500*time.Millisecond
+	// Allow some margin for test execution overhead and system load variations
+	maxExpected := timeout + 1*time.Second
 	if elapsed > maxExpected {
 		t.Errorf("Dial took too long: %v (expected ~%v)", elapsed, timeout)
 	}

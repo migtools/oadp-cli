@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OADP CLI Downloads</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="header">
+    <div class="container">
+      <div class="logo"><a href="https://github.com/migtools/oadp-cli" class="logo-link">OADP CLI</a></div>
+      <p class="subtitle">OpenShift API for Data Protection &mdash; Command Line Interface</p>
+      <p class="binary-note">CLI for managing backups and restores with the OADP Operator &mdash; works as a <code>kubectl</code> / <code>oc</code> plugin</p>
+    </div>
+  </div>
+
+  <div class="container content">
+    {{if .LinuxFiles}}
+    <div class="section">
+      <div class="section-header">Download for Linux & Unix</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Binary</th>
+            <th>Architecture</th>
+            <th>Size</th>
+            <th>SHA256</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .LinuxFiles}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td><span class="arch-badge">{{.Arch}}</span></td>
+            <td class="size">{{printf "%.2f" .Size}} MB</td>
+            <td>{{if .Checksum}}<span class="checksum" onclick="navigator.clipboard.writeText('{{.Checksum}}')"><span class="copy-hint">Click to copy</span>{{slice .Checksum 0 16}}...</span>{{else}}&mdash;{{end}}</td>
+            <td style="text-align:right"><a class="download-btn" href="/download/{{.Name}}">Download</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+
+    {{if .DarwinFiles}}
+    <div class="section">
+      <div class="section-header">Download for macOS</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Binary</th>
+            <th>Architecture</th>
+            <th>Size</th>
+            <th>SHA256</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .DarwinFiles}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td><span class="arch-badge">{{.Arch}}</span></td>
+            <td class="size">{{printf "%.2f" .Size}} MB</td>
+            <td>{{if .Checksum}}<span class="checksum" onclick="navigator.clipboard.writeText('{{.Checksum}}')"><span class="copy-hint">Click to copy</span>{{slice .Checksum 0 16}}...</span>{{else}}&mdash;{{end}}</td>
+            <td style="text-align:right"><a class="download-btn" href="/download/{{.Name}}">Download</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+
+    {{if .WindowsFiles}}
+    <div class="section">
+      <div class="section-header">Download for Windows</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Binary</th>
+            <th>Architecture</th>
+            <th>Size</th>
+            <th>SHA256</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .WindowsFiles}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td><span class="arch-badge">{{.Arch}}</span></td>
+            <td class="size">{{printf "%.2f" .Size}} MB</td>
+            <td>{{if .Checksum}}<span class="checksum" onclick="navigator.clipboard.writeText('{{.Checksum}}')"><span class="copy-hint">Click to copy</span>{{slice .Checksum 0 16}}...</span>{{else}}&mdash;{{end}}</td>
+            <td style="text-align:right"><a class="download-btn" href="/download/{{.Name}}">Download</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+
+    <div class="install-section">
+      <h3>Installation</h3>
+      <div class="code-block">
+        <div class="code-line">
+          <span class="comment"># Extract the archive</span>
+        </div>
+        <div class="code-line">
+          <code class="cmd">tar -xzf kubectl-oadp_*.tar.gz</code>
+          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="tar -xzf kubectl-oadp_*.tar.gz">Copy</button>
+        </div>
+        <div class="code-line">
+          <span class="comment"># Make it executable</span>
+        </div>
+        <div class="code-line">
+          <code class="cmd">chmod +x kubectl-oadp</code>
+          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="chmod +x kubectl-oadp">Copy</button>
+        </div>
+        <div class="code-line">
+          <span class="comment"># Move to your PATH</span>
+        </div>
+        <div class="code-line">
+          <code class="cmd">sudo mv kubectl-oadp /usr/local/bin/</code>
+          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="sudo mv kubectl-oadp /usr/local/bin/">Copy</button>
+        </div>
+        <div class="code-line">
+          <span class="comment"># Verify it works</span>
+        </div>
+        <div class="code-line">
+          <code class="cmd">oc oadp --help</code>
+          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="oc oadp --help">Copy</button>
+        </div>
+      </div>
+    </div>
+    <script>
+    function copyCmd(btn) {
+      navigator.clipboard.writeText(btn.dataset.cmd);
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+    }
+    </script>
+  </div>
+
+  <div class="footer">
+    <div class="container">OADP CLI &mdash; <a href="https://github.com/openshift/oadp-operator">OpenShift API for Data Protection</a></div>
+  </div>
+</body>
+</html>

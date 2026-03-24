@@ -15,15 +15,13 @@ COPY . .
 
 RUN make release-archives && \
     mkdir -p /archives && \
-    mv *.tar.gz /archives/
+    mv *.tar.gz *.sha256 /archives/ && \
+    rm -rf /root/.cache/go-build /tmp/* release-build/
 
 # Build the download server for the TARGET platform (the arch this container will run on)
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o download-server ./cmd/downloads/server.go
-
-# Clean up to reduce layer size
-RUN go clean -cache -modcache -testcache && \
-    rm -rf /root/.cache/go-build && \
-    rm -rf /go/pkg
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o download-server ./cmd/downloads/ && \
+    go clean -cache -modcache -testcache && \
+    rm -rf /root/.cache/go-build /go/pkg
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 

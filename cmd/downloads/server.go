@@ -19,7 +19,7 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 var (
-	archiveDir   = getEnv("ARCHIVE_DIR", "/archives")
+	binaryDir    = getEnv("ARCHIVE_DIR", "/archives")
 	port         = getEnv("PORT", "8080")
 	pageTemplate = template.Must(template.ParseFS(templateFS, "templates/index.html"))
 )
@@ -31,7 +31,7 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-type archiveFile struct {
+type binaryFile struct {
 	Name     string
 	Size     float64
 	OS       string
@@ -40,11 +40,11 @@ type archiveFile struct {
 }
 
 func main() {
-	files, err := filepath.Glob(filepath.Join(archiveDir, "*.tar.gz"))
+	files, err := discoverBinaries()
 	if err != nil || len(files) == 0 {
-		log.Fatal("No archives found in ", archiveDir)
+		log.Fatal("No binaries found in ", binaryDir)
 	}
-	log.Printf("Found %d archives", len(files))
+	log.Printf("Found %d binaries", len(files))
 
 	staticContent, err := fs.Sub(staticFS, "static")
 	if err != nil {
@@ -55,21 +55,45 @@ func main() {
 	http.HandleFunc("/download/", downloadBinary)
 
 	log.Printf("Starting server on port %s", port)
-	log.Printf("Serving archives from %s", archiveDir)
+	log.Printf("Serving binaries from %s", binaryDir)
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func listBinaries(w http.ResponseWriter, r *http.Request) {
-	files, err := filepath.Glob(filepath.Join(archiveDir, "*.tar.gz"))
+// discoverBinaries finds kubectl-oadp binaries (excluding .sha256 and LICENSE files).
+func discoverBinaries() ([]string, error) {
+	entries, err := os.ReadDir(binaryDir)
 	if err != nil {
-		http.Error(w, "Error listing archives", http.StatusInternalServerError)
+		return nil, err
+	}
+	var binaries []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || strings.HasSuffix(name, ".sha256") || name == "LICENSE" {
+			continue
+		}
+		if strings.HasPrefix(name, "kubectl-oadp_") {
+			binaries = append(binaries, filepath.Join(binaryDir, name))
+		}
+	}
+	return binaries, nil
+}
+
+func listBinaries(w http.ResponseWriter, r *http.Request) {
+	files, err := discoverBinaries()
+	if err != nil {
+		http.Error(w, "Error listing binaries", http.StatusInternalServerError)
 		return
 	}
 
-	var linuxFiles, darwinFiles, windowsFiles []archiveFile
+	hasLicense := false
+	if _, err := os.Stat(filepath.Join(binaryDir, "LICENSE")); err == nil {
+		hasLicense = true
+	}
+
+	var linuxFiles, darwinFiles, windowsFiles []binaryFile
 	for _, file := range files {
 		name := filepath.Base(file)
 		info, err := os.Stat(file)
@@ -79,24 +103,25 @@ func listBinaries(w http.ResponseWriter, r *http.Request) {
 		size := float64(info.Size()) / (1024 * 1024)
 		osName, arch := parsePlatform(name)
 		checksum := readChecksum(file + ".sha256")
-		af := archiveFile{Name: name, Size: size, OS: osName, Arch: arch, Checksum: checksum}
+		bf := binaryFile{Name: name, Size: size, OS: osName, Arch: arch, Checksum: checksum}
 		switch osName {
 		case "linux":
-			linuxFiles = append(linuxFiles, af)
+			linuxFiles = append(linuxFiles, bf)
 		case "darwin":
-			darwinFiles = append(darwinFiles, af)
+			darwinFiles = append(darwinFiles, bf)
 		case "windows":
-			windowsFiles = append(windowsFiles, af)
+			windowsFiles = append(windowsFiles, bf)
 		default:
-			linuxFiles = append(linuxFiles, af)
+			linuxFiles = append(linuxFiles, bf)
 		}
 	}
 
 	data := struct {
-		LinuxFiles   []archiveFile
-		DarwinFiles  []archiveFile
-		WindowsFiles []archiveFile
-	}{linuxFiles, darwinFiles, windowsFiles}
+		LinuxFiles   []binaryFile
+		DarwinFiles  []binaryFile
+		WindowsFiles []binaryFile
+		HasLicense   bool
+	}{linuxFiles, darwinFiles, windowsFiles, hasLicense}
 
 	w.Header().Set("Content-Type", "text/html")
 	if err := pageTemplate.Execute(w, data); err != nil {
@@ -117,7 +142,7 @@ func readChecksum(path string) string {
 }
 
 func parsePlatform(filename string) (string, string) {
-	name := strings.TrimSuffix(filename, ".tar.gz")
+	name := strings.TrimSuffix(filename, ".exe")
 	parts := strings.Split(name, "_")
 	if len(parts) >= 3 {
 		return parts[len(parts)-2], parts[len(parts)-1]
@@ -128,20 +153,30 @@ func parsePlatform(filename string) (string, string) {
 func downloadBinary(w http.ResponseWriter, r *http.Request) {
 	filename := filepath.Base(r.URL.Path[len("/download/"):])
 
-	if filepath.Dir(filename) != "." || !strings.HasSuffix(filename, ".tar.gz") {
+	if filepath.Dir(filename) != "." {
 		http.Error(w, "Invalid filename", http.StatusBadRequest)
 		return
 	}
 
-	filePath := filepath.Join(archiveDir, filename)
+	// Allow downloading LICENSE or any kubectl-oadp binary
+	if filename != "LICENSE" && !strings.HasPrefix(filename, "kubectl-oadp_") {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filepath.Join(binaryDir, filename)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "Archive not found", http.StatusNotFound)
+		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
-	w.Header().Set("Content-Type", "application/gzip")
+	if filename == "LICENSE" {
+		w.Header().Set("Content-Type", "text/plain")
+	} else {
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
 
 	http.ServeFile(w, r, filePath)
 	log.Printf("Downloaded: %s from %s", filename, r.RemoteAddr)

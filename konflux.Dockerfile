@@ -7,12 +7,10 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25
 COPY . /workspace
 WORKDIR /workspace
 
-# Build release archives for all platforms (CGO_ENABLED=0 for cross-platform
+# Build release binaries for all platforms (CGO_ENABLED=0 for cross-platform
 # portability — CLI binaries run on user machines outside the FIPS boundary)
-RUN make release-archives && \
-    mkdir -p /archives && \
-    mv *.tar.gz *.sha256 /archives/ && \
-    rm -rf /root/.cache/go-build /tmp/* release-build/
+RUN make release-binaries && \
+    rm -rf /root/.cache/go-build /tmp/*
 
 # Build the download server (FIPS-compliant, runs in-cluster on RHEL)
 RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime GOOS=linux \
@@ -25,7 +23,7 @@ FROM registry.redhat.io/ubi9/ubi:latest
 
 RUN dnf -y install openssl && dnf -y reinstall tzdata && dnf clean all
 
-COPY --from=builder /archives /archives
+COPY --from=builder /workspace/release-binaries /archives
 COPY --from=builder /workspace/bin/download-server /usr/local/bin/download-server
 COPY LICENSE /licenses/
 

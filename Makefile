@@ -18,7 +18,7 @@ LDFLAGS := -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=$(VERSION) \
 
 # Centralized platform definitions to avoid duplication
 # Matches architectures supported by Kubernetes: https://kubernetes.io/releases/download/#binaries
-PLATFORMS = linux/amd64 linux/arm64 linux/ppc64le linux/s390x darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
+PLATFORMS = linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
 # Platform variables for multi-arch builds
 # Usage: make build PLATFORM=linux/amd64
@@ -50,8 +50,6 @@ help: ## Show this help message
 	@echo "Build with different platforms:"
 	@echo "  make build PLATFORM=linux/amd64"
 	@echo "  make build PLATFORM=linux/arm64"
-	@echo "  make build PLATFORM=linux/ppc64le"
-	@echo "  make build PLATFORM=linux/s390x"
 	@echo "  make build PLATFORM=darwin/amd64"
 	@echo "  make build PLATFORM=darwin/arm64"
 	@echo "  make build PLATFORM=windows/amd64"
@@ -67,6 +65,7 @@ help: ## Show this help message
 	@echo "Release commands:"
 	@echo "  make release-build         # Build binaries for all platforms"
 	@echo "  make release-archives      # Create tar.gz archives for all platforms"
+	@echo "  make release-binaries      # Create clean-named binaries for download server"
 
 # Build targets
 .PHONY: build
@@ -513,6 +512,38 @@ release-archives: release-build ## Create tar.gz archives with SHA256 checksums 
 .PHONY: release
 release: release-archives ## Build and create release archives for all platforms
 	@echo "🚀 Release build complete! Archives ready for distribution."
+
+.PHONY: release-binaries
+release-binaries: release-build ## Copy binaries with clean names and SHA256 checksums (for download server)
+	@echo "Creating clean-named binaries for download server..."
+	@if [ ! -f LICENSE ]; then \
+		echo "❌ LICENSE file not found! Please ensure LICENSE file exists."; \
+		exit 1; \
+	fi
+	@mkdir -p release-binaries
+	@cp LICENSE release-binaries/LICENSE
+	@for platform in $(PLATFORMS); do \
+		GOOS=$$(echo $$platform | cut -d'/' -f1); \
+		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+		if [ -n "$(VERSION)" ]; then \
+			version_suffix="_$(VERSION)"; \
+		else \
+			version_suffix=""; \
+		fi; \
+		if [ "$$GOOS" = "windows" ]; then \
+			platform_binary="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}.exe"; \
+			clean_name="$(BINARY_NAME)_$${GOOS}_$${GOARCH}.exe"; \
+		else \
+			platform_binary="$(BINARY_NAME)$${version_suffix}_$${GOOS}_$${GOARCH}"; \
+			clean_name="$(BINARY_NAME)_$${GOOS}_$${GOARCH}"; \
+		fi; \
+		echo "Copying $$clean_name..."; \
+		cp $$platform_binary release-binaries/$$clean_name; \
+		sha256sum release-binaries/$$clean_name > release-binaries/$$clean_name.sha256; \
+		echo "✅ $$clean_name"; \
+	done
+	@echo "✅ All binaries and checksums ready in release-binaries/"
+	@ls -la release-binaries/
 
 # Optimized krew-manifest generation using Python script for better reliability
 .PHONY: krew-manifest

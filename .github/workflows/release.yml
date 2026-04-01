@@ -80,7 +80,7 @@ jobs:
           4. Verify installation: `kubectl oadp --help`
           
           ### Supported Platforms
-          - Linux (amd64, arm64, ppc64le, s390x)
+          - Linux (amd64, arm64)
           - macOS (amd64, arm64) 
           - Windows (amd64, arm64)
           

@@ -100,29 +100,32 @@
     </div>
     {{end}}
 
+    {{if .HasLicense}}
+    <div class="section">
+      <div class="section-header">License</div>
+      <div style="padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 0.9rem;">LICENSE</span>
+        <a class="download-btn" href="/download/LICENSE">View License</a>
+      </div>
+    </div>
+    {{end}}
+
     <div class="install-section">
       <h3>Installation</h3>
       <div class="code-block">
         <div class="code-line">
-          <span class="comment"># Extract the archive</span>
-        </div>
-        <div class="code-line">
-          <code class="cmd">tar -xzf kubectl-oadp_*.tar.gz</code>
-          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="tar -xzf kubectl-oadp_*.tar.gz">Copy</button>
-        </div>
-        <div class="code-line">
           <span class="comment"># Make it executable</span>
         </div>
         <div class="code-line">
-          <code class="cmd">chmod +x kubectl-oadp</code>
-          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="chmod +x kubectl-oadp">Copy</button>
+          <code class="cmd">chmod +x kubectl-oadp_*</code>
+          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="chmod +x kubectl-oadp_*">Copy</button>
         </div>
         <div class="code-line">
-          <span class="comment"># Move to your PATH</span>
+          <span class="comment"># Rename and move to your PATH</span>
         </div>
         <div class="code-line">
-          <code class="cmd">sudo mv kubectl-oadp /usr/local/bin/</code>
-          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="sudo mv kubectl-oadp /usr/local/bin/">Copy</button>
+          <code class="cmd">sudo mv kubectl-oadp_* /usr/local/bin/kubectl-oadp</code>
+          <button class="copy-btn" onclick="copyCmd(this)" data-cmd="sudo mv kubectl-oadp_* /usr/local/bin/kubectl-oadp">Copy</button>
         </div>
         <div class="code-line">
           <span class="comment"># Verify it works</span>

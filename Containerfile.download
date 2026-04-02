@@ -13,10 +13,8 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-RUN make release-archives && \
-    mkdir -p /archives && \
-    mv *.tar.gz *.sha256 /archives/ && \
-    rm -rf /root/.cache/go-build /tmp/* release-build/
+RUN make release-binaries && \
+    rm -rf /root/.cache/go-build /tmp/*
 
 # Build the download server for the TARGET platform (the arch this container will run on)
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o download-server ./cmd/downloads/ && \
@@ -25,8 +23,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o download-ser
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-# Only copy compressed tarballs (much smaller than raw binaries)
-COPY --from=builder /archives /archives
+# Copy binaries, checksums, and LICENSE
+COPY --from=builder /app/release-binaries /archives
 
 # Copy the download server
 COPY --from=builder /app/download-server /usr/local/bin/download-server

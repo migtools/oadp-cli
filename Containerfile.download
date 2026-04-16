@@ -38,7 +38,7 @@ RUN set -e && \
                 -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitTreeState=clean" \
             -o /archives/$output \
             . && \
-        sha256sum /archives/$output > /archives/$output.sha256; \
+        (cd /archives && sha256sum $output > $output.sha256); \
     done && \
     cp LICENSE /archives/LICENSE && \
     rm -rf /root/.cache/go-build /tmp/*

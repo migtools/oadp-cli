@@ -13,21 +13,47 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-RUN make release-binaries && \
+# Version information
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+
+# Build release binaries for all platforms as direct executables
+# with clean names for direct curl/wget download.
+RUN set -e && \
+    mkdir -p /archives && \
+    for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do \
+        os=$(echo $platform | cut -d'/' -f1) && \
+        arch=$(echo $platform | cut -d'/' -f2) && \
+        if [ "$os" = "windows" ]; then \
+            output="kubectl-oadp_${os}_${arch}.exe"; \
+        else \
+            output="kubectl-oadp_${os}_${arch}"; \
+        fi && \
+        echo "Building $output..." && \
+        CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
+            go build -trimpath \
+            -ldflags="-s -w \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${VERSION} \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=${GIT_COMMIT} \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitTreeState=clean" \
+            -o /archives/$output \
+            . && \
+        (cd /archives && sha256sum $output > $output.sha256); \
+    done && \
+    chmod -x /archives/kubectl-oadp_* && \
+    cp LICENSE /archives/LICENSE && \
     rm -rf /root/.cache/go-build /tmp/*
 
 # Build the download server for the TARGET platform (the arch this container will run on)
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o download-server ./cmd/downloads/ && \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -o /usr/local/bin/download-server ./cmd/downloads/ && \
     go clean -cache -modcache -testcache && \
     rm -rf /root/.cache/go-build /go/pkg
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-# Copy binaries, checksums, and LICENSE
-COPY --from=builder /app/release-binaries /archives
-
-# Copy the download server
-COPY --from=builder /app/download-server /usr/local/bin/download-server
+COPY --from=builder /archives /archives
+COPY --from=builder /usr/local/bin/download-server /usr/local/bin/download-server
 
 EXPOSE 8080
 

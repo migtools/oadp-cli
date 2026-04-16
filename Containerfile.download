@@ -40,6 +40,7 @@ RUN set -e && \
             . && \
         (cd /archives && sha256sum $output > $output.sha256); \
     done && \
+    chmod -x /archives/kubectl-oadp_* && \
     cp LICENSE /archives/LICENSE && \
     rm -rf /root/.cache/go-build /tmp/*
 

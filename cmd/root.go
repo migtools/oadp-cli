@@ -382,12 +382,17 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: Error reading config file: %v\n", err)
 	}
+	if config == nil {
+		config = clientcmd.VeleroConfig{}
+	}
 
 	// When nonadmin mode is enabled, remove the namespace override so the
 	// factory uses the current kubeconfig context namespace instead of an
 	// admin namespace like openshift-adp.
 	if isNonadminEnabled(config) {
 		delete(config, clientcmd.ConfigKeyNamespace)
+	} else if config.Namespace() == "" {
+		config[clientcmd.ConfigKeyNamespace] = "openshift-adp"
 	}
 
 	// Declare cmdFeatures and cmdColorzied here so we can access them in the PreRun hooks

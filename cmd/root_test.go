@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -738,6 +739,44 @@ func TestReplaceVeleroWithOADP_OutputWrapperExclusions(t *testing.T) {
 			t.Errorf("Excluded command output should NOT be modified, got: %s", output)
 		}
 	})
+}
+
+// TestDefaultNamespaceIsOpenShiftADP verifies that when no config file or
+// VELERO_NAMESPACE env var is present, the CLI defaults to openshift-adp.
+func TestDefaultNamespaceIsOpenShiftADP(t *testing.T) {
+	binaryPath := testutil.BuildCLIBinary(t)
+
+	// Use a temp HOME so no ~/.config/velero/config.json exists
+	tempHome := t.TempDir()
+
+	ctx, cancel := context.WithTimeout(context.Background(), testutil.TestTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binaryPath, "--help")
+	cmd.Env = append(os.Environ(),
+		"HOME="+tempHome,
+	)
+	// Remove VELERO_NAMESPACE if set
+	filtered := cmd.Env[:0]
+	for _, e := range cmd.Env {
+		if !strings.HasPrefix(e, "VELERO_NAMESPACE=") {
+			filtered = append(filtered, e)
+		}
+	}
+	cmd.Env = filtered
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("command failed: %v\n%s", err, string(out))
+	}
+
+	output := string(out)
+	if !strings.Contains(output, `(default "openshift-adp")`) {
+		t.Errorf("Expected namespace default to be openshift-adp, got:\n%s", output)
+	}
+	if strings.Contains(output, `(default "velero")`) {
+		t.Errorf("Namespace should not default to velero, got:\n%s", output)
+	}
 }
 
 // TestApplyTimeoutToConfig_DialerTimeout tests that the custom dialer respects the timeout

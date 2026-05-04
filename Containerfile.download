@@ -13,8 +13,8 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-# Version information
-ARG VERSION=dev
+# Version information (OADP_VERSION avoids collision with Konflux-injected VERSION)
+ARG OADP_VERSION=dev
 ARG GIT_COMMIT=unknown
 
 # Build release binaries for all platforms as direct executables
@@ -33,7 +33,7 @@ RUN set -e && \
         CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
             go build -trimpath \
             -ldflags="-s -w \
-                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${VERSION} \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${OADP_VERSION} \
                 -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=${GIT_COMMIT} \
                 -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitTreeState=clean" \
             -o /archives/$output \

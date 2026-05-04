@@ -7,13 +7,14 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25
 COPY . /workspace
 WORKDIR /workspace
 
-# Version information
-ARG VERSION=dev
-ARG GIT_COMMIT=unknown
-
 # Build release binaries for all platforms (CGO_ENABLED=0 for cross-platform
 # portability — CLI binaries run on user machines outside the FIPS boundary)
+#
+# Version info: prefer ART-injected BUILD_VERSION/SOURCE_GIT_COMMIT env vars
+# (set by doozer in Konflux builds), fall back to defaults for local builds.
 RUN set -e && \
+    OADP_VERSION="${BUILD_VERSION:-dev}" && \
+    OADP_GIT_COMMIT="${SOURCE_GIT_COMMIT:-unknown}" && \
     mkdir -p /archives && \
     for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do \
         os=$(echo $platform | cut -d'/' -f1) && \
@@ -23,12 +24,12 @@ RUN set -e && \
         else \
             output="kubectl-oadp_${os}_${arch}"; \
         fi && \
-        echo "Building $output..." && \
+        echo "Building $output (version=${OADP_VERSION})..." && \
         CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
             go build -trimpath -mod=mod \
             -ldflags="-s -w \
-                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${VERSION} \
-                -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=${GIT_COMMIT} \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${OADP_VERSION} \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=${OADP_GIT_COMMIT} \
                 -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitTreeState=clean" \
             -o /archives/$output \
             . && \

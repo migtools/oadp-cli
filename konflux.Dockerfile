@@ -7,8 +7,8 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25
 COPY . /workspace
 WORKDIR /workspace
 
-# Version information
-ARG VERSION=dev
+# Version information (OADP_VERSION avoids collision with Konflux-injected VERSION)
+ARG OADP_VERSION=dev
 ARG GIT_COMMIT=unknown
 
 # Build release binaries for all platforms (CGO_ENABLED=0 for cross-platform
@@ -27,7 +27,7 @@ RUN set -e && \
         CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
             go build -trimpath -mod=mod \
             -ldflags="-s -w \
-                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${VERSION} \
+                -X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=${OADP_VERSION} \
                 -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=${GIT_COMMIT} \
                 -X github.com/vmware-tanzu/velero/pkg/buildinfo.GitTreeState=clean" \
             -o /archives/$output \

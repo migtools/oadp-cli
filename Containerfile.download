@@ -14,7 +14,7 @@ RUN go mod download && go mod verify
 COPY . .
 
 # Version information (OADP_VERSION avoids collision with Konflux-injected VERSION)
-ARG OADP_VERSION=dev
+ARG OADP_VERSION=oadp-1.6
 ARG GIT_COMMIT=unknown
 
 # Build release binaries for all platforms as direct executables

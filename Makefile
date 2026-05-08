@@ -5,7 +5,7 @@
 # Variables
 BINARY_NAME = kubectl-oadp
 INSTALL_PATH ?= $(HOME)/.local/bin
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION ?= oadp-dev
 VELERO_NAMESPACE ?= openshift-adp
 ASSUME_DEFAULT ?= false
 

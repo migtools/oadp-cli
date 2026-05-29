@@ -79,10 +79,11 @@ type CreateOptions struct {
 	*velerobackup.CreateOptions // Embed Velero's CreateOptions
 
 	// NAB-specific fields
-	Name                      string // The NonAdminBackup resource name (maps to Velero's BackupName)
-	client                    kbclient.WithWatch
-	currentNamespace          string
-	storageLocationFromConfig bool // Track if storage location came from config
+	Name                        string // The NonAdminBackup resource name (maps to Velero's BackupName)
+	client                      kbclient.WithWatch
+	currentNamespace            string
+	storageLocationFromConfig   bool // Track if storage location came from config
+	storageLocationAutoSelected bool // Track if storage location was auto-selected
 }
 
 func NewCreateOptions() *CreateOptions {
@@ -147,15 +148,6 @@ func (o *CreateOptions) Validate(c *cobra.Command, args []string, f client.Facto
 func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	o.Name = args[0]
 
-	// Load default NABSL from config if not provided via flag
-	if o.StorageLocation == "" {
-		defaultNABSL := getNABSLFromConfig()
-		if defaultNABSL != "" {
-			o.StorageLocation = defaultNABSL
-			o.storageLocationFromConfig = true
-		}
-	}
-
 	// Create client with NonAdmin scheme
 	client, err := shared.NewClientWithScheme(f, shared.ClientOptions{
 		IncludeNonAdminTypes: true,
@@ -172,6 +164,37 @@ func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 
 	o.client = client
 	o.currentNamespace = currentNS
+
+	// Load default NABSL from config if not provided via flag, or auto-select if exactly one exists
+	if o.StorageLocation == "" {
+		defaultNABSL := getNABSLFromConfig()
+		if defaultNABSL != "" {
+			o.StorageLocation = defaultNABSL
+			o.storageLocationFromConfig = true
+		} else {
+			// Auto-select NABSL if exactly one approved/created exists in the namespace
+			nabslList := &nacv1alpha1.NonAdminBackupStorageLocationList{}
+			if err := o.client.List(context.TODO(), nabslList, &kbclient.ListOptions{
+				Namespace: currentNS,
+			}); err != nil {
+				return fmt.Errorf("failed to list NonAdminBackupStorageLocations: %w", err)
+			}
+
+			// Filter to only approved/created NABSLs (exclude pending/rejected)
+			var usableNABSLs []nacv1alpha1.NonAdminBackupStorageLocation
+			for _, nabsl := range nabslList.Items {
+				if nabsl.Status.Phase == nacv1alpha1.NonAdminPhaseCreated {
+					usableNABSLs = append(usableNABSLs, nabsl)
+				}
+			}
+
+			if len(usableNABSLs) == 1 {
+				o.StorageLocation = usableNABSLs[0].Name
+				o.storageLocationAutoSelected = true
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -192,6 +215,10 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 
 	if o.storageLocationFromConfig {
 		fmt.Printf("Using default nonadmin backup storage location from config: %s\n", o.StorageLocation)
+	}
+	if o.storageLocationAutoSelected {
+		fmt.Printf("Auto-selected storage location: %s (only NABSL in namespace)\n", o.StorageLocation)
+		fmt.Printf("Warning: If you create another NABSL in this namespace, future backups may not use the same location.\n")
 	}
 
 	fmt.Printf("NonAdminBackup request %q submitted successfully.\n", nonAdminBackup.Name)

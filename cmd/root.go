@@ -451,7 +451,12 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	c.AddCommand(nabsl.NewNABSLRequestCommand(f))
 
 	// Custom subcommands - use NonAdmin factory
-	c.AddCommand(nonadmin.NewNonAdminCommand(f))
+	nonadminCmd := nonadmin.NewNonAdminCommand(f)
+	c.AddCommand(nonadminCmd)
+
+	// Hide --namespace flag from nonadmin commands
+	// NonAdmin operations are namespace-scoped to the user's current context for security
+	hideNamespaceFlagFromCommand(nonadminCmd)
 
 	// Must-gather command - diagnostic tool
 	c.AddCommand(mustgather.NewMustGatherCommand(f))
@@ -500,4 +505,19 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	klog.InitFlags(flag.CommandLine)
 	c.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	return c
+}
+
+// hideNamespaceFlagFromCommand recursively hides the --namespace flag from a command and all its subcommands
+func hideNamespaceFlagFromCommand(cmd *cobra.Command) {
+	// Hide from both local and inherited (persistent) flags
+	if flag := cmd.LocalFlags().Lookup("namespace"); flag != nil {
+		flag.Hidden = true
+	}
+	if flag := cmd.InheritedFlags().Lookup("namespace"); flag != nil {
+		flag.Hidden = true
+	}
+	// Recursively hide from all subcommands
+	for _, subCmd := range cmd.Commands() {
+		hideNamespaceFlagFromCommand(subCmd)
+	}
 }

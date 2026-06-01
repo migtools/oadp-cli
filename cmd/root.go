@@ -458,6 +458,14 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	// NonAdmin operations are namespace-scoped to the user's current context for security
 	hideNamespaceFlagFromCommand(nonadminCmd)
 
+	// Reject --namespace flag if used with nonadmin commands
+	nonadminCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if cmd.Flags().Changed("namespace") {
+			return fmt.Errorf("-n/--namespace is not supported for nonadmin commands; namespace is determined by your current context")
+		}
+		return nil
+	}
+
 	// Must-gather command - diagnostic tool
 	c.AddCommand(mustgather.NewMustGatherCommand(f))
 

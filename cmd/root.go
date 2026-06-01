@@ -515,8 +515,9 @@ func hideNamespaceFlagFromCommand(cmd *cobra.Command) {
 	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
 		// Temporarily hide the namespace flag for this help output
 		if flag := c.InheritedFlags().Lookup("namespace"); flag != nil {
+			originalHidden := flag.Hidden
 			flag.Hidden = true
-			defer func() { flag.Hidden = false }()
+			defer func() { flag.Hidden = originalHidden }()
 		}
 		originalHelpFunc(c, args)
 	})

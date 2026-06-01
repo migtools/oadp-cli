@@ -509,14 +509,19 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 
 // hideNamespaceFlagFromCommand recursively hides the --namespace flag from a command and all its subcommands
 func hideNamespaceFlagFromCommand(cmd *cobra.Command) {
-	// Hide from both local and inherited (persistent) flags
-	if flag := cmd.LocalFlags().Lookup("namespace"); flag != nil {
-		flag.Hidden = true
-	}
-	if flag := cmd.InheritedFlags().Lookup("namespace"); flag != nil {
-		flag.Hidden = true
-	}
-	// Recursively hide from all subcommands
+	// For each command, we need to hide the inherited namespace flag in its help output
+	// We do this by overriding the HelpFunc to filter out the namespace flag
+	originalHelpFunc := cmd.HelpFunc()
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		// Temporarily hide the namespace flag for this help output
+		if flag := c.InheritedFlags().Lookup("namespace"); flag != nil {
+			flag.Hidden = true
+			defer func() { flag.Hidden = false }()
+		}
+		originalHelpFunc(c, args)
+	})
+
+	// Recursively apply to all subcommands
 	for _, subCmd := range cmd.Commands() {
 		hideNamespaceFlagFromCommand(subCmd)
 	}

@@ -4,25 +4,19 @@ go 1.25.0
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260526195205-54d1934bbb11
+	github.com/migtools/oadp-non-admin v0.0.0-20260511183620-aad3132759e1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	github.com/vmware-tanzu/velero v1.18.1
+	github.com/vmware-tanzu/velero v1.16.0
 	golang.org/x/sync v0.20.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.33.11
 	k8s.io/apimachinery v0.33.11
 	k8s.io/client-go v0.33.11
 	k8s.io/klog/v2 v2.130.1
-	sigs.k8s.io/controller-runtime v0.21.0
+	sigs.k8s.io/controller-runtime v0.19.3
 	sigs.k8s.io/kustomize/cmd/config v0.21.0
-)
-
-require (
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/google/btree v1.1.3 // indirect
-	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0 // indirect
 )
 
 require (
@@ -70,6 +64,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kubernetes-csi/external-snapshotter/client/v7 v7.0.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -91,6 +86,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
@@ -115,7 +111,8 @@ require (
 	sigs.k8s.io/yaml v1.5.0 // indirect
 )
 
-// oadp-1.5
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260601183324-af1b4409d3db
+// oadp-1.5: align openshift/velero fork with oadp-operator oadp-1.5
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20251007230644-fbab83cfc995
 
-replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260520153904-ca18637542e2
+// oadp-non-admin oadp-1.5 pins this operator pseudo-version (avoids newer module zip issues)
+replace github.com/openshift/oadp-operator => github.com/openshift/oadp-operator v1.0.2-0.20250813014433-d5a424bd6488

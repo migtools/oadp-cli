@@ -313,7 +313,7 @@ func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAd
 		}
 		return nil
 	default:
-		selected, err := promptForNABSLSelection(items, os.Stdin, os.Stdout)
+		selected, err := promptForNABSLSelection(items, os.Stdin, os.Stderr)
 		if err != nil {
 			return err
 		}
@@ -324,8 +324,9 @@ func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAd
 }
 
 func promptForNABSLSelection(items []nacv1alpha1.NonAdminBackupStorageLocation, in io.Reader, out io.Writer) (string, error) {
-	stdin, ok := in.(*os.File)
-	if !ok || !term.IsTerminal(int(stdin.Fd())) {
+	inFile, inOk := in.(*os.File)
+	outFile, outOk := out.(*os.File)
+	if !inOk || !outOk || !term.IsTerminal(int(inFile.Fd())) || !term.IsTerminal(int(outFile.Fd())) {
 		return "", fmt.Errorf("multiple NonAdminBackupStorageLocations found; specify one with --storage-location\n" +
 			"To list available locations, run: oc oadp nonadmin bsl get")
 	}

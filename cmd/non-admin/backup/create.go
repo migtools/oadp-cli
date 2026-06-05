@@ -303,17 +303,23 @@ func (o *CreateOptions) resolveStorageLocation(namespace string) error {
 }
 
 func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAdminBackupStorageLocation) error {
-	switch len(items) {
+	// Filter to only approved/created NABSLs (exclude pending/rejected)
+	usable := make([]nacv1alpha1.NonAdminBackupStorageLocation, 0, len(items))
+	for _, nabsl := range items {
+		if nabsl.Status.Phase == nacv1alpha1.NonAdminPhaseCreated {
+			usable = append(usable, nabsl)
+		}
+	}
+
+	switch len(usable) {
 	case 0:
 		return nil
 	case 1:
-		if items[0].Status.Phase == nacv1alpha1.NonAdminPhaseCreated {
-			o.StorageLocation = items[0].Name
-			o.storageLocationAutoSelected = true
-		}
+		o.StorageLocation = usable[0].Name
+		o.storageLocationAutoSelected = true
 		return nil
 	default:
-		selected, err := promptForNABSLSelection(items, os.Stdin, os.Stderr)
+		selected, err := promptForNABSLSelection(usable, os.Stdin, os.Stderr)
 		if err != nil {
 			return err
 		}
@@ -321,6 +327,7 @@ func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAd
 		o.storageLocationPrompted = true
 		return nil
 	}
+}
 }
 
 func promptForNABSLSelection(items []nacv1alpha1.NonAdminBackupStorageLocation, in io.Reader, out io.Writer) (string, error) {

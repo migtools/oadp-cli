@@ -299,10 +299,10 @@ func (o *CreateOptions) resolveStorageLocation(namespace string) error {
 		return fmt.Errorf("failed to list NonAdminBackupStorageLocations: %w", err)
 	}
 
-	return o.resolveStorageLocationFromList(nabslList.Items)
+	return o.resolveStorageLocationFromList(namespace, nabslList.Items)
 }
 
-func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAdminBackupStorageLocation) error {
+func (o *CreateOptions) resolveStorageLocationFromList(namespace string, items []nacv1alpha1.NonAdminBackupStorageLocation) error {
 	// Filter to only approved/created NABSLs (exclude pending/rejected)
 	usable := make([]nacv1alpha1.NonAdminBackupStorageLocation, 0, len(items))
 	for _, nabsl := range items {
@@ -313,7 +313,13 @@ func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAd
 
 	switch len(usable) {
 	case 0:
-		return nil
+		if len(items) == 0 {
+			return fmt.Errorf("no NonAdminBackupStorageLocations found in namespace %q\n"+
+				"Create one with `oc oadp nonadmin bsl create` or specify `--storage-location`", namespace)
+		}
+		return fmt.Errorf("no usable NonAdminBackupStorageLocation with phase %q found in namespace %q\n"+
+			"Check status with `oc oadp nonadmin bsl get` or specify `--storage-location`",
+			nacv1alpha1.NonAdminPhaseCreated, namespace)
 	case 1:
 		o.StorageLocation = usable[0].Name
 		o.storageLocationAutoSelected = true

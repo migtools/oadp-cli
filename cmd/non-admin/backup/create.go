@@ -344,8 +344,9 @@ func promptForNABSLSelection(items []nacv1alpha1.NonAdminBackupStorageLocation, 
 	}
 
 	fmt.Fprintln(out, "Multiple non-admin backup storage locations found. Select one:")
-	for i, nabsl := range items {
-		fmt.Fprintf(out, "  %d) %s (%s)\n", i+1, nabsl.Name, formatNABSLPhase(&nabsl))
+	for i := range items {
+		nabsl := &items[i]
+		fmt.Fprintf(out, "  %d) %s (%s)\n", i+1, nabsl.Name, formatNABSLPhase(nabsl))
 	}
 
 	reader := bufio.NewReader(in)

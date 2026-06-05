@@ -328,7 +328,6 @@ func (o *CreateOptions) resolveStorageLocationFromList(items []nacv1alpha1.NonAd
 		return nil
 	}
 }
-}
 
 func promptForNABSLSelection(items []nacv1alpha1.NonAdminBackupStorageLocation, in io.Reader, out io.Writer) (string, error) {
 	inFile, inOk := in.(*os.File)

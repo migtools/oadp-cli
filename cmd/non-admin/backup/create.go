@@ -17,8 +17,13 @@ limitations under the License.
 */
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -32,6 +37,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd"
 	velerobackup "github.com/vmware-tanzu/velero/pkg/cmd/cli/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
+	"golang.org/x/term"
 )
 
 func NewCreateCommand(f client.Factory, use string) *cobra.Command {
@@ -84,6 +90,7 @@ type CreateOptions struct {
 	currentNamespace            string
 	storageLocationFromConfig   bool // Track if storage location came from config
 	storageLocationAutoSelected bool // Track if storage location was auto-selected
+	storageLocationPrompted     bool // Track if storage location was chosen interactively
 }
 
 func NewCreateOptions() *CreateOptions {
@@ -165,34 +172,8 @@ func (o *CreateOptions) Complete(args []string, f client.Factory) error {
 	o.client = client
 	o.currentNamespace = currentNS
 
-	// Load default NABSL from config if not provided via flag, or auto-select if exactly one exists
-	if o.StorageLocation == "" {
-		defaultNABSL := getNABSLFromConfig()
-		if defaultNABSL != "" {
-			o.StorageLocation = defaultNABSL
-			o.storageLocationFromConfig = true
-		} else {
-			// Auto-select NABSL if exactly one approved/created exists in the namespace
-			nabslList := &nacv1alpha1.NonAdminBackupStorageLocationList{}
-			if err := o.client.List(context.TODO(), nabslList, &kbclient.ListOptions{
-				Namespace: currentNS,
-			}); err != nil {
-				return fmt.Errorf("failed to list NonAdminBackupStorageLocations: %w", err)
-			}
-
-			// Filter to only approved/created NABSLs (exclude pending/rejected)
-			var usableNABSLs []nacv1alpha1.NonAdminBackupStorageLocation
-			for _, nabsl := range nabslList.Items {
-				if nabsl.Status.Phase == nacv1alpha1.NonAdminPhaseCreated {
-					usableNABSLs = append(usableNABSLs, nabsl)
-				}
-			}
-
-			if len(usableNABSLs) == 1 {
-				o.StorageLocation = usableNABSLs[0].Name
-				o.storageLocationAutoSelected = true
-			}
-		}
+	if err := o.resolveStorageLocation(currentNS); err != nil {
+		return err
 	}
 
 	return nil
@@ -217,8 +198,11 @@ func (o *CreateOptions) Run(c *cobra.Command, f client.Factory) error {
 		fmt.Printf("Using default nonadmin backup storage location from config: %s\n", o.StorageLocation)
 	}
 	if o.storageLocationAutoSelected {
-		fmt.Printf("Auto-selected storage location: %s (only NABSL in namespace)\n", o.StorageLocation)
+		fmt.Printf("Auto-selected storage location: %s (only usable NABSL in namespace)\n", o.StorageLocation)
 		fmt.Printf("Warning: If you create another NABSL in this namespace, future backups may not use the same location.\n")
+	}
+	if o.storageLocationPrompted {
+		fmt.Printf("Selected storage location: %s\n", o.StorageLocation)
 	}
 
 	fmt.Printf("NonAdminBackup request %q submitted successfully.\n", nonAdminBackup.Name)
@@ -295,4 +279,97 @@ func getNABSLFromConfig() string {
 		}
 	}
 	return ""
+}
+
+func (o *CreateOptions) resolveStorageLocation(namespace string) error {
+	if o.StorageLocation != "" {
+		return nil
+	}
+
+	if defaultNABSL := getNABSLFromConfig(); defaultNABSL != "" {
+		o.StorageLocation = defaultNABSL
+		o.storageLocationFromConfig = true
+		return nil
+	}
+
+	nabslList := &nacv1alpha1.NonAdminBackupStorageLocationList{}
+	if err := o.client.List(context.TODO(), nabslList, &kbclient.ListOptions{
+		Namespace: namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list NonAdminBackupStorageLocations: %w", err)
+	}
+
+	return o.resolveStorageLocationFromList(namespace, nabslList.Items)
+}
+
+func (o *CreateOptions) resolveStorageLocationFromList(namespace string, items []nacv1alpha1.NonAdminBackupStorageLocation) error {
+	// Filter to only approved/created NABSLs (exclude pending/rejected)
+	usable := make([]nacv1alpha1.NonAdminBackupStorageLocation, 0, len(items))
+	for _, nabsl := range items {
+		if nabsl.Status.Phase == nacv1alpha1.NonAdminPhaseCreated {
+			usable = append(usable, nabsl)
+		}
+	}
+
+	switch len(usable) {
+	case 0:
+		if len(items) == 0 {
+			return fmt.Errorf("no NonAdminBackupStorageLocations found in namespace %q\n"+
+				"Create one with `oc oadp nonadmin bsl create` or specify `--storage-location`", namespace)
+		}
+		return fmt.Errorf("no usable NonAdminBackupStorageLocation with phase %q found in namespace %q\n"+
+			"Check status with `oc oadp nonadmin bsl get` or specify `--storage-location`",
+			nacv1alpha1.NonAdminPhaseCreated, namespace)
+	case 1:
+		o.StorageLocation = usable[0].Name
+		o.storageLocationAutoSelected = true
+		return nil
+	default:
+		selected, err := promptForNABSLSelection(usable, os.Stdin, os.Stderr)
+		if err != nil {
+			return err
+		}
+		o.StorageLocation = selected
+		o.storageLocationPrompted = true
+		return nil
+	}
+}
+
+func promptForNABSLSelection(items []nacv1alpha1.NonAdminBackupStorageLocation, in io.Reader, out io.Writer) (string, error) {
+	inFile, inOk := in.(*os.File)
+	outFile, outOk := out.(*os.File)
+	if !inOk || !outOk || !term.IsTerminal(int(inFile.Fd())) || !term.IsTerminal(int(outFile.Fd())) {
+		return "", fmt.Errorf("multiple NonAdminBackupStorageLocations found; specify one with --storage-location\n" +
+			"To list available locations, run: oc oadp nonadmin bsl get")
+	}
+
+	fmt.Fprintln(out, "Multiple non-admin backup storage locations found. Select one:")
+	for i := range items {
+		nabsl := &items[i]
+		fmt.Fprintf(out, "  %d) %s (%s)\n", i+1, nabsl.Name, formatNABSLPhase(nabsl))
+	}
+
+	reader := bufio.NewReader(in)
+	for {
+		fmt.Fprintf(out, "Enter number (1-%d): ", len(items))
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		choice, err := strconv.Atoi(strings.TrimSpace(response))
+		if err != nil || choice < 1 || choice > len(items) {
+			fmt.Fprintln(out, "Invalid selection. Please enter a number from the list.")
+			continue
+		}
+
+		return items[choice-1].Name, nil
+	}
+}
+
+func formatNABSLPhase(nabsl *nacv1alpha1.NonAdminBackupStorageLocation) string {
+	if nabsl.Status.Phase != "" {
+		return string(nabsl.Status.Phase)
+	}
+	return "Unknown"
 }

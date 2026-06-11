@@ -1,6 +1,6 @@
 module github.com/migtools/oadp-cli
 
-go 1.25.0
+go 1.25.8
 
 require (
 	github.com/fatih/color v1.18.0
@@ -10,6 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/vmware-tanzu/velero v1.16.0
 	golang.org/x/sync v0.20.0
+	golang.org/x/term v0.42.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.33.11
 	k8s.io/apimachinery v0.33.11
@@ -75,7 +76,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/openshift/oadp-operator v1.0.2-0.20260528002306-f9a4a0870574 // indirect
+	github.com/openshift/oadp-operator v1.0.2-0.20260527004437-f1543b44c69c // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.4 // indirect
@@ -91,7 +92,6 @@ require (
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
@@ -111,8 +111,5 @@ require (
 	sigs.k8s.io/yaml v1.5.0 // indirect
 )
 
-// oadp-1.5: align openshift/velero fork with oadp-operator oadp-1.5
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20251007230644-fbab83cfc995
-
-// oadp-non-admin oadp-1.5 pins this operator pseudo-version (avoids newer module zip issues)
-replace github.com/openshift/oadp-operator => github.com/openshift/oadp-operator v1.0.2-0.20250813014433-d5a424bd6488
+// oadp-1.5 latest velero commit on openshift
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260526143617-87a03c3d2c32

@@ -35,6 +35,14 @@ make install ASSUME_DEFAULT=true     # Use default namespace (no detection)
 make install VELERO_NAMESPACE=custom # Use specific namespace (no detection)
 ```
 
+## Release branches
+
+| Branch | OADP line | Notes |
+|--------|-----------|--------|
+| [`oadp-1.5`](docs/OADP-1.5.md) | OADP 1.5 / OCP 4.19–4.21 | Dependency backport from `oadp-1.6`; see [developer doc](docs/OADP-1.5.md) |
+| `oadp-1.6` | OADP 1.6 / OCP 4.22+ | Current Velero 1.18 line |
+| `oadp-dev` | Next / development | Integration branch |
+
 ## Technical Details
 
 **Built with:**

@@ -440,10 +440,10 @@ github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7J
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.35.1 h1:Cwbd75ZBPxFSuZ6T+rN/WCb/gOc6YgFBXLlZLhC7Ds4=
 github.com/onsi/gomega v1.35.1/go.mod h1:PvZbdDc8J6XJEpDK4HCuRBm8a6Fzp9/DmhC9C7yFlog=
-github.com/openshift/oadp-operator v1.0.2-0.20250813014433-d5a424bd6488 h1:rR8p67df/Lcxrf6Mbhu4P42yVoOSvDYgZ81mpshDgHk=
-github.com/openshift/oadp-operator v1.0.2-0.20250813014433-d5a424bd6488/go.mod h1:Rysi54HrLBCSLV+Euuk93O+01dzSYY9YngH72ie7SRM=
-github.com/openshift/velero v0.10.2-0.20251007230644-fbab83cfc995 h1:E7LYe6kfHOgV/wVgXZeAFQpmDaq1YHCt1aEjlsPwgi8=
-github.com/openshift/velero v0.10.2-0.20251007230644-fbab83cfc995/go.mod h1:KexQjIRtgMGriCqpAIhY7YBNb2Mm7tfmXh6YWLb/dao=
+github.com/openshift/oadp-operator v1.0.2-0.20260527004437-f1543b44c69c h1:rmYGpH7xstFMZ/NG32rhIpirDMkQdPFi8F3LhcPoLII=
+github.com/openshift/oadp-operator v1.0.2-0.20260527004437-f1543b44c69c/go.mod h1:2u/F1epu6WvR+pvi4+cEhckE/QEHgLyOczC39fekGYA=
+github.com/openshift/velero v0.10.2-0.20260526143617-87a03c3d2c32 h1:1Iu7b6A/m74vmBiDHFO7sZ6ycXEfBpkE9eFODny99GA=
+github.com/openshift/velero v0.10.2-0.20260526143617-87a03c3d2c32/go.mod h1:KEpTfFgye9RJEXdq5BpYS2e07GEQiI/8IBKpnQp1X54=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pelletier/go-toml v1.9.3/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=

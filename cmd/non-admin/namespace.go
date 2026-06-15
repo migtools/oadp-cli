@@ -28,9 +28,18 @@ import (
 func ConfigureNamespaceBehavior(cmd *cobra.Command) {
 	hideNamespaceFlagFromCommand(cmd)
 
+	existingPersistentPreRunE := cmd.PersistentPreRunE
+	existingPersistentPreRun := cmd.PersistentPreRun
+
 	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
 		if c.Flags().Changed("namespace") {
 			return fmt.Errorf("-n/--namespace is not supported for nonadmin commands; namespace is determined by your current context")
+		}
+		if existingPersistentPreRunE != nil {
+			return existingPersistentPreRunE(c, args)
+		}
+		if existingPersistentPreRun != nil {
+			existingPersistentPreRun(c, args)
 		}
 		return nil
 	}
@@ -39,15 +48,30 @@ func ConfigureNamespaceBehavior(cmd *cobra.Command) {
 func hideNamespaceFlagFromCommand(cmd *cobra.Command) {
 	originalHelpFunc := cmd.HelpFunc()
 	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
-		if flag := c.InheritedFlags().Lookup("namespace"); flag != nil {
-			originalHidden := flag.Hidden
-			flag.Hidden = true
-			defer func() { flag.Hidden = originalHidden }()
-		}
-		originalHelpFunc(c, args)
+		withHiddenNamespaceFlag(c, func() {
+			originalHelpFunc(c, args)
+		})
+	})
+
+	originalUsageFunc := cmd.UsageFunc()
+	cmd.SetUsageFunc(func(c *cobra.Command) error {
+		var err error
+		withHiddenNamespaceFlag(c, func() {
+			err = originalUsageFunc(c)
+		})
+		return err
 	})
 
 	for _, subCmd := range cmd.Commands() {
 		hideNamespaceFlagFromCommand(subCmd)
 	}
+}
+
+func withHiddenNamespaceFlag(cmd *cobra.Command, fn func()) {
+	if flag := cmd.InheritedFlags().Lookup("namespace"); flag != nil {
+		originalHidden := flag.Hidden
+		flag.Hidden = true
+		defer func() { flag.Hidden = originalHidden }()
+	}
+	fn()
 }

@@ -50,5 +50,7 @@ func NewNonAdminCommand(f client.Factory) *cobra.Command {
 	c.AddCommand(verbs.NewDescribeCommand(f))
 	c.AddCommand(verbs.NewLogsCommand(f))
 
+	ConfigureNamespaceBehavior(c)
+
 	return c
 }

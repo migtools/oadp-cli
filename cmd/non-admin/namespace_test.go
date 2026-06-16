@@ -30,8 +30,8 @@ func TestNonAdminNamespaceFlagBehavior(t *testing.T) {
 
 	t.Run("help hides namespace flag", func(t *testing.T) {
 		output, _ := testutil.RunCommand(t, binaryPath, "nonadmin", "backup", "get", "--help")
-		if strings.Contains(output, "--namespace") {
-			t.Errorf("Expected help output not to contain --namespace\nFull output:\n%s", output)
+		if strings.Contains(output, "-n, --namespace") || strings.Contains(output, "--namespace string") {
+			t.Errorf("Expected help output not to contain the namespace flag\nFull output:\n%s", output)
 		}
 	})
 

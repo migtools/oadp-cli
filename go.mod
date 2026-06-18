@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260616165054-96b4ac0f79d4
+	github.com/migtools/oadp-non-admin v0.0.0-20260618191445-606412a71c73
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -80,7 +80,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/openshift/oadp-operator v1.0.2-0.20260611195823-fca7205015b4 // indirect
+	github.com/openshift/oadp-operator v1.0.2-0.20260617204850-9ac30ad009f5 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.4 // indirect

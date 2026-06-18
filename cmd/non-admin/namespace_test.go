@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/migtools/oadp-cli/internal/testutil"
+	"github.com/spf13/cobra"
 )
 
 func TestNonAdminNamespaceFlagBehavior(t *testing.T) {
@@ -32,6 +33,23 @@ func TestNonAdminNamespaceFlagBehavior(t *testing.T) {
 		output, _ := testutil.RunCommand(t, binaryPath, "nonadmin", "backup", "get", "--help")
 		if strings.Contains(output, "-n, --namespace") || strings.Contains(output, "--namespace string") {
 			t.Errorf("Expected help output not to contain the namespace flag\nFull output:\n%s", output)
+		}
+	})
+
+	t.Run("calls global persistent setup", func(t *testing.T) {
+		var globalSetupCalled bool
+		globalSetup := func(cmd *cobra.Command, args []string) {
+			globalSetupCalled = true
+		}
+
+		cmd := &cobra.Command{Use: "nonadmin"}
+		ConfigureNamespaceBehavior(cmd, globalSetup)
+
+		if err := cmd.PersistentPreRunE(cmd, []string{}); err != nil {
+			t.Fatalf("PersistentPreRunE returned error: %v", err)
+		}
+		if !globalSetupCalled {
+			t.Error("Expected global persistent setup to run for nonadmin command")
 		}
 	})
 

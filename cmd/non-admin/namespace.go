@@ -25,7 +25,10 @@ import (
 // ConfigureNamespaceBehavior hides the inherited --namespace flag from nonadmin
 // help output and rejects runtime use of -n/--namespace. Nonadmin operations are
 // scoped to the user's current context namespace for security.
-func ConfigureNamespaceBehavior(cmd *cobra.Command) {
+func ConfigureNamespaceBehavior(
+	cmd *cobra.Command,
+	runGlobalSetup func(cmd *cobra.Command, args []string),
+) {
 	hideNamespaceFlagFromCommand(cmd)
 
 	existingPersistentPreRunE := cmd.PersistentPreRunE
@@ -34,6 +37,9 @@ func ConfigureNamespaceBehavior(cmd *cobra.Command) {
 	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
 		if c.Flags().Changed("namespace") {
 			return fmt.Errorf("-n/--namespace is not supported for nonadmin commands; namespace is determined by your current context")
+		}
+		if runGlobalSetup != nil {
+			runGlobalSetup(c, args)
 		}
 		if existingPersistentPreRunE != nil {
 			return existingPersistentPreRunE(c, args)

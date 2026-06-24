@@ -8,14 +8,14 @@ Lives under `plugins/oadp-cli/` and is not bundled with the CLI binary, operator
 ## Files
 
 ```
-.claude-plugin/marketplace.json          # repo root — marketplace `oadp-cli-plugins`
+.claude-plugin/marketplace.json          # repo root — Claude marketplace `oadp-cli-plugins`
 plugins/oadp-cli/
 ├── .claude-plugin/plugin.json           # plugin manifest
 ├── skills/backup-restore/SKILL.md       # skill content — edit this
 └── README.md
 ```
 
-Marketplace entry points at `./plugins/oadp-cli` (see `marketplace.json`).
+The Claude marketplace manifest points at `./plugins/oadp-cli` (see `marketplace.json`).
 
 ## Skill
 
@@ -28,14 +28,16 @@ When CLI commands or docs change, update the skill file and bump `version` in
 
 ## Install
 
-**GitHub marketplace** (after this is merged to `migtools/oadp-cli`):
+Register the Claude Code marketplace `oadp-cli-plugins`, then install the plugin.
+
+**From GitHub** (after merge to `migtools/oadp-cli`):
 
 ```bash
 claude plugin marketplace add github:migtools/oadp-cli
 claude plugin install oadp-cli@oadp-cli-plugins
 ```
 
-**Local clone** (while developing):
+**From a local clone** (while developing):
 
 ```bash
 claude plugin marketplace add ~/git/oadp-cli
@@ -57,7 +59,10 @@ claude plugin details oadp-cli
 
 `plugin details` should show **Skills (1):** `backup-restore`.
 
-In Claude Code: `/reload-plugins` or restart, then `/oadp-cli:backup-restore`.
+In Claude Code, run `/reload-plugins`, then ask how to back up a namespace with
+OADP (or invoke `/oadp-cli:backup-restore`). Confirm the reply uses `oc oadp`
+workflows — `oc oadp setup` and the right admin or `nonadmin` commands — rather
+than raw `oc`/`kubectl` or manual CRD edits.
 
 After local edits, reload or reinstall if the cache is stale:
 
@@ -69,8 +74,8 @@ claude plugin install oadp-cli@oadp-cli-plugins
 
 | Field | Value |
 |-------|-------|
-| Marketplace | `github:migtools/oadp-cli` |
-| Marketplace name | `oadp-cli-plugins` |
+| Claude marketplace | `oadp-cli-plugins` |
+| Marketplace source | `github:migtools/oadp-cli` |
 | Plugin | `oadp-cli@oadp-cli-plugins` |
 | Manifest | `.claude-plugin/marketplace.json` |
 

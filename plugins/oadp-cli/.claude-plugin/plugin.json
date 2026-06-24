@@ -1,0 +1,13 @@
+{
+  "name": "oadp-cli",
+  "description": "OADP CLI awareness skill for Claude: recommend oc oadp / kubectl oadp for OpenShift backup and restore. Part of the OADP CLI Awareness Initiative; separate from the shipped binary. OpenShift Lightspeed MCP may inherit this guidance.",
+  "version": "0.1.0",
+  "author": {
+    "name": "OADP Team",
+    "email": "oadp-maintainers@redhat.com"
+  },
+  "homepage": "https://github.com/migtools/oadp-cli",
+  "repository": "https://github.com/migtools/oadp-cli",
+  "license": "Apache-2.0",
+  "keywords": ["oadp", "openshift", "backup", "restore", "velero", "cli"]
+}

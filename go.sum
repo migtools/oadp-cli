@@ -399,8 +399,8 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
-github.com/migtools/oadp-non-admin v0.0.0-20260618191445-606412a71c73 h1:59icqym/C1EQHYJpPVlilwi22aIV6+WgjlfumsWDIL4=
-github.com/migtools/oadp-non-admin v0.0.0-20260618191445-606412a71c73/go.mod h1:1Tz/apAlvOflsQ/nm/h1fC768tKn/Of/1VeK9EH0dwY=
+github.com/migtools/oadp-non-admin v0.0.0-20260624145020-c965753509ba h1:Gc7kqdmWJd0HwuljGEjsXv9Iv7Al4k3Nd6SNZipLHpc=
+github.com/migtools/oadp-non-admin v0.0.0-20260624145020-c965753509ba/go.mod h1:S0SUuVdW9i74ugloUSbz82xKyyp2+CWz8eCUnqUbhvc=
 github.com/mitchellh/cli v1.0.0/go.mod h1:hNIlj7HEI86fIcpObd7a0FcrxTWetlwJDGcceTlRvqc=
 github.com/mitchellh/go-homedir v1.0.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
@@ -446,10 +446,10 @@ github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7J
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.40.0 h1:Vtol0e1MghCD2ZVIilPDIg44XSL9l2QAn8ZNaljWcJc=
 github.com/onsi/gomega v1.40.0/go.mod h1:M/Uqpu/8qTjtzCLUA2zJHX9Iilrau25x1PdoSRbWh5A=
-github.com/openshift/oadp-operator v1.0.2-0.20260617204850-9ac30ad009f5 h1:PoAhtnUBkR46xzUxfeMcLUhm8iHWMa1CA6bzrEniVuo=
-github.com/openshift/oadp-operator v1.0.2-0.20260617204850-9ac30ad009f5/go.mod h1:HC/aXZHwPXF+yVgL0I1cB/FWM8h7oR6uISNNItyz7yk=
-github.com/openshift/velero v0.10.2-0.20260601183324-af1b4409d3db h1:OiHogeMtHaLefNcKL/5+jcitMgdn1PKGEUHLiYUPm3s=
-github.com/openshift/velero v0.10.2-0.20260601183324-af1b4409d3db/go.mod h1:Ls4mlezDUOyn25N2rKy8HtLnNj3tyCKARBXYuh5QwNE=
+github.com/openshift/oadp-operator v1.0.2-0.20260622201653-157bce88a195 h1:bYngMTQHI5a6maKhnb+aQv7S+lldkV9vWHlHnVnT8I8=
+github.com/openshift/oadp-operator v1.0.2-0.20260622201653-157bce88a195/go.mod h1:HC/aXZHwPXF+yVgL0I1cB/FWM8h7oR6uISNNItyz7yk=
+github.com/openshift/velero v0.10.2-0.20260623201227-3da6a7a30d21 h1:n5C5b/U9L3vwrRvT/bWQ7BckLFqsi84wzROU/nZUwlI=
+github.com/openshift/velero v0.10.2-0.20260623201227-3da6a7a30d21/go.mod h1:Ls4mlezDUOyn25N2rKy8HtLnNj3tyCKARBXYuh5QwNE=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pelletier/go-toml v1.9.3/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=

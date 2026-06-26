@@ -375,6 +375,24 @@ func isNonadminEnabled(config clientcmd.VeleroConfig) bool {
 	}
 }
 
+func configureGlobalCommandBehavior(
+	config clientcmd.VeleroConfig,
+	cmdFeatures veleroflag.StringArray,
+	cmdColorized veleroflag.OptionalBool,
+) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		features.Enable(config.Features()...)
+		features.Enable(cmdFeatures...)
+
+		switch {
+		case cmdColorized.Value != nil:
+			color.NoColor = !*cmdColorized.Value
+		default:
+			color.NoColor = !config.Colorized()
+		}
+	}
+}
+
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand(baseName string) *cobra.Command {
 
@@ -400,6 +418,8 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	var cmdFeatures veleroflag.StringArray
 	var cmdColorzied veleroflag.OptionalBool
 
+	globalPreRun := configureGlobalCommandBehavior(config, cmdFeatures, cmdColorzied)
+
 	c := &cobra.Command{
 		Use:   baseName,
 		Short: "OADP CLI commands",
@@ -407,17 +427,7 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 			// Default action when no subcommand is provided
 			fmt.Println("Welcome to the OADP CLI! Use --help to see available commands.")
 		},
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			features.Enable(config.Features()...)
-			features.Enable(cmdFeatures...)
-
-			switch {
-			case cmdColorzied.Value != nil:
-				color.NoColor = !*cmdColorzied.Value
-			default:
-				color.NoColor = !config.Colorized()
-			}
-		},
+		PersistentPreRun: globalPreRun,
 	}
 
 	// Create Velero client factory for regular Velero commands
@@ -451,7 +461,9 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	c.AddCommand(nabsl.NewNABSLRequestCommand(f))
 
 	// Custom subcommands - use NonAdmin factory
-	c.AddCommand(nonadmin.NewNonAdminCommand(f))
+	nonadminCmd := nonadmin.NewNonAdminCommand(f)
+	nonadmin.ConfigureNamespaceBehavior(nonadminCmd, globalPreRun)
+	c.AddCommand(nonadminCmd)
 
 	// Must-gather command - diagnostic tool
 	c.AddCommand(mustgather.NewMustGatherCommand(f))

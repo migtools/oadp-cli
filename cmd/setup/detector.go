@@ -28,13 +28,11 @@ type DetectionResult struct {
 	Error   error
 }
 
-// detectUserMode detects whether the user has admin permissions by checking
+// detectUserMode detects whether the user has cluster-admin permissions by checking
 // if they can create Velero Backup resources across all namespaces.
-// Admin users can create backups.velero.io cluster-wide, while non-admin users
-// can only create nonadminbackups.oadp.openshift.io in their own namespace.
+// On OADP 1.4, only admin mode is supported; non-admin commands are not available.
 func detectUserMode() DetectionResult {
-	// Check if user can create Velero Backups across all namespaces
-	// This is the core permission difference between admin and non-admin modes
+	// Check if user can create Velero Backups across all namespaces (cluster-admin check)
 	cmd := exec.Command("oc", "auth", "can-i", "create", "backups.velero.io", "--all-namespaces")
 	output, err := cmd.CombinedOutput()
 
@@ -63,6 +61,6 @@ func detectUserMode() DetectionResult {
 		return DetectionResult{IsAdmin: true}
 	}
 
-	// "no" means user cannot (non-admin mode)
+	// "no" means user does not have cluster-admin access
 	return DetectionResult{IsAdmin: false}
 }

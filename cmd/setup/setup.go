@@ -68,8 +68,7 @@ func (o *SetupOptions) Run(c *cobra.Command, f client.Factory) error {
 			return fmt.Errorf("failed to read existing config: %w", err)
 		}
 
-		// Check if nonadmin field is explicitly set (not nil)
-		if existingConfig.NonAdmin != nil {
+		if existingConfig.Namespace != "" {
 			fmt.Println("OADP CLI is already configured.")
 			fmt.Println()
 			o.printCurrentConfig(existingConfig)
@@ -103,20 +102,12 @@ func (o *SetupOptions) Run(c *cobra.Command, f client.Factory) error {
 		}
 	}
 
-	// Read existing config to preserve fields like default-nabsl
 	config, err := shared.ReadVeleroClientConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read existing config: %w", err)
 	}
 
-	// Update config based on detection result
-	if o.detectionResult.IsAdmin {
-		config.NonAdmin = false
-	} else {
-		config.NonAdmin = true
-	}
-
-	// Write config file
+	// Write config file (preserves namespace; no non-admin mode on OADP 1.4)
 	if err := shared.WriteVeleroClientConfig(config); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
@@ -132,11 +123,7 @@ func (o *SetupOptions) printCurrentConfig(config *shared.ClientConfig) {
 	homeDir, _ := os.UserHomeDir()
 	configPath := filepath.Join(homeDir, ".config", "velero", "config.json")
 
-	if config.IsNonAdmin() {
-		fmt.Println("Current mode: non-admin")
-	} else {
-		fmt.Println("Current mode: admin")
-	}
+	fmt.Println("Current mode: admin")
 	fmt.Printf("Configuration file: %s\n", configPath)
 }
 
@@ -146,22 +133,17 @@ func (o *SetupOptions) printSetupSuccess() {
 	configPath := filepath.Join(homeDir, ".config", "velero", "config.json")
 
 	if o.detectionResult.IsAdmin {
-		fmt.Println("✓ Admin mode enabled")
-		fmt.Println()
-		fmt.Printf("Configuration saved to: %s\n", configPath)
-		fmt.Println()
-		fmt.Println("You can now use OADP admin commands:")
-		fmt.Println("  oc oadp backup create my-backup")
-		fmt.Println("  oc oadp restore create my-restore")
+		fmt.Println("✓ Admin access confirmed")
 	} else {
-		fmt.Println("✓ Non-admin mode enabled")
-		fmt.Println()
-		fmt.Printf("Configuration saved to: %s\n", configPath)
-		fmt.Println()
-		fmt.Println("You can now use OADP non-admin commands:")
-		fmt.Println("  oc oadp nonadmin backup create my-backup")
-		fmt.Println("  oc oadp nonadmin restore create my-restore")
+		fmt.Println("⚠ Cluster-admin permissions not detected")
+		fmt.Println("  OADP 1.4 CLI requires cluster-admin access; non-admin mode is not supported on this release.")
 	}
+	fmt.Println()
+	fmt.Printf("Configuration saved to: %s\n", configPath)
+	fmt.Println()
+	fmt.Println("You can now use OADP admin commands:")
+	fmt.Println("  oc oadp backup create my-backup")
+	fmt.Println("  oc oadp restore create my-restore")
 }
 
 // NewSetupCommand creates the setup command
@@ -170,14 +152,12 @@ func NewSetupCommand(f client.Factory) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "setup",
-		Short: "Auto-detect and configure admin vs non-admin mode",
-		Long: `Auto-detect and configure admin vs non-admin mode.
+		Short: "Verify cluster-admin access and configure the OADP CLI",
+		Long: `Verify cluster-admin access and configure the OADP CLI.
 
-This command detects whether you have cluster-wide admin permissions and
-automatically configures the OADP CLI to use the appropriate mode:
-
-- Admin mode: Can create Velero Backup resources across all namespaces
-- Non-admin mode: Can only create NonAdminBackup resources in current namespace
+This command checks whether you have cluster-wide admin permissions required
+for the OADP 1.4 CLI. Non-admin (self-service) mode is not supported on
+OADP 1.4; use OADP 1.5 or later for non-admin backup and restore.
 
 The detection works by checking RBAC permissions: oc auth can-i create backups.velero.io --all-namespaces
 

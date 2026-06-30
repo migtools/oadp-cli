@@ -4,9 +4,11 @@
 [![Release](https://github.com/migtools/oadp-cli/actions/workflows/release.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/release.yml)
 [![Multi-Arch Binary Push to Quay.io](https://github.com/migtools/oadp-cli/actions/workflows/quay_binaries_push.yml/badge.svg)](https://github.com/migtools/oadp-cli/actions/workflows/quay_binaries_push.yml)
 
-A kubectl plugin for OpenShift API for Data Protection (OADP) that provides both administrative and non-administrative backup operations.
+A kubectl plugin for OpenShift API for Data Protection (OADP) that provides cluster-admin backup and restore operations.
 
-> **What it does**: Extends OADP functionality with a unified CLI that supports both cluster-wide Velero operations (admin) and namespace-scoped self-service operations (non-admin users).
+> **What it does**: Extends OADP functionality with a unified CLI for cluster-wide Velero operations (backup, restore, schedule, BSL management) on OpenShift clusters running OADP 1.4.
+>
+> **Note (oadp-1.4 branch):** Non-admin / self-service commands (`oc oadp nonadmin …`) are not available on this branch. The OADP 1.4 operator does not ship the non-admin controller. Use OADP 1.5+ for non-admin support.
 
 
 ## Installation
@@ -22,7 +24,7 @@ source ~/.zshrc  # or ~/.bashrc
 # OR restart your terminal
 
 # Test the installation
-kubectl oadp --help
+oc oadp --help
 
 # Alternative: System-wide install (requires sudo)
 make install-system
@@ -49,7 +51,7 @@ make install VELERO_NAMESPACE=custom # Use specific namespace (no detection)
 **Built with:**
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 - [Velero client libraries](https://github.com/vmware-tanzu/velero) - Core backup functionality  
-- [OADP NonAdmin APIs](https://github.com/migtools/oadp-non-admin) - NonAdminBackup CRD support
+- [OADP Operator](https://github.com/openshift/oadp-operator) - Operator providing Velero and backup infrastructure
 
 **Dependencies:**
 - OADP Operator installed in cluster

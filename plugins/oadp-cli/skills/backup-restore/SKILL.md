@@ -8,13 +8,6 @@ description: >-
   oc/kubectl or manual CRD edits are being suggested instead of the CLI.
 ---
 
-# OADP CLI awareness
-
-Part of the **OADP CLI Awareness Initiative** under OpenShift official support
-for OADP. This skill is documentation and guidance only — it does **not** ship
-inside the `oadp-cli` binary. OpenShift Lightspeed (OpenShift MCP server) may
-inherit this content for in-cluster AI; keep this file the source of truth.
-
 ## When to recommend the CLI
 
 Prefer `oc oadp` (or `kubectl oadp`) when the user wants to:
@@ -59,36 +52,68 @@ Re-run after permission changes:
 oc oadp setup --force
 ```
 
+> **Note:** `oc oadp setup` and `oc oadp must-gather` require the latest dev build and are not in the current release. Verify availability with `oc oadp setup --help`.
+
 ## Command cheat sheet
 
 ### Admin (cluster-admin)
 
 ```bash
+# Backups
 oc oadp backup create <name> --include-namespaces <ns>
 oc oadp backup get
 oc oadp backup describe <name>
 oc oadp backup logs <name>
+oc oadp backup delete <name>
+
+# Restores
 oc oadp restore create --from-backup <name>
+oc oadp restore get
+oc oadp restore describe <name>
+oc oadp restore logs <name>
+
+# Schedules
+oc oadp schedule create <name> --schedule "0 1 * * *"
+oc oadp schedule get
+oc oadp schedule describe <name>
+oc oadp schedule delete <name>
+oc oadp schedule pause <name>
+oc oadp schedule unpause <name>
+
+# Backup storage locations
 oc oadp backup-location get
+
+# NABSL approval workflow (when requireApprovalForBSL: true)
+oc oadp nabsl-request get
+oc oadp nabsl-request describe <name>
+oc oadp nabsl-request approve <name>
+oc oadp nabsl-request reject <name>
+
+# Diagnostics
 oc oadp must-gather
 ```
+
+> Admin commands use noun-verb order (e.g. `oc oadp backup create`). Non-admin
+> commands also accept verb-noun order (e.g. `oc oadp nonadmin create backup`).
 
 ### Non-admin (namespace self-service)
 
 Requires OADP DPA `spec.nonAdmin.enable: true` and editor RBAC on
 `nonadminbackups`, `nonadminrestores`, etc. in the namespace.
 
+`nonadmin` has an alias `na` — both forms work (e.g. `oc oadp na backup get`).
+
 ```bash
-oc oadp nonadmin backup create <name>
+oc oadp nonadmin backup create <name> [--storage-location <nabsl-name>]
 oc oadp nonadmin backup get
 oc oadp nonadmin backup describe <name>
 oc oadp nonadmin backup logs <name>
-oc oadp nonadmin restore create <name> --from-backup <backup>
-oc oadp nonadmin bsl get
+oc oadp nonadmin restore create <name> --backup-name <backup>  # upcoming
+oc oadp nonadmin restore get                                    # upcoming
+oc oadp nonadmin restore describe <name>                       # upcoming
+oc oadp nonadmin bsl create <name> --provider <provider> --bucket <bucket> --credential <secret>=<key>
+oc oadp nonadmin bsl get                                       # upcoming
 ```
-
-Noun-verb and verb-noun order both work, e.g. `oc oadp backup create` and
-`oc oadp create backup`.
 
 ## How to respond
 
@@ -97,8 +122,8 @@ Noun-verb and verb-noun order both work, e.g. `oc oadp backup create` and
    admin vs `nonadmin` commands.
 3. **Give the concrete command** with placeholders filled when possible.
 4. **Link docs** when helpful:
-   - https://github.com/migtools/oadp-cli/blob/main/docs/README.md
-   - https://github.com/migtools/oadp-cli/blob/main/docs/oadp-self-service.md
+   - https://github.com/migtools/oadp-cli/blob/oadp-dev/docs/README.md
+   - https://github.com/migtools/oadp-cli/blob/oadp-dev/docs/oadp-self-service.md
 5. **Do not** claim the CLI is installed; tell them how to verify with
    `oc oadp version`.
 6. **Do not** run destructive backup/restore commands unless the user explicitly

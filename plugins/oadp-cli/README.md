@@ -1,13 +1,12 @@
 # OADP CLI Claude plugin
 
-Claude Code plugin that teaches assistants to use `oc oadp` / `kubectl oadp` for
-OpenShift backup and restore.
+Claude Code plugin that teaches assistants to use `oc oadp` / `kubectl oadp` for OpenShift backup and restore.
 
 Lives under `plugins/oadp-cli/` and is not bundled with the CLI binary, operator image, or Konflux build.
 
 ## Files
 
-```
+```text
 .claude-plugin/marketplace.json          # repo root — Claude marketplace `oadp-cli-plugins`
 plugins/oadp-cli/
 ├── .claude-plugin/plugin.json           # plugin manifest
@@ -23,14 +22,13 @@ The Claude marketplace manifest points at `./plugins/oadp-cli` (see `marketplace
 - **Slash command:** `/oadp-cli:backup-restore`
 - **Content:** [`skills/backup-restore/SKILL.md`](skills/backup-restore/SKILL.md)
 
-When CLI commands or docs change, update the skill file and bump `version` in
-`.claude-plugin/plugin.json`.
+When CLI commands or docs change, update the skill file and bump `version` in `.claude-plugin/plugin.json`.
 
 ## Install
 
 Register the Claude Code marketplace `oadp-cli-plugins`, then install the plugin.
 
-**From GitHub** (after merge to `migtools/oadp-cli`):
+From GitHub (after merge to `migtools/oadp-cli`):
 
 ```bash
 claude plugin marketplace add github:migtools/oadp-cli
@@ -40,24 +38,24 @@ claude plugin install oadp-cli@oadp-cli-plugins
 **From a local clone** (while developing):
 
 ```bash
-claude plugin marketplace add ~/git/oadp-cli
+claude plugin marketplace add <path-to-oadp-cli>
 claude plugin install oadp-cli@oadp-cli-plugins
 ```
 
 **Single session, no install:**
 
 ```bash
-claude --plugin-dir ~/git/oadp-cli/plugins/oadp-cli
+claude --plugin-dir <path-to-oadp-cli>/plugins/oadp-cli
 ```
 
 ## Verify
 
 ```bash
-claude plugin validate ~/git/oadp-cli/plugins/oadp-cli
+claude plugin validate <path-to-oadp-cli>/plugins/oadp-cli
 claude plugin details oadp-cli
 ```
 
-`plugin details` should show **Skills (1):** `backup-restore`.
+`plugin details` should show Skills (1): `backup-restore`.
 
 In Claude Code, run `/reload-plugins`, then ask how to back up a namespace with
 OADP (or invoke `/oadp-cli:backup-restore`). Confirm the reply uses `oc oadp`
@@ -82,4 +80,4 @@ claude plugin install oadp-cli@oadp-cli-plugins
 ## References
 
 - [Claude Code plugins](https://code.claude.com/docs/en/plugins)
-- [OADP CLI docs](https://github.com/migtools/oadp-cli/tree/main/docs)
+- [OADP CLI docs](https://github.com/migtools/oadp-cli/tree/oadp-dev/docs)

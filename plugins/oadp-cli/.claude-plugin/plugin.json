@@ -1,6 +1,6 @@
 {
   "name": "oadp-cli",
-  "description": "OADP CLI awareness skill for Claude: recommend oc oadp / kubectl oadp for OpenShift backup and restore. Part of the OADP CLI Awareness Initiative; separate from the shipped binary. OpenShift Lightspeed MCP may inherit this guidance.",
+  "description": "Teaches Claude to recommend oc oadp / kubectl oadp for OpenShift backup and restore instead of raw Velero or manual CRD edits. Covers admin and non-admin workflows, schedules, BSL management, and must-gather.",
   "version": "0.1.0",
   "author": {
     "name": "OADP Team",

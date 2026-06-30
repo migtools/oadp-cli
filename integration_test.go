@@ -135,7 +135,7 @@ func TestCommandArchitecture(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	t.Run("all major commands exist", func(t *testing.T) {
-		majorCommands := []string{"backup", "restore", "nabsl-request", "nonadmin", "client", "version"}
+		majorCommands := []string{"backup", "restore", "schedule", "backup-location", "client", "version", "must-gather", "setup"}
 
 		output, _ := testutil.RunCommand(t, binaryPath, "--help")
 
@@ -146,14 +146,14 @@ func TestCommandArchitecture(t *testing.T) {
 		}
 	})
 
-	t.Run("nabsl-request command has correct subcommands", func(t *testing.T) {
-		expectedSubcommands := []string{"approve", "reject", "describe", "get"}
+	t.Run("nonadmin and nabsl-request commands are not present", func(t *testing.T) {
+		removedCommands := []string{"nabsl-request", "nonadmin"}
 
-		output, _ := testutil.RunCommand(t, binaryPath, "nabsl-request", "--help")
+		output, _ := testutil.RunCommand(t, binaryPath, "--help")
 
-		for _, subcmd := range expectedSubcommands {
-			if !strings.Contains(output, subcmd) {
-				t.Errorf("Expected nabsl-request help to contain %q subcommand", subcmd)
+		for _, cmd := range removedCommands {
+			if strings.Contains(output, cmd) {
+				t.Errorf("Expected root help to NOT contain %q command on oadp-1.4 branch", cmd)
 			}
 		}
 	})

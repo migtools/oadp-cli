@@ -42,7 +42,7 @@ make install VELERO_NAMESPACE=custom # Use specific namespace (no detection)
 | Branch | OADP line | Notes |
 |--------|-----------|--------|
 | [`oadp-1.4`](docs/OADP-1.4.md) | OADP 1.4 / OCP 4.17–4.18 | Dependency backport from `oadp-1.5`; see [developer doc](docs/OADP-1.4.md) |
-| [`oadp-1.5`](docs/OADP-1.5.md) | OADP 1.5 / OCP 4.19–4.21 | Dependency backport from `oadp-1.6`; see [developer doc](docs/OADP-1.5.md) |
+| [`oadp-1.5`](https://github.com/migtools/oadp-cli/blob/oadp-1.5/docs/OADP-1.5.md) | OADP 1.5 / OCP 4.19–4.21 | Dependency backport from `oadp-1.6`; see [developer doc](https://github.com/migtools/oadp-cli/blob/oadp-1.5/docs/OADP-1.5.md) |
 | `oadp-1.6` | OADP 1.6 / OCP 4.22+ | Current Velero 1.18 line |
 | `oadp-dev` | Next / development | Integration branch |
 

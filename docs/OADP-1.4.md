@@ -93,12 +93,3 @@ Bugfixes for 1.4: branch from **`oadp-1.4`**, cherry-pick forward to **`oadp-1.5
 |------|--------|------|
 | [openshift/oadp-operator](https://github.com/openshift/oadp-operator) | `oadp-1.4` | Operator, Velero, DPA |
 | **migtools/oadp-cli** | **`oadp-1.4`** | This plugin + download server |
-
-## Downstream delivery (OADP 1.4)
-
-After this branch merges, **`oadp/oadp-cli-binaries-rhel9`** still needs the same downstream wiring as OADP 1.5:
-
-1. **`openshift-eng/ocp-build-data`** @ `oadp-1.4` — add `oadp-cli-binaries-rhel9` build config
-2. **`openshift/oadp-operator`** @ `oadp-1.4` — add image to bundle `image-references`
-
-Konflux stage/prod advisories (`oadp-advisory-stage-1-4` / `oadp-advisory-prod-1-4`) may need a rebuild after those land.

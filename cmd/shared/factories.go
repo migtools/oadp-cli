@@ -21,40 +21,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // ClientConfig represents the structure of the Velero client configuration file
 type ClientConfig struct {
-	Namespace    string      `json:"namespace"`
-	NonAdmin     interface{} `json:"nonadmin,omitempty"`
-	DefaultNABSL string      `json:"default-nabsl,omitempty"`
-}
-
-// IsNonAdmin returns true if the nonadmin configuration is enabled.
-// Handles both boolean and string representations since
-// `oc oadp client config set nonadmin=true` stores the value as a string.
-func (c *ClientConfig) IsNonAdmin() bool {
-	if c == nil {
-		return false
-	}
-	switch v := c.NonAdmin.(type) {
-	case bool:
-		return v
-	case string:
-		return strings.EqualFold(v, "true")
-	default:
-		return false
-	}
-}
-
-// GetDefaultNABSL returns the default NonAdminBackupStorageLocation if set.
-// Returns empty string if not configured.
-func (c *ClientConfig) GetDefaultNABSL() string {
-	if c == nil {
-		return ""
-	}
-	return c.DefaultNABSL
+	Namespace string `json:"namespace"`
 }
 
 // ReadVeleroClientConfig reads the Velero client configuration from ~/.config/velero/config.json
@@ -115,18 +86,6 @@ func readConfigMap(configPath string) (map[string]interface{}, error) {
 // mergeClientConfig merges the ClientConfig into the config map, updating only managed keys
 func mergeClientConfig(configMap map[string]interface{}, config *ClientConfig) {
 	configMap["namespace"] = config.Namespace
-
-	if config.NonAdmin != nil {
-		configMap["nonadmin"] = config.NonAdmin
-	} else {
-		delete(configMap, "nonadmin")
-	}
-
-	if config.DefaultNABSL != "" {
-		configMap["default-nabsl"] = config.DefaultNABSL
-	} else {
-		delete(configMap, "default-nabsl")
-	}
 }
 
 // writeConfigMap writes the config map to the specified path
@@ -151,7 +110,7 @@ func writeConfigMap(configPath string, configMap map[string]interface{}) error {
 }
 
 // WriteVeleroClientConfig writes the client configuration to ~/.config/velero/config.json
-// It merges only the keys managed by this CLI (namespace, nonadmin, default-nabsl)
+// It merges only the keys managed by this CLI (namespace)
 // with the existing config file, preserving any other Velero configuration keys.
 func WriteVeleroClientConfig(config *ClientConfig) error {
 	configPath, err := getVeleroConfigPath()

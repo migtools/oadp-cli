@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/migtools/oadp-cli/cmd/shared"
 	"github.com/spf13/cobra"
@@ -30,35 +29,26 @@ import (
 
 // SetupOptions holds the options for the setup command
 type SetupOptions struct {
-	Force bool // Re-run detection even if already configured
-
-	// Internal state
-	detectionResult DetectionResult
+	Force bool // Re-run setup even if already configured
 }
 
 // BindFlags binds the flags to the command
 func (o *SetupOptions) BindFlags(flags *pflag.FlagSet) {
-	flags.BoolVar(&o.Force, "force", false, "Re-run detection even if already configured")
+	flags.BoolVar(&o.Force, "force", false, "Re-run setup even if already configured")
 }
 
 // Complete completes the options
 func (o *SetupOptions) Complete(args []string, f client.Factory) error {
-	// No setup needed - detection uses oc CLI directly
 	return nil
 }
 
 // Validate validates the options
 func (o *SetupOptions) Validate(c *cobra.Command, args []string, f client.Factory) error {
-	// No validation needed for setup command
 	return nil
 }
 
 // Run executes the setup command
 func (o *SetupOptions) Run(c *cobra.Command, f client.Factory) error {
-	fmt.Println("Detecting user permissions...")
-	fmt.Println()
-
-	// Silence usage help on errors during Run (we provide clear error messages)
 	c.SilenceUsage = true
 
 	// Check if already configured (unless --force flag set)
@@ -68,8 +58,7 @@ func (o *SetupOptions) Run(c *cobra.Command, f client.Factory) error {
 			return fmt.Errorf("failed to read existing config: %w", err)
 		}
 
-		// Check if nonadmin field is explicitly set (not nil)
-		if existingConfig.NonAdmin != nil {
+		if existingConfig.Namespace != "" {
 			fmt.Println("OADP CLI is already configured.")
 			fmt.Println()
 			o.printCurrentConfig(existingConfig)
@@ -79,49 +68,15 @@ func (o *SetupOptions) Run(c *cobra.Command, f client.Factory) error {
 		}
 	}
 
-	// Run detection
-	o.detectionResult = detectUserMode()
-
-	// Handle detection errors
-	if o.detectionResult.Error != nil {
-		// Provide specific guidance based on error type
-		errMsg := o.detectionResult.Error.Error()
-		if strings.Contains(errMsg, "not logged in") || strings.Contains(errMsg, "Unauthorized") {
-			fmt.Println("Error: Not logged in to cluster")
-			fmt.Println()
-			fmt.Println("Please log in to your cluster:")
-			fmt.Println("  oc login <cluster-url>")
-			return fmt.Errorf("not logged in to cluster")
-		} else {
-			fmt.Printf("Error: %v\n", o.detectionResult.Error)
-			fmt.Println()
-			fmt.Println("This could mean:")
-			fmt.Println("  - Your cluster is not accessible")
-			fmt.Println("  - Your kubeconfig is invalid")
-			fmt.Println("  - Network connectivity issues")
-			return o.detectionResult.Error
-		}
-	}
-
-	// Read existing config to preserve fields like default-nabsl
 	config, err := shared.ReadVeleroClientConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read existing config: %w", err)
 	}
 
-	// Update config based on detection result
-	if o.detectionResult.IsAdmin {
-		config.NonAdmin = false
-	} else {
-		config.NonAdmin = true
-	}
-
-	// Write config file
 	if err := shared.WriteVeleroClientConfig(config); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	// Print success message
 	o.printSetupSuccess()
 
 	return nil
@@ -132,11 +87,7 @@ func (o *SetupOptions) printCurrentConfig(config *shared.ClientConfig) {
 	homeDir, _ := os.UserHomeDir()
 	configPath := filepath.Join(homeDir, ".config", "velero", "config.json")
 
-	if config.IsNonAdmin() {
-		fmt.Println("Current mode: non-admin")
-	} else {
-		fmt.Println("Current mode: admin")
-	}
+	fmt.Printf("Namespace: %s\n", config.Namespace)
 	fmt.Printf("Configuration file: %s\n", configPath)
 }
 
@@ -145,23 +96,11 @@ func (o *SetupOptions) printSetupSuccess() {
 	homeDir, _ := os.UserHomeDir()
 	configPath := filepath.Join(homeDir, ".config", "velero", "config.json")
 
-	if o.detectionResult.IsAdmin {
-		fmt.Println("✓ Admin mode enabled")
-		fmt.Println()
-		fmt.Printf("Configuration saved to: %s\n", configPath)
-		fmt.Println()
-		fmt.Println("You can now use OADP admin commands:")
-		fmt.Println("  oc oadp backup create my-backup")
-		fmt.Println("  oc oadp restore create my-restore")
-	} else {
-		fmt.Println("✓ Non-admin mode enabled")
-		fmt.Println()
-		fmt.Printf("Configuration saved to: %s\n", configPath)
-		fmt.Println()
-		fmt.Println("You can now use OADP non-admin commands:")
-		fmt.Println("  oc oadp nonadmin backup create my-backup")
-		fmt.Println("  oc oadp nonadmin restore create my-restore")
-	}
+	fmt.Printf("Configuration saved to: %s\n", configPath)
+	fmt.Println()
+	fmt.Println("You can now use OADP admin commands:")
+	fmt.Println("  oc oadp backup create my-backup")
+	fmt.Println("  oc oadp restore create my-restore")
 }
 
 // NewSetupCommand creates the setup command
@@ -170,24 +109,19 @@ func NewSetupCommand(f client.Factory) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "setup",
-		Short: "Auto-detect and configure admin vs non-admin mode",
-		Long: `Auto-detect and configure admin vs non-admin mode.
+		Short: "Configure the OADP CLI",
+		Long: `Configure the OADP CLI.
 
-This command detects whether you have cluster-wide admin permissions and
-automatically configures the OADP CLI to use the appropriate mode:
+Saves the CLI configuration to ~/.config/velero/config.json.
 
-- Admin mode: Can create Velero Backup resources across all namespaces
-- Non-admin mode: Can only create NonAdminBackup resources in current namespace
-
-The detection works by checking RBAC permissions: oc auth can-i create backups.velero.io --all-namespaces
-
-Configuration is saved to: ~/.config/velero/config.json
+On OADP 1.4, only cluster-admin operations are supported.
+Use OADP 1.5 or later for non-admin backup and restore.
 
 Examples:
-  # Auto-detect and configure OADP CLI
+  # Configure OADP CLI
   oc oadp setup
 
-  # Re-run detection (reconfigure)
+  # Reconfigure
   oc oadp setup --force`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {

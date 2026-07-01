@@ -22,7 +22,6 @@ import (
 	"net"
 	"time"
 
-	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	corev1 "k8s.io/api/core/v1"
@@ -33,8 +32,6 @@ import (
 
 // Configuration for creating Kubernetes clients
 type ClientOptions struct {
-	// OADP-NonAdmin CRD types
-	IncludeNonAdminTypes bool
 	// Velero CRD types
 	IncludeVeleroTypes bool
 	// Kubernetes core types
@@ -87,21 +84,14 @@ func NewClientWithScheme(f client.Factory, opts ClientOptions) (kbclient.WithWat
 // NewClientWithFullScheme creates a client with all commonly used scheme types
 func NewClientWithFullScheme(f client.Factory) (kbclient.WithWatch, error) {
 	return NewClientWithScheme(f, ClientOptions{
-		IncludeNonAdminTypes: true,
-		IncludeVeleroTypes:   true,
-		IncludeCoreTypes:     true,
+		IncludeVeleroTypes: true,
+		IncludeCoreTypes:   true,
 	})
 }
 
 // NewSchemeWithTypes creates a new runtime scheme with the specified types
 func NewSchemeWithTypes(opts ClientOptions) (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-
-	if opts.IncludeNonAdminTypes {
-		if err := nacv1alpha1.AddToScheme(scheme); err != nil {
-			return nil, fmt.Errorf("failed to add OADP non-admin types to scheme: %w", err)
-		}
-	}
 
 	if opts.IncludeVeleroTypes {
 		if err := velerov1.AddToScheme(scheme); err != nil {

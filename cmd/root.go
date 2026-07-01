@@ -31,8 +31,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/migtools/oadp-cli/cmd/completion"
 	mustgather "github.com/migtools/oadp-cli/cmd/must-gather"
-	"github.com/migtools/oadp-cli/cmd/nabsl-request"
-	nonadmin "github.com/migtools/oadp-cli/cmd/non-admin"
 	"github.com/migtools/oadp-cli/cmd/setup"
 	"github.com/spf13/cobra"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -357,24 +355,6 @@ func wrapPreRunE(existing func(*cobra.Command, []string) error, additional func(
 	}
 }
 
-// isNonadminEnabled checks if nonadmin mode is enabled in the VeleroConfig.
-// Handles both boolean and string representations since
-// `oc oadp client config set nonadmin=true` stores the value as a string.
-func isNonadminEnabled(config clientcmd.VeleroConfig) bool {
-	val, ok := config["nonadmin"]
-	if !ok {
-		return false
-	}
-	switch v := val.(type) {
-	case bool:
-		return v
-	case string:
-		return strings.EqualFold(v, "true")
-	default:
-		return false
-	}
-}
-
 // NewVeleroRootCommand returns a root command with all Velero CLI subcommands attached.
 func NewVeleroRootCommand(baseName string) *cobra.Command {
 
@@ -386,12 +366,7 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 		config = clientcmd.VeleroConfig{}
 	}
 
-	// When nonadmin mode is enabled, remove the namespace override so the
-	// factory uses the current kubeconfig context namespace instead of an
-	// admin namespace like openshift-adp.
-	if isNonadminEnabled(config) {
-		delete(config, clientcmd.ConfigKeyNamespace)
-	} else if config.Namespace() == "" {
+	if config.Namespace() == "" {
 		config[clientcmd.ConfigKeyNamespace] = "openshift-adp"
 	}
 
@@ -427,8 +402,6 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	f := &timeoutFactory{Factory: baseFactory}
 
 	// Bind factory flags to enable -n/--namespace flag for admin commands.
-	// This allows admin Velero and NABSL-request commands to accept namespace via CLI flag.
-	// Nonadmin commands continue using GetCurrentNamespace() for security isolation.
 	f.BindFlags(c.PersistentFlags())
 
 	c.AddCommand(
@@ -447,24 +420,16 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 		debug.NewCommand(f),
 	)
 
-	// Admin NABSL request commands - use Velero factory (admin namespace)
-	c.AddCommand(nabsl.NewNABSLRequestCommand(f))
-
-	// Custom subcommands - use NonAdmin factory
-	c.AddCommand(nonadmin.NewNonAdminCommand(f))
-
 	// Must-gather command - diagnostic tool
 	c.AddCommand(mustgather.NewMustGatherCommand(f))
 
-	// Setup command - auto-detect and configure admin vs non-admin mode
+	// Setup command - detect and confirm cluster-admin access (admin-only on OADP 1.4)
 	c.AddCommand(setup.NewSetupCommand(f))
 
 	// Apply velero->oadp replacement to all commands recursively
-	// Skip nonadmin commands since we have full control over their output
+	// Skip commands where we control the output or that need direct stdout access
 	for _, cmd := range c.Commands() {
-		// Don't wrap nonadmin commands - we control them and they already use correct terminology
-		// Don't wrap completion - it needs direct stdout access for shell completion generation
-		if cmd.Use == "nonadmin" || cmd.Use == "nabsl-request" || cmd.Use == "must-gather" || cmd.Use == "setup" || strings.HasPrefix(cmd.Use, "completion") {
+		if cmd.Use == "must-gather" || cmd.Use == "setup" || strings.HasPrefix(cmd.Use, "completion") {
 			continue
 		}
 		replaceVeleroWithOADP(cmd)
@@ -473,22 +438,6 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	// Rename --timeout flags to --request-timeout for kubectl consistency
 	for _, cmd := range c.Commands() {
 		renameTimeoutFlag(cmd)
-	}
-
-	// When nonadmin mode is enabled, remove all admin commands so only
-	// nonadmin, client (for toggling the config), and help are available.
-	if isNonadminEnabled(config) {
-		allowedCmds := map[string]bool{
-			"nonadmin":   true,
-			"client":     true,
-			"completion": true,
-			"setup":      true,
-		}
-		for _, cmd := range c.Commands() {
-			if !allowedCmds[cmd.Use] {
-				c.RemoveCommand(cmd)
-			}
-		}
 	}
 
 	// Set custom usage template to show "oc oadp" instead of just "oadp"

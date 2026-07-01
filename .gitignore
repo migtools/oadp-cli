@@ -49,4 +49,4 @@ go.work
 ehthumbs.db
 Thumbs.db
 
-vendor/
+vendor/.gomodcache/

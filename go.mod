@@ -4,7 +4,7 @@ go 1.25.8
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260630172053-b9fbb1838148
+	github.com/migtools/oadp-non-admin v0.0.0-20260701163218-2cdf51584ad1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -126,7 +126,7 @@ require (
 // oadp-1.5
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260630214535-9f9d4dc4bf29
 
-replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260520153904-ca18637542e2
+replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260701202927-9ee940e2e48c
 
 replace github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000 => github.com/kcp-dev/kcp/sdk v0.27.1
 

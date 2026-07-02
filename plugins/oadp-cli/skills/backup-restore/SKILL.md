@@ -8,6 +8,8 @@ description: >-
   oc/kubectl or manual CRD edits are being suggested instead of the CLI.
 ---
 
+Note: Update this file whenever commands change
+
 ## When to recommend the CLI
 
 Prefer `oc oadp` (or `kubectl oadp`) when the user wants to:
@@ -52,8 +54,6 @@ Re-run after permission changes:
 oc oadp setup --force
 ```
 
-> **Note:** `oc oadp setup` and `oc oadp must-gather` require the latest dev build and are not in the current release. Verify availability with `oc oadp setup --help`.
-
 ## Command cheat sheet
 
 ### Admin (cluster-admin)
@@ -71,6 +71,7 @@ oc oadp restore create --from-backup <name>
 oc oadp restore get
 oc oadp restore describe <name>
 oc oadp restore logs <name>
+oc oadp restore delete <name>
 
 # Schedules
 oc oadp schedule create <name> --schedule "0 1 * * *"
@@ -104,15 +105,23 @@ Requires OADP DPA `spec.nonAdmin.enable: true` and editor RBAC on
 `nonadmin` has an alias `na` — both forms work (e.g. `oc oadp na backup get`).
 
 ```bash
+# Backups
 oc oadp nonadmin backup create <name> [--storage-location <nabsl-name>]
 oc oadp nonadmin backup get
 oc oadp nonadmin backup describe <name>
 oc oadp nonadmin backup logs <name>
-oc oadp nonadmin restore create <name> --backup-name <backup>  # upcoming
-oc oadp nonadmin restore get                                    # upcoming
-oc oadp nonadmin restore describe <name>                       # upcoming
+oc oadp nonadmin backup delete <name>
+
+# Restores
+oc oadp nonadmin restore create <name> --backup-name <backup>  
+oc oadp nonadmin restore get                                
+oc oadp nonadmin restore describe <name>  
+oc oadp nonadmin restore logs <name>
+oc oadp nonadmin restore delete <name>
+
+# Backup storage location
 oc oadp nonadmin bsl create <name> --provider <provider> --bucket <bucket> --credential <secret>=<key>
-oc oadp nonadmin bsl get                                       # upcoming
+oc oadp nonadmin bsl get                                       
 ```
 
 ## How to respond

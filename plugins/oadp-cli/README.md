@@ -68,6 +68,50 @@ After local edits, reload or reinstall if the cache is stale:
 claude plugin install oadp-cli@oadp-cli-plugins
 ```
 
+## Customer usage
+
+### 1. Register the marketplace and install the plugin
+
+```bash
+claude plugin marketplace add github:migtools/oadp-cli
+claude plugin install oadp-cli@oadp-cli-plugins
+```
+
+This only needs to be done once. The plugin persists across Claude Code sessions.
+
+### 2. Start Claude Code
+
+```bash
+claude
+```
+
+If the plugin was just installed in an active session, run `/reload-plugins` to pick it up without restarting.
+
+### 3. Use the skill
+
+Invoke explicitly:
+
+```
+/oadp-cli:backup-restore
+```
+
+Or just ask naturally since the skill triggers automatically for OADP questions:
+
+```
+How do I back up the my-app namespace with OADP?
+How do I restore a namespace using the non-admin workflow?
+How do I set up a backup storage location?
+```
+
+Claude will respond using `oc oadp` / `kubectl oadp` commands rather than raw CRD edits.
+
+### 4. Uninstall
+
+```bash
+claude plugin uninstall oadp-cli@oadp-cli-plugins
+claude plugin marketplace remove oadp-cli-plugins
+```
+
 ## Enterprise registration
 
 | Field | Value |

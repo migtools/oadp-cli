@@ -91,13 +91,13 @@ If the plugin was just installed in an active session, run `/reload-plugins` to 
 
 Invoke explicitly:
 
-```
+```text
 /oadp-cli:backup-restore
 ```
 
 Or just ask naturally since the skill triggers automatically for OADP questions:
 
-```
+```text
 How do I back up the my-app namespace with OADP?
 How do I restore a namespace using the non-admin workflow?
 How do I set up a backup storage location?

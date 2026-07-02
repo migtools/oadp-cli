@@ -88,7 +88,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	github.com/openshift/oadp-operator v1.0.2-0.20260630230553-a92f1dd21569 // indirect
+	github.com/openshift/oadp-operator v1.0.2-0.20260701204534-28bfc0799a9e // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.4 // indirect
@@ -107,7 +107,7 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260523011958-0a33c5d7ca68 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/grpc v1.81.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -124,7 +124,7 @@ require (
 )
 
 // oadp-1.5
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260630214535-9f9d4dc4bf29
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260701234155-b7b4cdc9cc18
 
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260701202927-9ee940e2e48c
 

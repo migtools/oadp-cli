@@ -4,7 +4,7 @@ go 1.25.8
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260701163218-2cdf51584ad1
+	github.com/migtools/oadp-non-admin v0.0.0-20260702202318-a512175613de
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

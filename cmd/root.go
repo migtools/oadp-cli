@@ -62,6 +62,56 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// bslDPAManagedError returns an error if the BSL has an ownerReference pointing to a
+// DataProtectionApplication, indicating the location is managed by the DPA reconciler.
+// This is the testable core — it accepts a pre-built client so tests can pass a fake.
+func bslDPAManagedError(ctx context.Context, kbClient kbclient.Client, namespace, bslName string) error {
+	location := &velerov1.BackupStorageLocation{}
+	if err := kbClient.Get(ctx, kbclient.ObjectKey{
+		Namespace: namespace,
+		Name:      bslName,
+	}, location); err != nil {
+		return err
+	}
+
+	for _, ref := range location.OwnerReferences {
+		if ref.Kind == "DataProtectionApplication" && strings.Contains(ref.APIVersion, "oadp.openshift.io") {
+			return fmt.Errorf(
+				"backup storage location %q is managed by DataProtectionApplication %q.\n"+
+					"Direct modifications via 'oc oadp backup-location set' will be overwritten by the DPA reconciler.\n"+
+					"To change settings such as '--cacert', update the DataProtectionApplication spec instead",
+				bslName, ref.Name,
+			)
+		}
+	}
+	return nil
+}
+
+// checkBSLNotDPAManaged is the factory-aware wrapper used by the CLI command's PreRunE.
+func checkBSLNotDPAManaged(ctx context.Context, f clientcmd.Factory, bslName string) error {
+	kbClient, err := f.KubebuilderClient()
+	if err != nil {
+		return err
+	}
+	return bslDPAManagedError(ctx, kbClient, f.Namespace(), bslName)
+}
+
+// injectDPAManagedGuard wraps the "set" subcommand of the given backup-location command
+// with a PreRunE that rejects modifications to DPA-managed BSLs before the update is attempted.
+func injectDPAManagedGuard(bslCmd *cobra.Command, f clientcmd.Factory) {
+	for _, sub := range bslCmd.Commands() {
+		if strings.HasPrefix(sub.Use, "set ") {
+			sub.PreRunE = wrapPreRunE(sub.PreRunE, func(c *cobra.Command, args []string) error {
+				if len(args) == 0 {
+					return nil
+				}
+				return checkBSLNotDPAManaged(c.Context(), f, args[0])
+			})
+			return
+		}
+	}
+}
+
 // globalRequestTimeout holds the request timeout value set by --request-timeout flag.
 // This is used by the timeoutFactory wrapper to apply dial timeout to all clients.
 var (
@@ -431,6 +481,9 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	// Nonadmin commands continue using GetCurrentNamespace() for security isolation.
 	f.BindFlags(c.PersistentFlags())
 
+	bslCmd := backuplocation.NewCommand(f)
+	injectDPAManagedGuard(bslCmd, f)
+
 	c.AddCommand(
 		backup.NewCommand(f),
 		schedule.NewCommand(f),
@@ -442,7 +495,7 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 		veldelete.NewCommand(f),
 		cliclient.NewCommand(),
 		completion.NewCommand(),
-		backuplocation.NewCommand(f),
+		bslCmd,
 		snapshotlocation.NewCommand(f),
 		debug.NewCommand(f),
 	)

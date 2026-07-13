@@ -5,7 +5,7 @@
 # Variables
 BINARY_NAME = kubectl-oadp
 INSTALL_PATH ?= $(HOME)/.local/bin
-VERSION ?= oadp-1.4
+VERSION ?= oadp-1.3
 VELERO_NAMESPACE ?= openshift-adp
 ASSUME_DEFAULT ?= false
 

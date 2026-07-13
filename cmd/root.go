@@ -36,7 +36,6 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	clientcmd "github.com/vmware-tanzu/velero/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -128,15 +127,6 @@ func (f *timeoutFactory) DynamicClient() (dynamic.Interface, error) {
 		return nil, err
 	}
 	return dynamic.NewForConfig(config)
-}
-
-// DiscoveryClient returns a Kubernetes discovery client with dial timeout applied.
-func (f *timeoutFactory) DiscoveryClient() (discovery.AggregatedDiscoveryInterface, error) {
-	config, err := f.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	return discovery.NewDiscoveryClientForConfig(config)
 }
 
 // KubebuilderClient returns a controller-runtime client with dial timeout applied.

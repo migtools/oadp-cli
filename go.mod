@@ -10,7 +10,6 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/vmware-tanzu/velero v1.16.0
 	golang.org/x/sync v0.20.0
-	golang.org/x/term v0.42.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.33.11
 	k8s.io/apimachinery v0.33.11
@@ -89,10 +88,11 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4 // indirect

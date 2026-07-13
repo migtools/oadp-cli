@@ -105,6 +105,10 @@ func injectDPAManagedGuard(bslCmd *cobra.Command, f clientcmd.Factory) {
 				if len(args) == 0 {
 					return nil
 				}
+				// Only guard flags the DPA reconciler overwrites; --default persists on DPA-managed BSLs.
+				if !c.Flags().Changed("cacert") && !c.Flags().Changed("credential") {
+					return nil
+				}
 				return checkBSLNotDPAManaged(c.Context(), f, args[0])
 			})
 			return

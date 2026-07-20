@@ -441,6 +441,9 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 	// Nonadmin commands continue using GetCurrentNamespace() for security isolation.
 	f.BindFlags(c.PersistentFlags())
 
+	bslCmd := backuplocation.NewCommand(f)
+	injectDPAManagedGuard(bslCmd, f)
+
 	c.AddCommand(
 		backup.NewCommand(f),
 		schedule.NewCommand(f),
@@ -452,7 +455,7 @@ func NewVeleroRootCommand(baseName string) *cobra.Command {
 		veldelete.NewCommand(f),
 		cliclient.NewCommand(),
 		completion.NewCommand(),
-		backuplocation.NewCommand(f),
+		bslCmd,
 		snapshotlocation.NewCommand(f),
 		debug.NewCommand(f),
 	)

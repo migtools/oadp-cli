@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/migtools/oadp-cli/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/vmware-tanzu/velero/pkg/client"
@@ -37,7 +38,7 @@ type MustGatherOptions struct {
 	Image          string
 
 	// Internal state
-	effectiveImage string // Resolved image (after version detection or default)
+	effectiveImage string // Resolved image (after version detection)
 }
 
 // BindFlags binds the flags to the command
@@ -51,16 +52,17 @@ func (o *MustGatherOptions) BindFlags(flags *pflag.FlagSet) {
 
 // Complete completes the options
 func (o *MustGatherOptions) Complete(args []string, f client.Factory) error {
-	// Determine effective image to use
-	// For v1: Use hardcoded default if --image not specified
-	if o.Image == "" {
-		o.effectiveImage = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
-		// TODO: Future enhancement - detect version and map to image
-		// o.effectiveImage = o.getDefaultImage()
-	} else {
+	if o.Image != "" {
 		o.effectiveImage = o.Image
+		return nil
 	}
 
+	image, err := shared.GetMustGatherImage(f)
+	if err != nil {
+		return fmt.Errorf("%w\nUse --image to specify the must-gather image explicitly", err)
+	}
+
+	o.effectiveImage = image
 	return nil
 }
 

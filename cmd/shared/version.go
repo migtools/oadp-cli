@@ -31,9 +31,10 @@ const (
 	oadpCSVLookupTimeout    = 30 * time.Second
 )
 
-// findOADPCSV finds the OADP operator ClusterServiceVersion across all namespaces
-// and returns the first match by DisplayName. Using DisplayName ensures compatibility
-// with both the Red Hat and community operator distributions.
+// findOADPCSV finds the OADP operator ClusterServiceVersion across all namespaces.
+// It matches by DisplayName for compatibility with both Red Hat and community
+// operator distributions, and only considers CSVs in the Succeeded phase to
+// avoid stale or in-progress installs. Returns the first active match found.
 func findOADPCSV(f client.Factory) (*operatorsv1alpha1.ClusterServiceVersion, error) {
 	kbClient, err := NewClientWithScheme(f, ClientOptions{
 		IncludeOLMTypes: true,
@@ -51,12 +52,14 @@ func findOADPCSV(f client.Factory) (*operatorsv1alpha1.ClusterServiceVersion, er
 	}
 
 	for i := range csvList.Items {
-		if csvList.Items[i].Spec.DisplayName == oadpOperatorDisplayName {
-			return &csvList.Items[i], nil
+		csv := &csvList.Items[i]
+		if csv.Spec.DisplayName == oadpOperatorDisplayName &&
+			csv.Status.Phase == operatorsv1alpha1.CSVPhaseSucceeded {
+			return csv, nil
 		}
 	}
 
-	return nil, fmt.Errorf("OADP operator CSV not found in any namespace")
+	return nil, fmt.Errorf("no active OADP operator CSV found in any namespace (phase: Succeeded)")
 }
 
 // GetMustGatherImage returns the must-gather image pinned in the OADP operator CSV's

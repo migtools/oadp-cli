@@ -23,6 +23,7 @@ import (
 	"time"
 
 	nacv1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +40,8 @@ type ClientOptions struct {
 	IncludeVeleroTypes bool
 	// Kubernetes core types
 	IncludeCoreTypes bool
+	// OLM types
+	IncludeOLMTypes bool
 	// Timeout sets a timeout on the REST client configuration.
 	// This prevents the client from hanging indefinitely when the cluster is unreachable.
 	// If zero, no timeout is set.
@@ -112,6 +115,12 @@ func NewSchemeWithTypes(opts ClientOptions) (*runtime.Scheme, error) {
 	if opts.IncludeCoreTypes {
 		if err := corev1.AddToScheme(scheme); err != nil {
 			return nil, fmt.Errorf("failed to add Core types to scheme: %w", err)
+		}
+	}
+
+	if opts.IncludeOLMTypes {
+		if err := operatorsv1alpha1.AddToScheme(scheme); err != nil {
+			return nil, fmt.Errorf("failed to add OLM types to scheme: %w", err)
 		}
 	}
 

@@ -219,6 +219,34 @@ Use velero backup logs to check status`,
 	}
 }
 
+// TestReplaceVeleroWithOADP_ScheduleCreateVerbFirst tests that upstream Velero's
+// verb-first "velero create schedule NAME" example text (a known upstream quirk in
+// schedule/create.go) is normalized to the resource-first form that actually matches
+// how the command is invoked, consistent with "backup create" and "restore create".
+func TestReplaceVeleroWithOADP_ScheduleCreateVerbFirst(t *testing.T) {
+	cmd := &cobra.Command{
+		Use: "test",
+		Example: ` # Create a backup every 6 hours.
+  velero create schedule NAME --schedule="0 */6 * * *"
+
+  # Create a backup every 6 hours with the @every notation.
+  velero create schedule NAME --schedule="@every 6h"`,
+	}
+
+	replaceVeleroWithOADP(cmd)
+
+	if strings.Contains(cmd.Example, "velero create schedule") {
+		t.Errorf("Expected verb-first 'velero create schedule' to be normalized, got: %s", cmd.Example)
+	}
+	if strings.Contains(cmd.Example, "velero") {
+		t.Errorf("Expected 'velero' to be fully replaced, got: %s", cmd.Example)
+	}
+	wantCount := strings.Count(cmd.Example, "oc oadp schedule create NAME")
+	if wantCount != 2 {
+		t.Errorf("Expected 2 occurrences of 'oc oadp schedule create NAME', got %d\nActual output:\n%s", wantCount, cmd.Example)
+	}
+}
+
 // TestReplaceVeleroWithOADP_RunFunctionWrapper tests stdout capture and replacement
 func TestReplaceVeleroWithOADP_RunFunctionWrapper(t *testing.T) {
 	outputCaptured := false

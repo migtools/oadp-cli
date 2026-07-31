@@ -70,7 +70,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -180,7 +180,7 @@ require (
 
 // oadp-1.4 branch tips (2026-06-22)
 // openshift/velero oadp-1.4 @ ea5de9549ff4
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260708153014-21da6ab34f9e
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260729180340-abbc6c9095c9
 
 // openshift/oadp-operator oadp-1.4 @ c10a22a15a36
 replace github.com/openshift/oadp-operator => github.com/openshift/oadp-operator v1.0.2-0.20260618162355-c10a22a15a36

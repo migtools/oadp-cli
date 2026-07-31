@@ -166,6 +166,14 @@ var veleroCommandPattern = regexp.MustCompile(`(?m)(?:^|[\s\x60])velero\s+(?:` +
 	`(?:version|install|uninstall|plugin|snapshot-location|backup-location|restic|repo|client|completion|bug|debug|datamover)` +
 	`)`)
 
+// veleroCreateVerbFirstPattern matches upstream Velero's "velero create <resource>" example
+// text (verb-first), which some commands hardcode instead of the actual resource-first
+// invocation. For example, velero's schedule create command is invoked as
+// "velero schedule create NAME", but its upstream Example text says "velero create schedule
+// NAME". veleroCommandPattern above doesn't catch this ordering, so it's normalized to
+// resource-first form here before the general replacement runs.
+var veleroCreateVerbFirstPattern = regexp.MustCompile(`(^|[\s\x60\n])velero\s+create\s+(backup|restore|schedule)\b`)
+
 // replaceVeleroCommandWithOADP performs context-aware replacement of "velero" with "oadp".
 // It only replaces "velero" when it's being used as a CLI command, not when referring to
 // the Velero project, server, or components.
@@ -173,6 +181,11 @@ var veleroCommandPattern = regexp.MustCompile(`(?m)(?:^|[\s\x60])velero\s+(?:` +
 func replaceVeleroCommandWithOADP(text string) string {
 	// Use "oc" as the CLI prefix since OADP is primarily used on OpenShift
 	cliPrefix := "oc"
+
+	// Normalize verb-first "velero create <resource>" examples to resource-first
+	// "oc oadp <resource> create" before the general pattern runs, since the actual
+	// command is always invoked resource-first.
+	text = veleroCreateVerbFirstPattern.ReplaceAllString(text, "${1}"+cliPrefix+" oadp ${2} create")
 
 	// Replace "velero <command>" patterns with "oc/kubectl oadp <command>"
 	result := veleroCommandPattern.ReplaceAllStringFunc(text, func(match string) string {

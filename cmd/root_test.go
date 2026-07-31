@@ -247,6 +247,18 @@ func TestReplaceVeleroWithOADP_ScheduleCreateVerbFirst(t *testing.T) {
 	if wantCount != 2 {
 		t.Errorf("Expected 2 occurrences of 'oc oadp schedule create NAME', got %d\nActual output:\n%s", wantCount, cmd.Example)
 	}
+
+	// Exact-output assertion: compare cmd.Example with the complete expected
+	// normalized string so any drift in whitespace, ordering, or replacement
+	// logic is caught immediately.
+	expected := ` # Create a backup every 6 hours.
+  oc oadp schedule create NAME --schedule="0 */6 * * *"
+
+  # Create a backup every 6 hours with the @every notation.
+  oc oadp schedule create NAME --schedule="@every 6h"`
+	if cmd.Example != expected {
+		t.Errorf("Exact output mismatch after schedule-create normalization.\nExpected:\n%s\nActual:\n%s", expected, cmd.Example)
+	}
 }
 
 // TestReplaceVeleroWithOADP_RunFunctionWrapper tests stdout capture and replacement

@@ -180,7 +180,7 @@ require (
 
 // oadp-1.4 branch tips (2026-06-22)
 // openshift/velero oadp-1.4 @ ea5de9549ff4
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260729180340-abbc6c9095c9
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb
 
 // openshift/oadp-operator oadp-1.4 @ c10a22a15a36
 replace github.com/openshift/oadp-operator => github.com/openshift/oadp-operator v1.0.2-0.20260618162355-c10a22a15a36

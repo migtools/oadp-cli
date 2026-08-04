@@ -182,10 +182,7 @@ require (
 // openshift/velero oadp-1.4 @ ea5de9549ff4
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb
 
-// openshift/oadp-operator oadp-1.4 @ c10a22a15a36
-replace github.com/openshift/oadp-operator => github.com/openshift/oadp-operator v1.0.2-0.20260618162355-c10a22a15a36
-
-// project-velero/kopia (matches openshift/oadp-operator oadp-1.4)
+// project-velero/kopia oadp-1.4
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260715152616-8c9b4fe2502c
 
 exclude github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000

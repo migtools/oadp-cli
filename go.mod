@@ -180,7 +180,7 @@ require (
 
 // oadp-1.4 branch tips (2026-06-22)
 // openshift/velero oadp-1.4 @ ea5de9549ff4
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260806152914-2945c62545ba
 
 // project-velero/kopia oadp-1.4
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260715152616-8c9b4fe2502c

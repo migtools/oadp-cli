@@ -561,8 +561,8 @@ github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7J
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.34.1 h1:EUMJIKUjM8sKjYbtxQI9A4z2o+rruxnzNvpknOXie6k=
 github.com/onsi/gomega v1.34.1/go.mod h1:kU1QgUvBDLXBJq618Xvm2LUX6rSAfRaFRTcdOeDLwwY=
-github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb h1:mlC8JbwhCMzdKaLDMI0Q7mYMoiXlnCMiVu7YTucawf8=
-github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb/go.mod h1:6VnhtRl5TuYTNgtQksUdflRzbbdbukf9FBkLbBDQnWg=
+github.com/openshift/velero v0.10.2-0.20260806152914-2945c62545ba h1:CyD7MmZGdMnRSK/1rEFK5H7Sf/8LXm3hfuwQF0SpCv8=
+github.com/openshift/velero v0.10.2-0.20260806152914-2945c62545ba/go.mod h1:6VnhtRl5TuYTNgtQksUdflRzbbdbukf9FBkLbBDQnWg=
 github.com/operator-framework/api v0.26.0 h1:YVntU2NkVl5zSLLwK5kFcH6P3oSvN9QDgTsY9mb4yUM=
 github.com/operator-framework/api v0.26.0/go.mod h1:3IxOwzVUeGxYlzfwKCcfCyS+q3EEhWA/4kv7UehbeyM=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=

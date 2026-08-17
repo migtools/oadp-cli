@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260511183620-aad3132759e1
+	github.com/migtools/oadp-non-admin v0.0.0-20260731154801-dccbd51f6a00
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -77,7 +77,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/openshift/oadp-operator v1.0.2-0.20260702194132-8b31db9e5f3f // indirect
+	github.com/openshift/oadp-operator v1.0.2-0.20260814064524-6138d9b5f589 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.4 // indirect
@@ -113,8 +113,8 @@ require (
 )
 
 // oadp-1.5 latest velero commit on openshift
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260630214534-d673230b813e
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731193937-7c457d695c37
 
 exclude github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 
-replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260707214242-84facc5965e3
+replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260731154801-6a146e0425c7

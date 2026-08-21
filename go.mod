@@ -4,7 +4,7 @@ go 1.25.8
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260702202318-a512175613de
+	github.com/migtools/oadp-non-admin v0.0.0-20260803210551-b85b84a03536
 	github.com/operator-framework/api v0.26.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
@@ -91,7 +91,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	github.com/openshift/oadp-operator v1.0.2-0.20260702184646-cefcbc39372b // indirect
+	github.com/openshift/oadp-operator v1.0.2-0.20260820072937-f72da482f222 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.4 // indirect
@@ -126,7 +126,7 @@ require (
 )
 
 // oadp-1.5
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260701234155-b7b4cdc9cc18
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731161015-9bb8423aba58
 
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260701202927-9ee940e2e48c
 

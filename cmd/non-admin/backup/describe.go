@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
@@ -71,12 +71,29 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 				return fmt.Errorf("NonAdminBackup %q not found in namespace %q: %w", backupName, userNamespace, err)
 			}
 
+			var volumeInfo string
+			if details {
+				ctx, cancel := context.WithTimeout(context.Background(), effectiveTimeout)
+				defer cancel()
+
+				fetchedInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
+					BackupName:  backupName,
+					DataType:    "BackupVolumeInfos",
+					Namespace:   userNamespace,
+					HTTPTimeout: effectiveTimeout,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to fetch volume info: %w", err)
+				}
+				volumeInfo = fetchedInfo
+			}
+
 			// Print in Velero-style format
-			printNonAdminBackupDetails(cmd, &nab, kbClient, backupName, userNamespace, effectiveTimeout, details)
+			printNonAdminBackupDetails(cmd, &nab, kbClient, backupName, userNamespace, effectiveTimeout, details, volumeInfo)
 
 			// Add detailed output if --details flag is set
 			if details {
-				if err := printDetailedBackupInfo(cmd, kbClient, backupName, userNamespace, effectiveTimeout); err != nil {
+				if err := printDetailedBackupInfo(cmd, kbClient, backupName, userNamespace, effectiveTimeout, volumeInfo); err != nil {
 					return fmt.Errorf("failed to fetch detailed backup information: %w", err)
 				}
 			}
@@ -98,7 +115,7 @@ func NewDescribeCommand(f client.Factory, use string) *cobra.Command {
 }
 
 // printNonAdminBackupDetails prints backup details in Velero admin describe format
-func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration, showDetails bool) {
+func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBackup, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration, showDetails bool, volumeInfo string) {
 	out := cmd.OutOrStdout()
 
 	// Get Velero backup reference if available
@@ -367,7 +384,31 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 		fmt.Fprintf(out, "\n")
 
 		// Pod Volume Backups
-		fmt.Fprintf(out, "  Pod Volume Backups: <none included>\n")
+		if nab.Status.FileSystemPodVolumeBackups != nil && nab.Status.FileSystemPodVolumeBackups.Total > 0 {
+			pvbStatus := nab.Status.FileSystemPodVolumeBackups
+			uploaderInfo := ""
+			if pvbStatus.UploaderType != "" {
+				uploaderInfo = fmt.Sprintf(" - %s", pvbStatus.UploaderType)
+			}
+
+			if showDetails {
+				// When --details is used, display compact volume breakdown using pre-fetched volumeInfo
+				fmt.Fprintf(out, "  Pod Volume Backups%s:\n", uploaderInfo)
+
+				if compactInfo := formatPodVolumeBackupsCompact(volumeInfo); compactInfo != "" {
+					fmt.Fprintf(out, "%s", compactInfo)
+				} else {
+					// Fallback to count if parsing fails
+					fmt.Fprintf(out, "    Completed:  %d\n", pvbStatus.Completed)
+				}
+			} else {
+				// When --details is not used, show the hint
+				fmt.Fprintf(out, "  Pod Volume Backups%s (specify --details for more information):\n", uploaderInfo)
+				fmt.Fprintf(out, "    Completed:  %d\n", pvbStatus.Completed)
+			}
+		} else {
+			fmt.Fprintf(out, "  Pod Volume Backups: <none included>\n")
+		}
 
 		fmt.Fprintf(out, "\n")
 
@@ -386,12 +427,12 @@ func printNonAdminBackupDetails(cmd *cobra.Command, nab *nacv1alpha1.NonAdminBac
 	}
 }
 
-// printDetailedBackupInfo fetches and displays additional backup details when --details flag is used.
+// printDetailedBackupInfo displays additional backup details when --details flag is used.
 // It uses NonAdminDownloadRequest to fetch:
-// - BackupVolumeInfos (snapshot details)
+// - BackupVolumeInfos (snapshot details) - pre-fetched and passed in
 // - BackupResults (errors, warnings)
 // - BackupItemOperations (plugin operations)
-func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration) error {
+func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backupName string, userNamespace string, timeout time.Duration, volumeInfo string) error {
 	out := cmd.OutOrStdout()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -399,15 +440,8 @@ func printDetailedBackupInfo(cmd *cobra.Command, kbClient kbclient.Client, backu
 
 	hasOutput := false
 
-	// 1. Fetch BackupVolumeInfos
-	volumeInfo, err := shared.ProcessDownloadRequest(ctx, kbClient, shared.DownloadRequestOptions{
-		BackupName:  backupName,
-		DataType:    "BackupVolumeInfos",
-		Namespace:   userNamespace,
-		HTTPTimeout: timeout,
-	})
-
-	if err == nil && volumeInfo != "" {
+	// 1. Use pre-fetched BackupVolumeInfos (already fetched to avoid duplicate request)
+	if volumeInfo != "" {
 		if formattedInfo := formatVolumeInfo(volumeInfo); formattedInfo != "" {
 			if !hasOutput {
 				fmt.Fprintf(out, "\n")
@@ -485,6 +519,92 @@ func formatVolumeInfo(volumeInfo string) string {
 		return indent(volumeInfo, "  ")
 	}
 	return indent(string(formatted), "  ")
+}
+
+// formatPodVolumeBackupsCompact formats pod volume backups in a compact format
+// Output format: podNamespace/podName: volume1 (size: X), volume2 (size: Y)
+func formatPodVolumeBackupsCompact(volumeInfo string) string {
+	if strings.TrimSpace(volumeInfo) == "" {
+		return ""
+	}
+
+	// Try to parse as JSON array
+	var snapshots []map[string]interface{}
+	if err := json.Unmarshal([]byte(volumeInfo), &snapshots); err != nil {
+		return ""
+	}
+
+	// Group volumes by pod
+	type volumeDetail struct {
+		volumeName string
+		size       int64
+	}
+	podVolumes := make(map[string][]volumeDetail)
+
+	for _, snapshot := range snapshots {
+		// Only process PodVolumeBackup entries
+		backupMethod, ok := snapshot["backupMethod"].(string)
+		if !ok || backupMethod != "PodVolumeBackup" {
+			continue
+		}
+
+		// Extract pod info
+		pvbInfo, ok := snapshot["pvbInfo"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		podName, ok := pvbInfo["podName"].(string)
+		if !ok {
+			continue
+		}
+
+		podNamespace, ok := pvbInfo["podNamespace"].(string)
+		if !ok {
+			continue
+		}
+
+		volumeName, ok := pvbInfo["volumeName"].(string)
+		if !ok {
+			continue
+		}
+
+		size, _ := pvbInfo["size"].(float64)
+
+		podKey := fmt.Sprintf("%s/%s", podNamespace, podName)
+		podVolumes[podKey] = append(podVolumes[podKey], volumeDetail{
+			volumeName: volumeName,
+			size:       int64(size),
+		})
+	}
+
+	if len(podVolumes) == 0 {
+		return ""
+	}
+
+	// Sort pod keys for consistent output
+	podKeys := make([]string, 0, len(podVolumes))
+	for k := range podVolumes {
+		podKeys = append(podKeys, k)
+	}
+	sort.Strings(podKeys)
+
+	// Build formatted output
+	var output strings.Builder
+	fmt.Fprintf(&output, "    Completed:\n")
+	for _, podKey := range podKeys {
+		volumes := podVolumes[podKey]
+		fmt.Fprintf(&output, "      %s: ", podKey)
+
+		// Format volumes
+		volumeStrs := make([]string, len(volumes))
+		for i, vol := range volumes {
+			volumeStrs[i] = fmt.Sprintf("%s (size: %d)", vol.volumeName, vol.size)
+		}
+		fmt.Fprintf(&output, "%s\n", strings.Join(volumeStrs, ", "))
+	}
+
+	return output.String()
 }
 
 // formatResourceList formats the resource list for display

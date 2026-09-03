@@ -1,0 +1,14 @@
+{
+  "name": "oadp-cli-plugins",
+  "description": "Claude plugins that help OpenShift users discover and use the OADP CLI for backup and restore",
+  "owner": {
+    "name": "migtools"
+  },
+  "plugins": [
+    {
+      "name": "oadp-cli",
+      "source": "./plugins/oadp-cli",
+      "description": "OADP CLI awareness skill for backup and restore on OpenShift"
+    }
+  ]
+}

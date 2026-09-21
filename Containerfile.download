@@ -1,7 +1,7 @@
 # This Dockerfile is used to cross-build the kubectl-oadp binaries for all platforms
 # It also builds a Go server that serves the built binaries
 
-FROM --platform=$BUILDPLATFORM golang:1.25 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH

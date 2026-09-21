@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/velero/pkg/client"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	kbclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 // BackupVolumeInfo represents the backup volume information

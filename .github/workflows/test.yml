@@ -20,4 +20,22 @@ jobs:
         go-version-file: 'go.mod'
     
     - name: Run tests
-      run: go test ./... 
+      run: go test ./...
+
+  validate-plugin:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '26'
+
+    - name: Install Claude CLI
+      run: npm install -g @anthropic-ai/claude-code@2.1.190
+
+    - name: Validate Claude plugin manifest
+      run: claude plugin validate plugins/oadp-cli

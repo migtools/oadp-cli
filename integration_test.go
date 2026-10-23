@@ -135,7 +135,7 @@ func TestCommandArchitecture(t *testing.T) {
 	binaryPath := testutil.BuildCLIBinary(t)
 
 	t.Run("all major commands exist", func(t *testing.T) {
-		majorCommands := []string{"backup", "restore", "nabsl-request", "nonadmin", "client", "version"}
+		majorCommands := []string{"backup", "restore", "schedule", "backup-location", "nabsl-request", "nonadmin", "client", "must-gather", "setup", "version"}
 
 		output, _ := testutil.RunCommand(t, binaryPath, "--help")
 

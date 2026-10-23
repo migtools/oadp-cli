@@ -2,7 +2,7 @@
 # Dependencies are prefetched by the Konflux pipeline (cachi2) and injected
 # into the build context before this Dockerfile runs.
 
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25 AS builder
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.26 AS builder
 
 COPY . /workspace
 WORKDIR /workspace

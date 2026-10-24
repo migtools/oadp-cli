@@ -1,0 +1,13 @@
+{
+  "name": "oadp-cli",
+  "description": "Teaches Claude to recommend oc oadp / kubectl oadp for OpenShift backup and restore instead of raw Velero or manual CRD edits. Covers admin and non-admin workflows, schedules, BSL management, and must-gather.",
+  "version": "0.1.0",
+  "author": {
+    "name": "OADP Team",
+    "email": "oadp-maintainers@redhat.com"
+  },
+  "homepage": "https://github.com/migtools/oadp-cli",
+  "repository": "https://github.com/migtools/oadp-cli",
+  "license": "Apache-2.0",
+  "keywords": ["oadp", "openshift", "backup", "restore", "velero", "cli"]
+}
